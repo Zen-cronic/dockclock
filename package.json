@@ -15,7 +15,8 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "test": "vitest run",
-    "scorecard": "tsx packages/clause-engine/src/cli/scorecard.ts"
+    "scorecard": "tsx packages/clause-engine/src/cli/scorecard.ts",
+    "fixtures:write": "tsx packages/clause-engine/src/cli/write-fixtures.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
