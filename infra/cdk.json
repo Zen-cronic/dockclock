@@ -1,0 +1,10 @@
+{
+  "app": "node --env-file-if-exists=../.env --import tsx bin/app.ts",
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:target-partitions": [
+      "aws"
+    ],
+    "@aws-cdk/core:defaultCrossStackReferences": "strong"
+  }
+}
