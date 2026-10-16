@@ -9,16 +9,24 @@
     "node": ">=22"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "services",
+    "infra"
   ],
   "scripts": {
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "test": "vitest run",
     "scorecard": "tsx packages/clause-engine/src/cli/scorecard.ts",
-    "fixtures:write": "tsx packages/clause-engine/src/cli/write-fixtures.ts"
+    "fixtures:write": "tsx packages/clause-engine/src/cli/write-fixtures.ts",
+    "smoke:lifecycle": "node --env-file-if-exists=.env --import tsx scripts/smoke-lifecycle.ts",
+    "synth": "npm run synth -w @dockclock/infra",
+    "deploy": "npm run deploy -w @dockclock/infra"
   },
   "devDependencies": {
+    "@aws-sdk/client-lambda": "^3.1152.0",
+    "@aws-sdk/client-sqs": "^3.1152.0",
+    "@types/aws-lambda": "^8.10.164",
     "@types/node": "^22.20.5",
     "aws-sdk-client-mock": "^4.1.0",
     "eslint": "^9.39.5",

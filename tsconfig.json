@@ -6,6 +6,15 @@
     },
     {
       "path": "packages/evidence"
+    },
+    {
+      "path": "packages/whatsapp"
+    },
+    {
+      "path": "services"
+    },
+    {
+      "path": "infra"
     }
   ]
 }
