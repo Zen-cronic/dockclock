@@ -1,4 +1,11 @@
 {
   "files": [],
-  "references": [{ "path": "packages/clause-engine" }]
+  "references": [
+    {
+      "path": "packages/clause-engine"
+    },
+    {
+      "path": "packages/evidence"
+    }
+  ]
 }

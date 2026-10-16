@@ -1,0 +1,12 @@
+{
+  "name": "@dockclock/evidence",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@dockclock/clause-engine": "0.1.0",
+    "@aws-sdk/client-kms": "^3.700.0"
+  }
+}
