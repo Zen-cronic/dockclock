@@ -1,0 +1,28 @@
+import type { ChannelConfig } from "@dockclock/whatsapp";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`missing env ${name}`);
+  return value;
+}
+
+export const env = {
+  table: () => required("TABLE_NAME"),
+  bucket: () => required("EVIDENCE_BUCKET"),
+  keyId: () => required("EVIDENCE_KEY_ARN"),
+  stateMachineArn: () => required("STATE_MACHINE_ARN"),
+  identitySecretArn: () => required("IDENTITY_SECRET_ARN"),
+  originationPhoneId: () => required("ORIGINATION_PHONE_ID"),
+  metaApiVersion: () => process.env.META_API_VERSION ?? "v23.0",
+  driverReplies: () => process.env.DRIVER_REPLIES === "on",
+  channel: (): ChannelConfig => ({
+    account: required("ACCOUNT_ID"),
+    topicArn: required("TOPIC_ARN"),
+    metaWabaId: required("META_WABA_ID"),
+    metaPhoneId: required("META_PHONE_ID"),
+  }),
+};
+
+export function log(kind: string, fields: Record<string, unknown> = {}): void {
+  console.log(JSON.stringify({ kind, ...fields }));
+}

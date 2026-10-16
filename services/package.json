@@ -1,0 +1,20 @@
+{
+  "name": "@dockclock/services",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1152.0",
+    "@aws-sdk/client-kms": "^3.1152.0",
+    "@aws-sdk/client-s3": "^3.1152.0",
+    "@aws-sdk/client-secrets-manager": "^3.1152.0",
+    "@aws-sdk/client-sfn": "^3.1152.0",
+    "@aws-sdk/client-socialmessaging": "^3.1152.0",
+    "@aws-sdk/lib-dynamodb": "^3.1152.0",
+    "@dockclock/clause-engine": "0.1.0",
+    "@dockclock/evidence": "0.1.0",
+    "@dockclock/whatsapp": "0.1.0"
+  }
+}
