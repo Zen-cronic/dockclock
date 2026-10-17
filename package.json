@@ -21,7 +21,8 @@
     "fixtures:write": "tsx packages/clause-engine/src/cli/write-fixtures.ts",
     "smoke:lifecycle": "node --env-file-if-exists=.env --import tsx scripts/smoke-lifecycle.ts",
     "synth": "npm run synth -w @dockclock/infra",
-    "deploy": "npm run deploy -w @dockclock/infra"
+    "deploy": "npm run deploy -w @dockclock/infra",
+    "templates:submit": "node --env-file-if-exists=.env --import tsx scripts/submit-templates.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-lambda": "^3.1152.0",

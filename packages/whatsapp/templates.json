@@ -1,0 +1,121 @@
+{
+  "status": "Submitted to Meta via AWS End User Messaging Social on 2026-10-16 (npm run templates:submit); review status is read with list-whatsapp-message-templates",
+  "category": "UTILITY",
+  "notes": "Quick-reply button payloads are set per send as dc1.<action>.<loadId>.<nonce>. Variable {{3}} in dockclock_load_dispatch is formatted in the driver's locale at send time.",
+  "templates": [
+    {
+      "name": "dockclock_load_dispatch",
+      "languages": {
+        "en_US": {
+          "body": "Load {{1}} is booked: {{2}}, appointment {{3}}. When you are parked at the dock, tap Arrived and we will start the detention clock.",
+          "footer": "Reply STOP to stop load messages.",
+          "buttons": [
+            "Arrived",
+            "Talk to dispatch"
+          ],
+          "sample": [
+            "4471",
+            "Lakeshore DC, Columbus OH",
+            "Oct 17, 2:00 PM"
+          ]
+        },
+        "es_MX": {
+          "body": "La carga {{1}} está confirmada: {{2}}, cita {{3}}. Cuando esté estacionado en el andén, toque Llegué y empezaremos a contar el tiempo de espera.",
+          "footer": "Responda STOP para dejar de recibir estos mensajes.",
+          "buttons": [
+            "Llegué",
+            "Hablar con despacho"
+          ],
+          "sample": [
+            "4471",
+            "Lakeshore DC, Columbus OH",
+            "17 oct., 2:00 p. m."
+          ]
+        },
+        "fr_CA": {
+          "body": "Le chargement {{1}} est confirmé : {{2}}, rendez-vous {{3}}. Une fois stationné au quai, appuyez sur Arrivé et nous lancerons le chrono d'attente.",
+          "footer": "Répondez STOP pour arrêter ces messages.",
+          "buttons": [
+            "Arrivé",
+            "Parler à la répartition"
+          ],
+          "sample": [
+            "4471",
+            "Lakeshore DC, Columbus OH",
+            "17 oct., 14 h 00"
+          ]
+        }
+      }
+    },
+    {
+      "name": "dockclock_notice_sent",
+      "languages": {
+        "en_US": {
+          "body": "Load {{1}}: free time ends at {{2}}. We emailed {{3}} the detention notice your contract requires. Updates will arrive in this chat.",
+          "sample": [
+            "4471",
+            "4:00 PM",
+            "Atlas Brokerage"
+          ]
+        },
+        "es_MX": {
+          "body": "Carga {{1}}: el tiempo libre termina a las {{2}}. Enviamos por correo a {{3}} el aviso de demora que exige su contrato. Las novedades llegarán a este chat.",
+          "sample": [
+            "4471",
+            "4:00 p. m.",
+            "Atlas Brokerage"
+          ]
+        },
+        "fr_CA": {
+          "body": "Chargement {{1}} : le temps alloué se termine à {{2}}. Nous avons envoyé par courriel à {{3}} l'avis de temps d'attente exigé par votre contrat. Les mises à jour arriveront dans cette conversation.",
+          "sample": [
+            "4471",
+            "16 h 00",
+            "Atlas Brokerage"
+          ]
+        }
+      }
+    },
+    {
+      "name": "dockclock_dispatch_approval",
+      "languages": {
+        "en_US": {
+          "body": "Load {{1}} needs your decision before any claim is sent: {{2}}. Proposed claim: {{3}}. Nothing goes to the broker until you approve.",
+          "buttons": [
+            "Approve claim",
+            "Hold"
+          ],
+          "sample": [
+            "4471",
+            "BOL out-time differs from release pin by 22 min",
+            "$80.00"
+          ]
+        },
+        "es_MX": {
+          "body": "La carga {{1}} necesita su decisión antes de enviar cualquier reclamo: {{2}}. Reclamo propuesto: {{3}}. Nada se envía al bróker hasta que usted lo apruebe.",
+          "buttons": [
+            "Aprobar reclamo",
+            "Retener"
+          ],
+          "sample": [
+            "4471",
+            "la hora de salida del BOL difiere 22 min del pin de liberación",
+            "$80.00 USD"
+          ]
+        },
+        "fr_CA": {
+          "body": "Le chargement {{1}} demande votre décision avant l'envoi de toute réclamation : {{2}}. Réclamation proposée : {{3}}. Rien n'est envoyé au courtier avant votre approbation.",
+          "buttons": [
+            "Approuver la réclamation",
+            "Mettre en attente"
+          ],
+          "sample": [
+            "4471",
+            "l’heure de sortie du connaissement diffère de 22 min de l’épingle de départ",
+            "80,00 $ US"
+          ]
+        }
+      }
+    }
+  ]
+}
