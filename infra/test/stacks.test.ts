@@ -16,7 +16,7 @@ const config = {
 };
 
 describe("stacks", () => {
-  const { core, messaging } = buildApp(config, new App({ context: { "aws:cdk:bundling-stacks": [] } }));
+  const { core, messaging, email } = buildApp(config, new App({ context: { "aws:cdk:bundling-stacks": [] } }));
   const coreT = Template.fromStack(core);
   const msgT = Template.fromStack(messaging);
 
@@ -41,6 +41,15 @@ describe("stacks", () => {
     expect(definition).toContain("Await arrived");
     expect(definition).toContain("Await released");
     expect(definition).toContain("Seal evidence");
+  });
+
+  it("routes bounces and complaints to SNS and alarms on reputation", () => {
+    const emailT = Template.fromStack(email);
+    emailT.hasResourceProperties("AWS::SES::ConfigurationSet", { Name: "dockclock-claims", ReputationOptions: { ReputationMetricsEnabled: true } });
+    emailT.hasResourceProperties("AWS::SES::ConfigurationSetEventDestination", {
+      EventDestination: Match.objectLike({ Enabled: true, MatchingEventTypes: Match.arrayWith(["bounce", "complaint"]) }),
+    });
+    emailT.resourceCountIs("AWS::CloudWatch::Alarm", 2);
   });
 
   it("lets only the seal function sign, and only the ingest function send WhatsApp", () => {

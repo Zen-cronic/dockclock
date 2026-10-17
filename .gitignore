@@ -38,4 +38,4 @@ video/
 *.webm
 deployment-private*
 submission/
-.cdk-outputs.json
+.cdk-outputs*.json
