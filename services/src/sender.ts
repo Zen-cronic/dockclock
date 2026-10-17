@@ -5,6 +5,10 @@ import { env, log } from "./config.js";
 
 const messaging = new SocialMessagingClient({ maxAttempts: 1 });
 
+export function addressValue(address: Address): string {
+  return address.kind === "bsuid" ? address.id : address.e164;
+}
+
 function recipient(address: Address): Record<string, string> {
   return address.kind === "bsuid" ? { recipient: address.id } : { to: address.e164 };
 }
@@ -29,9 +33,13 @@ export function textMessage(address: Address, body: string): Record<string, unkn
 
 // Sends one free-form message inside the driver's 24-hour window. Never retried blindly: a send
 // that may have been accepted is surfaced for review instead of duplicated.
-export async function send(message: Record<string, unknown>, purpose: string, loadId: string): Promise<string | null> {
+export async function send(address: Address, message: Record<string, unknown>, purpose: string, loadId: string): Promise<string | null> {
   if (!env.driverReplies()) {
     log("send_skipped", { purpose, loadId, reason: "DRIVER_REPLIES off" });
+    return null;
+  }
+  if (!env.driverAllowlist().has(addressValue(address))) {
+    log("send_blocked", { purpose, loadId, reason: "recipient not on DRIVER_ALLOWLIST", recipientKind: address.kind });
     return null;
   }
   const out = await messaging.send(

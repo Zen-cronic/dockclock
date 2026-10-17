@@ -58,6 +58,7 @@ export class MessagingStack extends Stack {
       META_API_VERSION: config.metaApiVersion,
       IDENTITY_SECRET_ARN: core.identitySecret.secretArn,
       DRIVER_REPLIES: config.driverReplies,
+      DRIVER_ALLOWLIST: config.driverAllowlist,
     };
     const taskResponse = new iam.PolicyStatement({ actions: ["states:SendTaskSuccess", "states:SendTaskFailure"], resources: [stateMachineArn] });
 

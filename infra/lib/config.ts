@@ -8,6 +8,7 @@ export interface DockClockConfig {
   metaPhoneId: string;
   metaApiVersion: string;
   driverReplies: "on" | "off";
+  driverAllowlist: string;
 }
 
 function required(name: string): string {
@@ -26,5 +27,6 @@ export function configFromEnv(): DockClockConfig {
     metaPhoneId: required("DOCKCLOCK_META_PHONE_ID"),
     metaApiVersion: process.env.DOCKCLOCK_META_API_VERSION ?? "v23.0",
     driverReplies: process.env.DOCKCLOCK_DRIVER_REPLIES === "on" ? "on" : "off",
+    driverAllowlist: process.env.DOCKCLOCK_DRIVER_ALLOWLIST ?? "",
   };
 }

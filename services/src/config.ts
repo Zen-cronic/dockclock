@@ -15,6 +15,8 @@ export const env = {
   originationPhoneId: () => required("ORIGINATION_PHONE_ID"),
   metaApiVersion: () => process.env.META_API_VERSION ?? "v23.0",
   driverReplies: () => process.env.DRIVER_REPLIES === "on",
+  // Comma-separated E.164 numbers or BSUIDs that may receive driver messages. Empty means nobody.
+  driverAllowlist: () => new Set((process.env.DRIVER_ALLOWLIST ?? "").split(",").map((s) => s.trim()).filter(Boolean)),
   channel: (): ChannelConfig => ({
     account: required("ACCOUNT_ID"),
     topicArn: required("TOPIC_ARN"),

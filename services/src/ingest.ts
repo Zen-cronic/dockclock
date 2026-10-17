@@ -90,8 +90,8 @@ async function applyOnce(loadId: string, event: InboundEvent): Promise<Applied> 
 
 async function runEffects(load: LoadItem, effects: Effect[]): Promise<void> {
   for (const effect of effects) {
-    if (effect.type === "request_location") await send(locationRequest(load.address, effect.step), `location_${effect.step}`, load.loadId);
-    if (effect.type === "tell_driver") await send(textMessage(load.address, effect.text), "tell_driver", load.loadId);
+    if (effect.type === "request_location") await send(load.address, locationRequest(load.address, effect.step), `location_${effect.step}`, load.loadId);
+    if (effect.type === "tell_driver") await send(load.address, textMessage(load.address, effect.text), "tell_driver", load.loadId);
   }
   if (effects.some((e) => e.type === "resume")) await reconcile(load.loadId);
 }

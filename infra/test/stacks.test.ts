@@ -12,6 +12,7 @@ const config = {
   metaPhoneId: "phone-1",
   metaApiVersion: "v23.0",
   driverReplies: "off" as const,
+  driverAllowlist: "",
 };
 
 describe("stacks", () => {
