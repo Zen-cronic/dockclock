@@ -8,7 +8,7 @@ import { GetObjectCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
-import { KmsSigner, verifyPack, type SignedPack } from "@dockclock/evidence";
+import { facilityById, isoToLocalClock, KmsSigner, verifyPack, type SignedPack } from "@dockclock/evidence";
 
 const outputs = JSON.parse(readFileSync(new URL("../.cdk-outputs.json", import.meta.url), "utf8")).DockClockMessaging as Record<string, string>;
 const out = (key: string) => {
@@ -62,20 +62,51 @@ async function feed(label: string, body: string) {
   await sleep(2500);
 }
 
-const button = (action: string) => ({ type: "button", button: { payload: `dc1.${action}.${loadId}.smoke1234`, text: action } });
 const pin = { type: "location", location: INSIDE };
 
 const dispatched = await lambda.send(
   new InvokeCommand({
     FunctionName: out("DispatchFunction"),
     Payload: Buffer.from(
-      JSON.stringify({ loadId, clauseId: "lakeshore-foods", facilityId: "lakeshore-columbus", appointmentAt: appointment, channel: "whatsapp", address: { kind: "phone", e164: `+${phone}` } }),
+      JSON.stringify({
+        loadId,
+        clauseId: "lakeshore-foods",
+        facilityId: "lakeshore-columbus",
+        appointmentAt: appointment,
+        channel: "whatsapp",
+        language: "en_US",
+        address: { kind: "phone", e164: `+${phone}` },
+        optIn: { method: "smoke_test_fixture", at: new Date(now).toISOString() },
+      }),
     ),
   }),
 );
 if (dispatched.FunctionError) throw new Error(`dispatch failed: ${Buffer.from(dispatched.Payload ?? []).toString()}`);
 const { executionArn } = JSON.parse(Buffer.from(dispatched.Payload ?? []).toString()) as { executionArn: string };
 console.log(`dispatched ${loadId}`);
+const meta = (await ddb.send(new GetCommand({ TableName: out("TableName"), Key: { pk: `LOAD#${loadId}`, sk: "META" } }))).Item;
+const nonce = String(meta?.nonce);
+const button = (action: string, n = nonce) => ({ type: "button", button: { payload: `dc1.${action}.${loadId}.${n}`, text: action } });
+const zone = facilityById("lakeshore-columbus").timeZone;
+const flowReply = {
+  type: "interactive",
+  interactive: {
+    type: "nfm_reply",
+    nfm_reply: {
+      name: "flow",
+      // A media id that does not exist: exercises the "photo unavailable" path honestly.
+      response_json: JSON.stringify({
+        flow_token: `dc1.release.${loadId}.${nonce}`,
+        bol_photo: [{ id: "smoke-missing-media", mime_type: "image/jpeg", sha256: "none" }],
+        in_time: isoToLocalClock(new Date(now - 247 * 60_000).toISOString(), zone),
+        out_time: isoToLocalClock(new Date(now - 29 * 60_000).toISOString(), zone),
+        delay_reason: "dock_not_ready",
+        consignee: "Smoke Receiver",
+        share_consent: true,
+      }),
+    },
+  },
+};
 
 const t = (minutesBeforeNow: number) => now - minutesBeforeNow * 60_000;
 await feed("Released before Arrived (should be rejected)", envelope(button("released"), t(250)));
@@ -84,11 +115,13 @@ await feed("Arrived", envelope(button("arrived"), t(248), arrivedWamid));
 await feed("Arrived again, same message id (SQS redelivery)", envelope(button("arrived"), t(248), arrivedWamid));
 await feed("arrival pin", envelope(pin, t(247)));
 await feed("second Arrived tap (should be ignored)", envelope(button("arrived"), t(200)));
+await feed("Released with a stale nonce (should be rejected)", envelope(button("released", "stale000"), t(31)));
 await feed("Released", envelope(button("released"), t(30)));
 await feed("release pin", envelope(pin, t(29)));
+await feed("release Flow with BOL photo and times", envelope(flowReply, t(25)));
 
 let status = "RUNNING";
-for (let i = 0; i < 30 && status === "RUNNING"; i++) {
+for (let i = 0; i < 45 && status === "RUNNING"; i++) {
   status = (await sfn.send(new DescribeExecutionCommand({ executionArn }))).status ?? "UNKNOWN";
   if (status === "RUNNING") await sleep(2000);
 }
@@ -123,7 +156,12 @@ const ok =
   head.ObjectLockMode === "GOVERNANCE" &&
   outcomes.includes("REJECTED_OUT_OF_ORDER") &&
   outcomes.includes("IGNORED_DUPLICATE_TAP") &&
-  outcomes.filter((o) => o === "ADVANCED").length === 4 &&
-  (timeline.Items ?? []).length === 6;
+  outcomes.includes("REJECTED_STALE_BUTTON") &&
+  outcomes.filter((o) => o === "ADVANCED").length === 5 &&
+  (timeline.Items ?? []).length === 8 &&
+  load.bol?.media === "unavailable" &&
+  signed.pack.corroboration.confidence === "low" &&
+  signed.pack.corroboration.signals.some((s) => s.name === "bol_media_hashed" && !s.ok);
+console.log(`  bol media ${load.bol?.media}; signals failing: ${signed.pack.corroboration.signals.filter((s) => !s.ok).map((s) => s.name).join(", ")}`);
 console.log(ok ? "SMOKE PASS" : "SMOKE FAIL");
 process.exit(ok ? 0 : 1);
