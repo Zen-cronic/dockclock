@@ -22,7 +22,9 @@
     "smoke:lifecycle": "node --env-file-if-exists=.env --import tsx scripts/smoke-lifecycle.ts",
     "synth": "npm run synth -w @dockclock/infra",
     "deploy": "npm run deploy -w @dockclock/infra",
-    "templates:submit": "node --env-file-if-exists=.env --import tsx scripts/submit-templates.ts"
+    "templates:submit": "node --env-file-if-exists=.env --import tsx scripts/submit-templates.ts",
+    "live:dispatch": "node --env-file-if-exists=.env --import tsx scripts/dispatch-live.ts",
+    "live:watch": "node --env-file-if-exists=.env --import tsx scripts/watch-load.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-lambda": "^3.1152.0",
