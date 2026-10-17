@@ -60,7 +60,7 @@ describe("extractEvents", () => {
 
   it("prefers the BSUID over the phone number", () => {
     const entry = entryWith({ messages: [{ id: "w1", from: "14165550100", from_user_id: "US.abc", timestamp: ts, type: "text", text: { body: "hi" } }] });
-    expect(extractEvents(entry, config)[0]).toMatchObject({ sender: { kind: "bsuid", id: "US.abc" } });
+    expect(extractEvents(entry, config)[0]).toMatchObject({ sender: { kind: "bsuid", id: "US.abc", e164: "+14165550100" } });
   });
 
   it("ignores another phone number and messages without id, time or sender", () => {
@@ -116,6 +116,11 @@ describe("release flow", () => {
       shareConsent: true,
     });
     expect(parseFlowToken("dc1.release.4471.abc123")).toEqual({ loadId: "4471", nonce: "abc123" });
+  });
+
+  it("keeps numeric media ids exactly, as WhatsApp actually sends them", () => {
+    const raw = '{"flow_token":"dc1.release.4471.abc123","bol_photo":[{"id":2182207606027442999,"mime_type":"image/jpeg","sha256":"x"}],"share_consent":true}';
+    expect(parseReleaseFlow(raw)?.photos[0]?.mediaId).toBe("2182207606027442999");
   });
 
   it("drops unknown reasons and rejects payloads without a token", () => {

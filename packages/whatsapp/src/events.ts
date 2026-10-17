@@ -1,8 +1,9 @@
 import type { ChannelConfig, RawMessage, WebhookEntry } from "./decode.js";
 
-// BSUID first: once a user has a business-scoped user ID, the phone number is never used to
-// identify them, and an unknown BSUID cannot borrow a known phone's identity.
-export type Sender = { kind: "bsuid"; id: string } | { kind: "phone"; e164: string };
+// BSUID first. During Meta's rollout a message can carry both the business-scoped user id and the
+// phone number; both are set by Meta, so the phone can bind a BSUID to a driver a fleet dispatched
+// by number, after which the BSUID alone identifies them.
+export type Sender = { kind: "bsuid"; id: string; e164: string | null } | { kind: "phone"; e164: string };
 
 export type InboundBody =
   | { type: "button"; payload: string }
@@ -40,11 +41,12 @@ function isoFromUnixSeconds(value: string | undefined): string | null {
 }
 
 function senderOf(message: RawMessage): Sender | null {
-  if (typeof message.from_user_id === "string" && message.from_user_id.length > 0) {
-    return { kind: "bsuid", id: message.from_user_id };
-  }
   const digits = String(message.from ?? "").replace(/^\+/, "");
-  return /^\d{7,15}$/.test(digits) ? { kind: "phone", e164: `+${digits}` } : null;
+  const e164 = /^\d{7,15}$/.test(digits) ? `+${digits}` : null;
+  if (typeof message.from_user_id === "string" && message.from_user_id.length > 0) {
+    return { kind: "bsuid", id: message.from_user_id, e164 };
+  }
+  return e164 ? { kind: "phone", e164 } : null;
 }
 
 function bodyOf(message: RawMessage): InboundBody {

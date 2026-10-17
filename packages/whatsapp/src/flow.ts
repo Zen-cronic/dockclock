@@ -25,7 +25,8 @@ function text(value: unknown): string | null {
 export function parseReleaseFlow(responseJson: string): ReleaseFlowResponse | null {
   let data: Record<string, unknown>;
   try {
-    data = JSON.parse(responseJson) as Record<string, unknown>;
+    // Media ids arrive as bare JSON numbers; quote them first so long ids keep every digit.
+    data = JSON.parse(responseJson.replace(/"(id|media_id)"\s*:\s*(\d+)/g, '"$1":"$2"')) as Record<string, unknown>;
   } catch {
     return null;
   }
