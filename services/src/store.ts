@@ -2,6 +2,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 import type { Channel } from "@dockclock/evidence";
 import type { LoadState, PinRecord, Step } from "./lifecycle.js";
+import type { Language } from "./messages.js";
 import { env } from "./config.js";
 import { keys } from "./keys.js";
 
@@ -20,6 +21,7 @@ export interface LoadItem extends LoadState {
   driverKey: string;
   address: Address;
   channel: Channel;
+  language: Language;
   tokens: Partial<Record<Step, string>>;
   executionArn?: string;
 }
@@ -40,7 +42,7 @@ export async function getActiveLoadId(driverKey: string): Promise<string | null>
 }
 
 export function toState(item: LoadItem): LoadState {
-  return { loadId: item.loadId, phase: item.phase, version: item.version, arrived: item.arrived, released: item.released };
+  return { loadId: item.loadId, nonce: item.nonce, phase: item.phase, version: item.version, arrived: item.arrived, released: item.released, bol: item.bol ?? null };
 }
 
 export type { PinRecord };

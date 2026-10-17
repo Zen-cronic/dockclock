@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { clauseById, evaluate } from "@dockclock/clause-engine";
 import {
@@ -6,13 +6,15 @@ import {
   corroborate,
   facilityById,
   KmsSigner,
+  localClockToIso,
   packDigest,
   sealPack,
   toLoadEvidence,
+  type BolCapture,
   type LoadRecord,
   type PinEvent,
 } from "@dockclock/evidence";
-import type { PinRecord } from "./lifecycle.js";
+import type { BolRecord, PinRecord } from "./lifecycle.js";
 import { ddb, getLoad, type LoadItem } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
@@ -24,15 +26,33 @@ function pinEvent(kind: PinEvent["kind"], pin: PinRecord | null, load: LoadItem)
   return pin && { kind, channel: load.channel, messageId: pin.messageId, serverAt: pin.serverAt, location: [pin.lon, pin.lat] };
 }
 
+// Paperwork times are wall-clock at the facility; each is pinned to the day of the matching pin.
+function bolCapture(bol: BolRecord | null, load: LoadItem, timeZone: string): BolCapture | null {
+  if (!bol) return null;
+  const firstHash = bol.photos.find((p) => p.sha256)?.sha256 ?? null;
+  return {
+    channel: load.channel,
+    messageId: bol.messageId,
+    serverAt: bol.serverAt,
+    cameraOnly: true,
+    mediaSha256: bol.media === "hashed" ? firstHash : null,
+    signed: bol.consignee !== null,
+    checkIn: localClockToIso(bol.inTime, load.arrived?.serverAt ?? bol.serverAt, timeZone),
+    checkOut: localClockToIso(bol.outTime, load.released?.serverAt ?? bol.serverAt, timeZone),
+    confirmedByDriver: true,
+  };
+}
+
 export function toRecord(load: LoadItem): LoadRecord {
+  const facility = facilityById(load.facilityId);
   return {
     loadId: load.loadId,
     clauseId: load.clauseId,
-    facility: facilityById(load.facilityId),
+    facility,
     appointmentAt: load.appointmentAt,
     arrived: pinEvent("arrived", load.arrived, load),
     released: pinEvent("released", load.released, load),
-    bol: null,
+    bol: bolCapture(load.bol ?? null, load, facility.timeZone),
     status214: false,
     notice: null,
     shipperConfirmation: null,
@@ -59,6 +79,21 @@ export async function handler(input: { loadId: string }): Promise<SealOutput> {
   const pack = buildPack(record, corroboration, evaluation, sealedAt);
   const signed = await sealPack(pack, new KmsSigner(env.keyId()));
   const s3Key = `packs/${load.loadId}/${pack.packId}.json`;
+  const retainUntil = new Date(Date.now() + RETENTION_DAYS * 86_400_000);
+  // The stored photos go under the same lock as the pack that carries their hashes.
+  for (const [index, photo] of (load.bol?.photos ?? []).entries()) {
+    if (!photo.s3Key) continue;
+    await s3.send(
+      new CopyObjectCommand({
+        Bucket: env.bucket(),
+        Key: `packs/${load.loadId}/bol-${index + 1}-${photo.sha256?.slice(0, 12) ?? "unhashed"}`,
+        CopySource: `${env.mediaBucket()}/${encodeURIComponent(photo.s3Key).replace(/%2F/g, "/")}`,
+        ChecksumAlgorithm: "SHA256",
+        ObjectLockMode: "GOVERNANCE",
+        ObjectLockRetainUntilDate: retainUntil,
+      }),
+    );
+  }
   await s3.send(
     new PutObjectCommand({
       Bucket: env.bucket(),
@@ -67,7 +102,7 @@ export async function handler(input: { loadId: string }): Promise<SealOutput> {
       ContentType: "application/json",
       ChecksumAlgorithm: "SHA256",
       ObjectLockMode: "GOVERNANCE",
-      ObjectLockRetainUntilDate: new Date(Date.now() + RETENTION_DAYS * 86_400_000),
+      ObjectLockRetainUntilDate: retainUntil,
     }),
   );
   const digest = packDigest(pack);

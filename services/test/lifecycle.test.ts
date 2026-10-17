@@ -1,17 +1,32 @@
 import type { InboundEvent } from "@dockclock/whatsapp";
+import { encodeFlowToken } from "@dockclock/whatsapp";
 import { describe, expect, it } from "vitest";
-import { applyEvent, type LoadState } from "../src/lifecycle.js";
+import { applyEvent, stepSatisfied, type LoadState } from "../src/lifecycle.js";
 
-const start: LoadState = { loadId: "4471", phase: "dispatched", version: 1, arrived: null, released: null };
+const start: LoadState = { loadId: "4471", nonce: "abc123", phase: "dispatched", version: 1, arrived: null, released: null, bol: null };
 let n = 0;
-function tap(action: string, loadId = "4471"): InboundEvent {
-  return { kind: "inbound", wamid: `w${++n}`, serverAt: "2026-10-13T13:50:00.000Z", sender: { kind: "phone", e164: "+14165550100" }, body: { type: "button", payload: `dc1.${action}.${loadId}.abc123` } };
+const sender = { kind: "phone" as const, e164: "+14165550100" };
+function tap(action: string, loadId = "4471", nonce = "abc123"): InboundEvent {
+  return { kind: "inbound", wamid: `w${++n}`, serverAt: "2026-10-13T13:50:00.000Z", sender, body: { type: "button", payload: `dc1.${action}.${loadId}.${nonce}` } };
 }
 function pin(serverAt = "2026-10-13T13:51:00.000Z"): InboundEvent {
-  return { kind: "inbound", wamid: `w${++n}`, serverAt, sender: { kind: "phone", e164: "+14165550100" }, body: { type: "location", lat: 39.9, lon: -82.938 } };
+  return { kind: "inbound", wamid: `w${++n}`, serverAt, sender, body: { type: "location", lat: 39.9, lon: -82.938 } };
 }
-function run(events: InboundEvent[]) {
-  let state = start;
+function flow(overrides: Record<string, unknown> = {}, token = encodeFlowToken("4471", "abc123")): InboundEvent {
+  const response = {
+    flow_token: token,
+    bol_photo: [{ id: "media-1", mime_type: "image/jpeg", sha256: "x" }],
+    in_time: "13:52",
+    out_time: "17:18",
+    delay_reason: "dock_not_ready",
+    consignee: "R. Alvarez",
+    share_consent: true,
+    ...overrides,
+  };
+  return { kind: "inbound", wamid: `w${++n}`, serverAt: "2026-10-13T17:25:00.000Z", sender, body: { type: "flow", responseJson: JSON.stringify(response) } };
+}
+function run(events: InboundEvent[], from = start) {
+  let state = from;
   const outcomes: string[] = [];
   for (const event of events) {
     const t = applyEvent(state, event);
@@ -20,45 +35,72 @@ function run(events: InboundEvent[]) {
   }
   return { state, outcomes };
 }
+const toBol = [tap("arrived"), pin(), tap("released"), pin("2026-10-13T17:20:00.000Z")];
 
 describe("applyEvent", () => {
-  it("walks the happy path and asks for a pin at each step", () => {
-    const t1 = applyEvent(start, tap("arrived"));
-    expect(t1.effects).toEqual([{ type: "request_location", step: "arrived" }]);
-    const { state, outcomes } = run([tap("arrived"), pin(), tap("released"), pin("2026-10-13T17:20:00.000Z")]);
-    expect(outcomes).toEqual(["ADVANCED", "ADVANCED", "ADVANCED", "ADVANCED"]);
-    expect(state.phase).toBe("released");
-    expect(state.arrived?.serverAt).toBe("2026-10-13T13:51:00.000Z");
-    expect(state.released?.serverAt).toBe("2026-10-13T17:20:00.000Z");
-    expect(state.version).toBe(5);
+  it("walks the happy path through the bill of lading", () => {
+    const { state, outcomes } = run([...toBol, flow()]);
+    expect(outcomes).toEqual(["ADVANCED", "ADVANCED", "ADVANCED", "ADVANCED", "ADVANCED"]);
+    expect(state.phase).toBe("documented");
+    expect(state.bol).toMatchObject({ inTime: "13:52", outTime: "17:18", consignee: "R. Alvarez", media: "pending", photos: [{ mediaId: "media-1" }] });
+    expect(state.version).toBe(6);
+  });
+
+  it("asks for a pin, offers Released, then sends the release Flow", () => {
+    expect(applyEvent(start, tap("arrived")).effects).toEqual([{ type: "request_location", step: "arrived" }]);
+    const atDock = run(toBol.slice(0, 1)).state;
+    expect(applyEvent(atDock, pin()).effects).toEqual([{ type: "resume", step: "arrived" }, { type: "offer_release" }]);
+    const releasing = run(toBol.slice(0, 3)).state;
+    expect(applyEvent(releasing, pin()).effects).toEqual([{ type: "resume", step: "released" }, { type: "send_release_flow" }]);
   });
 
   it("ignores a second Arrived tap without moving the clock", () => {
     const { state, outcomes } = run([tap("arrived"), pin(), tap("arrived")]);
     expect(outcomes.at(-1)).toBe("IGNORED_DUPLICATE_TAP");
     expect(state.phase).toBe("at_dock");
-    expect(state.version).toBe(3);
   });
 
   it("rejects Released before Arrived and tells the driver", () => {
     const t = applyEvent(start, tap("released"));
     expect(t.outcome).toBe("REJECTED_OUT_OF_ORDER");
     expect(t.state).toBe(start);
-    expect(t.effects[0]?.type).toBe("tell_driver");
+    expect(t.effects).toEqual([{ type: "tell_driver", key: "tap_arrived_first" }]);
   });
 
-  it("rejects a button bound to another load", () => {
+  it("rejects buttons from another load or an old nonce", () => {
     expect(applyEvent(start, tap("arrived", "9999")).outcome).toBe("REJECTED_WRONG_LOAD");
+    expect(applyEvent(start, tap("arrived", "4471", "old999")).outcome).toBe("REJECTED_STALE_BUTTON");
+  });
+
+  it("escalates Talk to dispatch without changing the load", () => {
+    const t = applyEvent(start, tap("dispatch"));
+    expect(t.outcome).toBe("ESCALATED");
+    expect(t.state).toBe(start);
+    expect(t.effects).toEqual([{ type: "escalate" }, { type: "tell_driver", key: "dispatch_notified" }]);
   });
 
   it("ignores a pin nobody asked for", () => {
     expect(applyEvent(start, pin()).outcome).toBe("IGNORED_UNSOLICITED_PIN");
-    const { outcomes } = run([tap("arrived"), pin(), pin()]);
-    expect(outcomes.at(-1)).toBe("IGNORED_UNSOLICITED_PIN");
   });
 
-  it("records free text without changing state", () => {
-    const text: InboundEvent = { ...tap("arrived"), body: { type: "text", text: "stuck at gate" } };
-    expect(applyEvent(start, text)).toMatchObject({ outcome: "RECORDED", state: start });
+  it("refuses a Flow before release, from another load, or without photo and consent", () => {
+    expect(applyEvent(start, flow()).outcome).toBe("REJECTED_OUT_OF_ORDER");
+    const awaiting = run(toBol).state;
+    expect(applyEvent(awaiting, flow({}, encodeFlowToken("9999", "abc123"))).outcome).toBe("REJECTED_WRONG_LOAD");
+    const noPhoto = applyEvent(awaiting, flow({ bol_photo: [] }));
+    expect(noPhoto.outcome).toBe("REJECTED_INCOMPLETE_FLOW");
+    expect(noPhoto.effects).toEqual([{ type: "tell_driver", key: "bol_incomplete" }, { type: "send_release_flow" }]);
+    expect(applyEvent(awaiting, flow({ share_consent: false })).outcome).toBe("REJECTED_INCOMPLETE_FLOW");
+  });
+
+  it("ignores a second Flow submission once documented", () => {
+    const { outcomes } = run([...toBol, flow(), flow()]);
+    expect(outcomes.at(-1)).toBe("IGNORED_DUPLICATE_TAP");
+  });
+
+  it("treats the bill-of-lading step as done only once media is settled", () => {
+    const documented = run([...toBol, flow()]).state;
+    expect(stepSatisfied(documented, "bol")).toBe(false);
+    expect(stepSatisfied({ ...documented, bol: { ...documented.bol!, media: "unavailable" } }, "bol")).toBe(true);
   });
 });

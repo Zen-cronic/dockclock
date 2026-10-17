@@ -14,6 +14,9 @@ export const env = {
   identitySecretArn: () => required("IDENTITY_SECRET_ARN"),
   originationPhoneId: () => required("ORIGINATION_PHONE_ID"),
   metaApiVersion: () => process.env.META_API_VERSION ?? "v23.0",
+  mediaBucket: () => required("MEDIA_BUCKET"),
+  releaseFlowId: () => required("RELEASE_FLOW_ID"),
+  flowMode: () => (process.env.FLOW_MODE === "published" ? "published" : "draft"),
   driverReplies: () => process.env.DRIVER_REPLIES === "on",
   // Comma-separated E.164 numbers or BSUIDs that may receive driver messages. Empty means nobody.
   driverAllowlist: () => new Set((process.env.DRIVER_ALLOWLIST ?? "").split(",").map((s) => s.trim()).filter(Boolean)),

@@ -17,9 +17,9 @@ export async function reconcile(loadId: string): Promise<Step[]> {
   for (const step of Object.keys(load.tokens ?? {}) as Step[]) {
     const token = load.tokens[step];
     if (!token || !stepSatisfied(load, step)) continue;
-    const pin = step === "arrived" ? load.arrived : load.released;
+    const at = step === "arrived" ? load.arrived?.serverAt : step === "released" ? load.released?.serverAt : load.bol?.serverAt;
     try {
-      await sfn.send(new SendTaskSuccessCommand({ taskToken: token, output: JSON.stringify({ loadId, step, at: pin?.serverAt }) }));
+      await sfn.send(new SendTaskSuccessCommand({ taskToken: token, output: JSON.stringify({ loadId, step, at }) }));
       resumed.push(step);
     } catch (error) {
       if (!GONE.has((error as Error).name)) throw error;
