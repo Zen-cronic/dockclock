@@ -47,8 +47,9 @@ export async function handler(input: DispatchInput): Promise<DispatchOutput> {
   const language = input.language ?? "en_US";
   if (!LANGUAGES.includes(language)) throw new Error(`unsupported language ${language}`);
   if (!input.optIn?.method || Number.isNaN(Date.parse(input.optIn.at))) throw new Error("driver opt-in (method, at) is required before any message");
-  const key = await driverKey(input.address.kind === "bsuid" ? { kind: "bsuid", id: input.address.id } : { kind: "phone", e164: input.address.e164 });
+  const key = await driverKey(input.address.kind === "bsuid" ? { kind: "bsuid", id: input.address.id, e164: null } : { kind: "phone", e164: input.address.e164 });
   const nonce = randomBytes(6).toString("hex");
+  const createdAt = new Date().toISOString();
   await ddb.send(
     new TransactWriteCommand({
       TransactItems: [
@@ -72,12 +73,12 @@ export async function handler(input: DispatchInput): Promise<DispatchOutput> {
               released: null,
               bol: null,
               tokens: {},
-              createdAt: new Date().toISOString(),
+              createdAt,
             },
             ConditionExpression: "attribute_not_exists(pk)",
           },
         },
-        { Put: { TableName: env.table(), Item: { ...keys.driver(key), loadId: input.loadId, address: input.address, optIn: input.optIn, language } } },
+        { Put: { TableName: env.table(), Item: { ...keys.driver(key), loadId: input.loadId, address: input.address, optIn: input.optIn, language, dispatchedAt: createdAt } } },
       ],
     }),
   );

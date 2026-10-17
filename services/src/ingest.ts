@@ -2,11 +2,20 @@ import { TransactionCanceledException } from "@aws-sdk/client-dynamodb";
 import { TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
 import { facilityById, isoToLocalClock } from "@dockclock/evidence";
-import { decodeEvent, extractEvents, UntrustedEventError, type InboundEvent, type StatusEvent } from "@dockclock/whatsapp";
+import {
+  decodeEvent,
+  extractEvents,
+  parseButtonPayload,
+  parseFlowToken,
+  parseReleaseFlow,
+  UntrustedEventError,
+  type InboundEvent,
+  type StatusEvent,
+} from "@dockclock/whatsapp";
 import { applyEvent, type Effect } from "./lifecycle.js";
 import { COPY } from "./messages.js";
-import { ddb, getActiveLoadId, getLoad, toState, type LoadItem } from "./store.js";
-import { driverKey } from "./identity.js";
+import { bindPrimary, ddb, getLoad, ownsLoad, resolveActiveLoad, toState, type LoadItem } from "./store.js";
+import { driverKeys } from "./identity.js";
 import { locationRequest, releaseButtons, releaseFlowMessage, send, textMessage } from "./sender.js";
 import { finishBol } from "./media.js";
 import { reconcile } from "./tokens.js";
@@ -133,12 +142,35 @@ async function runEffects(load: LoadItem, effects: Effect[]): Promise<void> {
   if (effects.some((e) => e.type === "resume")) await reconcile(load.loadId);
 }
 
+function namedLoadId(event: InboundEvent): string | null {
+  if (event.body.type === "button") return parseButtonPayload(event.body.payload)?.loadId ?? null;
+  if (event.body.type === "flow") {
+    const response = parseReleaseFlow(event.body.responseJson);
+    return response ? (parseFlowToken(response.flowToken)?.loadId ?? null) : null;
+  }
+  return null;
+}
+
 async function onInbound(event: InboundEvent): Promise<void> {
-  const key = await driverKey(event.sender);
-  const loadId = await getActiveLoadId(key);
-  if (!loadId) {
-    log("unmatched_sender", { wamid: event.wamid, type: event.body.type, senderKind: event.sender.kind });
-    return;
+  const candidateKeys = await driverKeys(event.sender);
+  const named = namedLoadId(event);
+  let loadId: string;
+  if (named) {
+    // Buttons and Flows route by the load they carry, after checking the sender owns it.
+    const load = await getLoad(named);
+    if (!load || !(await ownsLoad(candidateKeys, load))) {
+      log("rejected_unowned_load", { wamid: event.wamid, type: event.body.type, loadExists: load !== null });
+      return;
+    }
+    loadId = named;
+    if (await bindPrimary(candidateKeys, loadId, load.driverKey, load.address, load.createdAt ?? "")) log("bsuid_bound", { loadId });
+  } else {
+    const match = await resolveActiveLoad(candidateKeys);
+    if (!match) {
+      log("unmatched_sender", { wamid: event.wamid, type: event.body.type, senderKind: event.sender.kind, phoneIncluded: "e164" in event.sender && event.sender.e164 !== null });
+      return;
+    }
+    loadId = match.loadId;
   }
   const result = await applyOnce(loadId, event);
   if (result.status === "duplicate") {
