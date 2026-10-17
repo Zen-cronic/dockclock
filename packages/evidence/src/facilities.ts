@@ -5,6 +5,7 @@ export const FACILITIES: readonly Facility[] = [
   {
     id: "lakeshore-columbus",
     name: "Lakeshore DC, Columbus OH",
+    timeZone: "America/New_York",
     polygon: [
       [-82.9406, 39.9012],
       [-82.9351, 39.9012],
@@ -15,6 +16,7 @@ export const FACILITIES: readonly Facility[] = [
   {
     id: "prairie-joliet",
     name: "Prairie Distribution, Joliet IL",
+    timeZone: "America/Chicago",
     polygon: [
       [-88.1312, 41.5021],
       [-88.1254, 41.5021],

@@ -3,6 +3,8 @@ export type LonLat = readonly [number, number];
 export interface Facility {
   id: string;
   name: string;
+  // IANA zone the facility writes paperwork times in.
+  timeZone: string;
   // Closed ring of [longitude, latitude] points; the first point need not repeat at the end.
   polygon: readonly LonLat[];
 }

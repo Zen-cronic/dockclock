@@ -13,7 +13,7 @@ export interface EvidencePack {
   events: {
     arrived: { serverAt: string; messageId: string } | null;
     released: { serverAt: string; messageId: string } | null;
-    bol: { serverAt: string; messageId: string; mediaSha256: string; cameraOnly: boolean } | null;
+    bol: { serverAt: string; messageId: string; mediaSha256: string | null; cameraOnly: boolean } | null;
     notice: { sentAt: string; deliveredAt: string | null; messageId: string } | null;
   };
   corroboration: Corroboration;

@@ -19,7 +19,8 @@ export interface BolCapture {
   messageId: string;
   serverAt: string;
   cameraOnly: boolean;
-  mediaSha256: string;
+  // SHA-256 of the bytes we downloaded and stored; null when the media could not be retrieved.
+  mediaSha256: string | null;
   // Times read from the photo by the model, then confirmed or corrected by the driver.
   signed: boolean;
   checkIn: string | null;
@@ -109,6 +110,11 @@ export function corroborate(record: LoadRecord): Corroboration {
   const bol = record.bol;
   if (bol) {
     signals.push({ name: "bol_camera_only", ok: bol.cameraOnly, detail: bol.cameraOnly ? "captured in camera-only Flow" : "uploaded from gallery" });
+    signals.push({
+      name: "bol_media_hashed",
+      ok: bol.mediaSha256 !== null,
+      detail: bol.mediaSha256 ? `sha256 ${bol.mediaSha256.slice(0, 12)}… of the stored photo` : "photo could not be downloaded",
+    });
     signals.push({ name: "bol_confirmed_by_driver", ok: bol.confirmedByDriver, detail: "driver confirmed or corrected extracted times" });
     const pairs: Array<[string, string | null, PinEvent | null]> = [
       ["bol_in_matches_arrived_pin", bol.checkIn, record.arrived],
