@@ -59,43 +59,51 @@ export class MessagingStack extends Stack {
       IDENTITY_SECRET_ARN: core.identitySecret.secretArn,
       DRIVER_REPLIES: config.driverReplies,
       DRIVER_ALLOWLIST: config.driverAllowlist,
+      MEDIA_BUCKET: core.mediaBucket.bucketName,
+      RELEASE_FLOW_ID: config.releaseFlowId,
+      FLOW_MODE: config.flowMode,
     };
+    const phoneArn = `arn:aws:social-messaging:${config.region}:${config.account}:phone-number-id/${config.originationPhoneId.replace(/^phone-number-id-/, "")}`;
+    const sendWhatsApp = new iam.PolicyStatement({ actions: ["social-messaging:SendWhatsAppMessage"], resources: [phoneArn] });
     const taskResponse = new iam.PolicyStatement({ actions: ["states:SendTaskSuccess", "states:SendTaskFailure"], resources: [stateMachineArn] });
 
     const ingest = fn("Ingest", "ingest.ts", channelEnv);
     core.table.grantReadWriteData(ingest);
     core.identitySecret.grantRead(ingest);
     ingest.addToRolePolicy(taskResponse);
-    ingest.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["social-messaging:SendWhatsAppMessage"],
-        resources: [`arn:aws:social-messaging:${config.region}:${config.account}:phone-number-id/${config.originationPhoneId.replace(/^phone-number-id-/, "")}`],
-      }),
-    );
+    ingest.addToRolePolicy(sendWhatsApp);
+    ingest.addToRolePolicy(new iam.PolicyStatement({ actions: ["social-messaging:GetWhatsAppMessageMedia"], resources: [phoneArn] }));
+    core.mediaBucket.grantReadWrite(ingest);
 
     const awaitStep = fn("AwaitStep", "await-step.ts", {});
     core.table.grantReadWriteData(awaitStep);
     awaitStep.addToRolePolicy(taskResponse);
 
-    const seal = fn("Seal", "seal.ts", { EVIDENCE_BUCKET: core.evidenceBucket.bucketName, EVIDENCE_KEY_ARN: core.evidenceKey.keyArn });
+    const seal = fn("Seal", "seal.ts", {
+      EVIDENCE_BUCKET: core.evidenceBucket.bucketName,
+      EVIDENCE_KEY_ARN: core.evidenceKey.keyArn,
+      MEDIA_BUCKET: core.mediaBucket.bucketName,
+    });
     core.table.grantReadWriteData(seal);
     core.evidenceBucket.grantPut(seal);
     seal.addToRolePolicy(new iam.PolicyStatement({ actions: ["s3:PutObjectRetention"], resources: [core.evidenceBucket.arnForObjects("packs/*")] }));
     core.evidenceKey.grant(seal, "kms:Sign", "kms:GetPublicKey");
+    core.mediaBucket.grantRead(seal);
 
-    const dispatch = fn("Dispatch", "dispatch.ts", { STATE_MACHINE_ARN: stateMachineArn, IDENTITY_SECRET_ARN: core.identitySecret.secretArn });
+    const dispatch = fn("Dispatch", "dispatch.ts", { ...channelEnv, STATE_MACHINE_ARN: stateMachineArn });
     core.table.grantReadWriteData(dispatch);
     core.identitySecret.grantRead(dispatch);
+    dispatch.addToRolePolicy(sendWhatsApp);
     dispatch.addToRolePolicy(new iam.PolicyStatement({ actions: ["states:StartExecution"], resources: [stateMachineArn] }));
 
-    // Lifecycle: wait for the driver's Arrived pin, then the Released pin, then seal the evidence.
-    const waitFor = (step: "arrived" | "released", days: number) =>
+    // Lifecycle: wait for the Arrived pin, the Released pin and the bill-of-lading Flow, then seal.
+    const waitFor = (step: "arrived" | "released" | "bol", timeout: Duration) =>
       new tasks.LambdaInvoke(this, `Await ${step}`, {
         lambdaFunction: awaitStep,
         integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
         payload: sfn.TaskInput.fromObject({ loadId: sfn.JsonPath.stringAt("$.loadId"), step, token: sfn.JsonPath.taskToken }),
         resultPath: `$.${step}`,
-        taskTimeout: sfn.Timeout.duration(Duration.days(days)),
+        taskTimeout: sfn.Timeout.duration(timeout),
       });
     const markTimedOut = new tasks.DynamoUpdateItem(this, "Mark timed out", {
       table: core.table,
@@ -113,11 +121,14 @@ export class MessagingStack extends Stack {
       resultSelector: { "pack.$": "$.Payload" },
       resultPath: "$.seal",
     });
-    const definition = waitFor("arrived", 2)
+    sealPack.next(new sfn.Succeed(this, "Sealed"));
+    // Missing paperwork never holds a load open: after six hours the pack is sealed without it,
+    // and the clause engine routes the claim to a person.
+    const definition = waitFor("arrived", Duration.days(2))
       .addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" })
-      .next(waitFor("released", 3).addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" }))
-      .next(sealPack)
-      .next(new sfn.Succeed(this, "Sealed"));
+      .next(waitFor("released", Duration.days(3)).addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" }))
+      .next(waitFor("bol", Duration.hours(6)).addCatch(sealPack, { errors: ["States.Timeout"], resultPath: "$.bolTimeout" }))
+      .next(sealPack);
 
     const lifecycle = new sfn.StateMachine(this, "LoadLifecycle", {
       stateMachineName: STATE_MACHINE_NAME,

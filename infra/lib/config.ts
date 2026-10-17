@@ -9,6 +9,8 @@ export interface DockClockConfig {
   metaApiVersion: string;
   driverReplies: "on" | "off";
   driverAllowlist: string;
+  releaseFlowId: string;
+  flowMode: "draft" | "published";
 }
 
 function required(name: string): string {
@@ -28,5 +30,7 @@ export function configFromEnv(): DockClockConfig {
     metaApiVersion: process.env.DOCKCLOCK_META_API_VERSION ?? "v23.0",
     driverReplies: process.env.DOCKCLOCK_DRIVER_REPLIES === "on" ? "on" : "off",
     driverAllowlist: process.env.DOCKCLOCK_DRIVER_ALLOWLIST ?? "",
+    releaseFlowId: required("DOCKCLOCK_RELEASE_FLOW_ID"),
+    flowMode: process.env.DOCKCLOCK_FLOW_MODE === "published" ? "published" : "draft",
   };
 }

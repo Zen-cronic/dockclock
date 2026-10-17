@@ -10,6 +10,7 @@ import type { Construct } from "constructs";
 export class CoreStack extends Stack {
   readonly table: dynamodb.TableV2;
   readonly evidenceBucket: s3.Bucket;
+  readonly mediaBucket: s3.Bucket;
   readonly evidenceKey: kms.Key;
   readonly identitySecret: secretsmanager.Secret;
 
@@ -40,6 +41,15 @@ export class CoreStack extends Stack {
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+
+    // Driver photos land here straight from WhatsApp; sealing copies them under the evidence lock.
+    this.mediaBucket = new s3.Bucket(this, "DriverMedia", {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      lifecycleRules: [{ expiration: Duration.days(90) }],
       removalPolicy: RemovalPolicy.RETAIN,
     });
 

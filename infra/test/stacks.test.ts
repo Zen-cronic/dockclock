@@ -13,6 +13,8 @@ const config = {
   metaApiVersion: "v23.0",
   driverReplies: "off" as const,
   driverAllowlist: "",
+  releaseFlowId: "1000",
+  flowMode: "draft" as const,
 };
 
 describe("stacks", () => {
@@ -40,6 +42,7 @@ describe("stacks", () => {
     expect(definition).toContain("waitForTaskToken");
     expect(definition).toContain("Await arrived");
     expect(definition).toContain("Await released");
+    expect(definition).toContain("Await bol");
     expect(definition).toContain("Seal evidence");
   });
 
@@ -52,9 +55,11 @@ describe("stacks", () => {
     emailT.resourceCountIs("AWS::CloudWatch::Alarm", 2);
   });
 
-  it("lets only the seal function sign, and only the ingest function send WhatsApp", () => {
+  it("lets only the seal function sign, and only ingest and dispatch send WhatsApp", () => {
     const policies = Object.values(msgT.findResources("AWS::IAM::Policy")).map((p) => JSON.stringify(p));
     expect(policies.filter((p) => p.includes("kms:Sign"))).toHaveLength(1);
-    expect(policies.filter((p) => p.includes("social-messaging:SendWhatsAppMessage"))).toHaveLength(1);
+    // Ingest replies in-window and dispatch sends the template; nothing else can message drivers.
+    expect(policies.filter((p) => p.includes("social-messaging:SendWhatsAppMessage"))).toHaveLength(2);
+    expect(policies.filter((p) => p.includes("social-messaging:GetWhatsAppMessageMedia"))).toHaveLength(1);
   });
 });
