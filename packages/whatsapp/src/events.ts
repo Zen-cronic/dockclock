@@ -21,11 +21,12 @@ export interface InboundEvent {
   body: InboundBody;
 }
 
-export type DeliveryState = "sent" | "delivered" | "read" | "failed";
+export type DeliveryState = "accepted" | "sent" | "delivered" | "read" | "failed";
 
 export interface StatusEvent {
   kind: "status";
   wamid: string;
+  eumMessageId: string | null;
   serverAt: string;
   state: DeliveryState;
   errorCode: number | null;
@@ -57,8 +58,9 @@ function bodyOf(message: RawMessage): InboundBody {
       if (interactive?.type === "button_reply" && typeof interactive.button_reply?.id === "string") {
         return { type: "button", payload: interactive.button_reply.id };
       }
-      if (interactive?.type === "nfm_reply" && typeof interactive.nfm_reply?.response_json === "string") {
-        return { type: "flow", responseJson: interactive.nfm_reply.response_json };
+      const response = interactive?.nfm_reply?.response_json;
+      if (interactive?.type === "nfm_reply" && response !== undefined) {
+        return { type: "flow", responseJson: typeof response === "string" ? response : JSON.stringify(response) };
       }
       return { type: "other", rawType: `interactive:${interactive?.type ?? "unknown"}` };
     }
@@ -82,9 +84,9 @@ function bodyOf(message: RawMessage): InboundBody {
   }
 }
 
-const DELIVERY_STATES = new Set<DeliveryState>(["sent", "delivered", "read", "failed"]);
+const DELIVERY_STATES = new Set<DeliveryState>(["accepted", "sent", "delivered", "read", "failed"]);
 
-export function extractEvents(entry: WebhookEntry, config: ChannelConfig): ChannelEvent[] {
+export function extractEvents(entry: WebhookEntry, config: ChannelConfig, eumMessageId: string | null = null): ChannelEvent[] {
   const out: ChannelEvent[] = [];
   for (const change of entry.changes ?? []) {
     if (change.field !== "messages") continue;
@@ -100,7 +102,7 @@ export function extractEvents(entry: WebhookEntry, config: ChannelConfig): Chann
       const serverAt = isoFromUnixSeconds(status.timestamp);
       const state = status.status as DeliveryState;
       if (!status.id || !serverAt || !DELIVERY_STATES.has(state)) continue;
-      out.push({ kind: "status", wamid: status.id, serverAt, state, errorCode: status.errors?.[0]?.code ?? null });
+      out.push({ kind: "status", wamid: status.id, eumMessageId, serverAt, state, errorCode: status.errors?.[0]?.code ?? null });
     }
   }
   return out;

@@ -1,0 +1,89 @@
+{
+  "version": "7.1",
+  "screens": [
+    {
+      "id": "BOL_PHOTO",
+      "title": "Signed bill of lading",
+      "data": {
+        "load_label": { "type": "string", "__example__": "Load 4471 at Lakeshore DC, Columbus OH" },
+        "arrived_hint": { "type": "string", "__example__": "13:52" },
+        "released_hint": { "type": "string", "__example__": "17:20" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextSubheading", "text": "${data.load_label}" },
+          { "type": "TextBody", "text": "Take a photo of the bill of lading after the receiver signs it. Make sure the in and out times are readable." },
+          {
+            "type": "PhotoPicker",
+            "name": "bol_photo",
+            "label": "Bill of lading photo",
+            "description": "Camera only. Up to 3 pages.",
+            "photo-source": "camera",
+            "min-uploaded-photos": 1,
+            "max-uploaded-photos": 3,
+            "max-file-size-kb": 10240
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "navigate",
+              "next": { "type": "screen", "name": "DETAILS" },
+              "payload": { "arrived_hint": "${data.arrived_hint}", "released_hint": "${data.released_hint}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DETAILS",
+      "title": "Times on the paperwork",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "arrived_hint": { "type": "string", "__example__": "13:52" },
+        "released_hint": { "type": "string", "__example__": "17:20" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextBody", "text": "Enter the times exactly as the receiver wrote them on the bill of lading. We filled in your check-in and check-out pins; change them if the paperwork says otherwise." },
+          { "type": "TextInput", "name": "in_time", "label": "In time on BOL (24h, e.g. 13:52)", "input-type": "text", "required": true, "init-value": "${data.arrived_hint}" },
+          { "type": "TextInput", "name": "out_time", "label": "Out time on BOL (24h, e.g. 17:20)", "input-type": "text", "required": true, "init-value": "${data.released_hint}" },
+          {
+            "type": "Dropdown",
+            "name": "delay_reason",
+            "label": "Main reason for the wait",
+            "required": true,
+            "data-source": [
+              { "id": "dock_not_ready", "title": "Door or dock not ready" },
+              { "id": "paperwork", "title": "Waiting on paperwork" },
+              { "id": "slow_unloading", "title": "Slow loading or unloading" },
+              { "id": "appointment_moved", "title": "Appointment moved" },
+              { "id": "other", "title": "Other" },
+              { "id": "none", "title": "No delay" }
+            ]
+          },
+          { "type": "TextInput", "name": "consignee", "label": "Name of the person who signed", "input-type": "text", "required": true },
+          { "type": "OptIn", "name": "share_consent", "label": "Share these photos and times with the broker on this load only.", "required": true },
+          {
+            "type": "Footer",
+            "label": "Submit",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "bol_photo": "${screen.BOL_PHOTO.form.bol_photo}",
+                "in_time": "${form.in_time}",
+                "out_time": "${form.out_time}",
+                "delay_reason": "${form.delay_reason}",
+                "consignee": "${form.consignee}",
+                "share_consent": "${form.share_consent}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

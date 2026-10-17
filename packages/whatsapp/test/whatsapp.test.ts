@@ -80,3 +80,47 @@ describe("button payloads", () => {
     }
   });
 });
+
+import { decodeEvent, encodeFlowToken, parseFlowToken, parseReleaseFlow } from "../src/index.js";
+
+describe("decodeEvent", () => {
+  it("returns the End User Messaging message id for receipts", () => {
+    const body = JSON.stringify({
+      Type: "Notification",
+      TopicArn: config.topicArn,
+      Message: JSON.stringify({ aws_account_id: config.account, messageId: "eum-1", whatsAppWebhookEntry: { id: "waba-1", changes: [] } }),
+    });
+    expect(decodeEvent(body, config).eumMessageId).toBe("eum-1");
+  });
+});
+
+describe("release flow", () => {
+  const response = JSON.stringify({
+    flow_token: encodeFlowToken("4471", "abc123"),
+    bol_photo: [{ id: "3631120727156756", mime_type: "image/jpeg", sha256: "PqHg", file_name: "IMG.jpg" }],
+    in_time: "13:52",
+    out_time: " 17:18 ",
+    delay_reason: "dock_not_ready",
+    consignee: "R. Alvarez",
+    share_consent: true,
+  });
+
+  it("parses photos and typed fields", () => {
+    expect(parseReleaseFlow(response)).toEqual({
+      flowToken: "dc1.release.4471.abc123",
+      photos: [{ mediaId: "3631120727156756", mimeType: "image/jpeg", metaSha256: "PqHg" }],
+      inTime: "13:52",
+      outTime: "17:18",
+      delayReason: "dock_not_ready",
+      consignee: "R. Alvarez",
+      shareConsent: true,
+    });
+    expect(parseFlowToken("dc1.release.4471.abc123")).toEqual({ loadId: "4471", nonce: "abc123" });
+  });
+
+  it("drops unknown reasons and rejects payloads without a token", () => {
+    expect(parseReleaseFlow(JSON.stringify({ flow_token: "t", delay_reason: "aliens" }))?.delayReason).toBeNull();
+    expect(parseReleaseFlow(JSON.stringify({ in_time: "1" }))).toBeNull();
+    expect(parseReleaseFlow("not json")).toBeNull();
+  });
+});

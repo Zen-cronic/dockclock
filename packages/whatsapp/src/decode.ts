@@ -27,7 +27,7 @@ export interface RawMessage {
   interactive?: {
     type?: string;
     button_reply?: { id?: string; title?: string };
-    nfm_reply?: { response_json?: string; name?: string };
+    nfm_reply?: { response_json?: string | Record<string, unknown>; name?: string };
   };
   location?: { latitude?: number; longitude?: number; name?: string; address?: string };
   image?: { id?: string; mime_type?: string; sha256?: string };
@@ -49,17 +49,28 @@ export class UntrustedEventError extends Error {
   }
 }
 
+export interface DecodedEvent {
+  entry: WebhookEntry;
+  // End User Messaging's id for the message a status refers to: the same id SendWhatsAppMessage
+  // returned, so delivery receipts join to our own send records.
+  eumMessageId: string | null;
+}
+
 // Unwraps SNS envelope -> End User Messaging Social event -> Meta webhook entry, refusing anything
 // not published by our topic for our account and WhatsApp Business Account.
-export function decode(body: string, config: ChannelConfig): WebhookEntry {
+export function decodeEvent(body: string, config: ChannelConfig): DecodedEvent {
   const envelope = JSON.parse(body) as { Type?: string; TopicArn?: string; Message?: string };
   if (envelope.Type !== "Notification" || envelope.TopicArn !== config.topicArn || typeof envelope.Message !== "string") {
     throw new UntrustedEventError("UNTRUSTED_TOPIC");
   }
-  const event = JSON.parse(envelope.Message) as { aws_account_id?: string; whatsAppWebhookEntry?: unknown };
+  const event = JSON.parse(envelope.Message) as { aws_account_id?: string; whatsAppWebhookEntry?: unknown; messageId?: unknown };
   if (event.aws_account_id !== config.account) throw new UntrustedEventError("WRONG_ACCOUNT");
   const raw = event.whatsAppWebhookEntry;
   const entry = (typeof raw === "string" ? JSON.parse(raw) : raw) as WebhookEntry | undefined;
   if (entry?.id !== config.metaWabaId) throw new UntrustedEventError("WRONG_WABA");
-  return entry;
+  return { entry, eumMessageId: typeof event.messageId === "string" ? event.messageId : null };
+}
+
+export function decode(body: string, config: ChannelConfig): WebhookEntry {
+  return decodeEvent(body, config).entry;
 }
