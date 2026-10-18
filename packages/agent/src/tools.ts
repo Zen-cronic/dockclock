@@ -193,7 +193,7 @@ async function sendDetentionClaim(input: ClaimRequest) {
   const footer = [
     "--",
     `Evidence pack ${load.sealedPackId} (sha256 ${pack.digest}) is attached.`,
-    `It is signed with AWS KMS key ${pack.keyId} (ECDSA P-256). Verify the signature with that key's public key before relying on it.`,
+    `It is signed with AWS KMS key ${pack.keyId} (ECDSA P-256). The public key and an offline verifier are published with DockClock (docs/evidence, npm run verify:pack).`,
     `Contract amount: ${formatUsd(evaluation.amountUsd)}, computed by the clause engine, not by the agent.`,
     "Sent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
   ].join("\n");
