@@ -77,6 +77,7 @@ const dispatched = await lambda.send(
         language: "en_US",
         address: { kind: "phone", e164: `+${phone}` },
         optIn: { method: "smoke_test_fixture", at: new Date(now).toISOString() },
+        synthetic: true,
       }),
     ),
   }),
