@@ -89,6 +89,7 @@ const meta = (await ddb.send(new GetCommand({ TableName: out("TableName"), Key: 
 const nonce = String(meta?.nonce);
 const button = (action: string, n = nonce) => ({ type: "button", button: { payload: `dc1.${action}.${loadId}.${n}`, text: action } });
 const zone = facilityById("lakeshore-columbus").timeZone;
+const signedBol = process.env.SMOKE_SIGNED === "1";
 const flowReply = {
   type: "interactive",
   interactive: {
@@ -99,8 +100,11 @@ const flowReply = {
       response_json: JSON.stringify({
         flow_token: `dc1.release.${loadId}.${nonce}`,
         bol_photo: [{ id: "smoke-missing-media", mime_type: "image/jpeg", sha256: "none" }],
-        in_time: isoToLocalClock(new Date(now - 247 * 60_000).toISOString(), zone),
-        out_time: isoToLocalClock(new Date(now - 29 * 60_000).toISOString(), zone),
+        // SMOKE_SIGNED=1 models a receiver-signed BOL whose times the driver typed from the paper
+        // (a couple of minutes off the pins), which the clause engine can bill.
+        in_time: isoToLocalClock(new Date(now - (signedBol ? 245 : 247) * 60_000).toISOString(), zone),
+        out_time: isoToLocalClock(new Date(now - (signedBol ? 31 : 29) * 60_000).toISOString(), zone),
+        ...(signedBol ? { receiver_signed: true } : {}),
         delay_reason: "dock_not_ready",
         consignee: "Smoke Receiver",
         share_consent: true,
@@ -164,5 +168,6 @@ const ok =
   signed.pack.corroboration.confidence === "low" &&
   signed.pack.corroboration.signals.some((s) => s.name === "bol_media_hashed" && !s.ok);
 console.log(`  bol media ${load.bol?.media}; signals failing: ${signed.pack.corroboration.signals.filter((s) => !s.ok).map((s) => s.name).join(", ")}`);
+console.log(`load ${loadId}: verdict ${signed.pack.evaluation.verdict} $${signed.pack.evaluation.amountUsd}`);
 console.log(ok ? "SMOKE PASS" : "SMOKE FAIL");
 process.exit(ok ? 0 : 1);

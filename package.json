@@ -27,7 +27,11 @@
     "live:watch": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/watch-load.ts",
     "demo:facility": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/demo-facility.ts",
     "rcs:two-way": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/rcs-two-way.ts",
-    "smoke:rcs": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/smoke-rcs.ts"
+    "smoke:rcs": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/smoke-rcs.ts",
+    "bol:photos": "node --conditions=source --import tsx scripts/bol-photos.ts",
+    "eval:bol": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/eval-bol.ts",
+    "agent:run": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/agent-run.ts",
+    "approve:load": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/approve-load.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-lambda": "^3.1152.0",
@@ -36,6 +40,7 @@
     "@types/node": "^22.20.5",
     "aws-sdk-client-mock": "^4.1.0",
     "eslint": "^9.39.5",
+    "playwright": "^1.64.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.2",
