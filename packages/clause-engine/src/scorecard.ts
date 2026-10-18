@@ -14,6 +14,8 @@ export interface Scorecard {
     routedToHuman: number;
     falseHolds: number;
     claimedUsd: number;
+    // Money the contracts owe that DockClock did not claim.
+    unclaimedPayableUsd: number;
   };
   baseline: {
     filed: number;
@@ -22,6 +24,9 @@ export interface Scorecard {
     claimedUsd: number;
     deniableUsd: number;
     overbilledUsd: number;
+    unsupportableUsd: number;
+    // Denied, more than the clause pays, or unprovable: the part of the ask a broker can refuse.
+    uncollectibleUsd: number;
   };
   contractPayableUsd: number;
   mismatches: string[];
@@ -39,8 +44,8 @@ export function scorecard(fixtures: FixtureLoad[]): Scorecard {
   const card: Scorecard = {
     fixtureSha256: fixtureHash(fixtures),
     loads: fixtures.length,
-    dockclock: { filed: 0, filedValid: 0, held: 0, routedToHuman: 0, falseHolds: 0, claimedUsd: 0 },
-    baseline: { filed: 0, deniableUnderContract: 0, unsupportable: 0, claimedUsd: 0, deniableUsd: 0, overbilledUsd: 0 },
+    dockclock: { filed: 0, filedValid: 0, held: 0, routedToHuman: 0, falseHolds: 0, claimedUsd: 0, unclaimedPayableUsd: 0 },
+    baseline: { filed: 0, deniableUnderContract: 0, unsupportable: 0, claimedUsd: 0, deniableUsd: 0, overbilledUsd: 0, unsupportableUsd: 0, uncollectibleUsd: 0 },
     contractPayableUsd: 0,
     mismatches: [],
   };
@@ -59,6 +64,10 @@ export function scorecard(fixtures: FixtureLoad[]): Scorecard {
       card.dockclock.routedToHuman += 1;
     }
     if (truth.verdict === "BILLABLE" && result.verdict !== "BILLABLE") card.dockclock.falseHolds += 1;
+    if (truth.verdict === "BILLABLE") {
+      const claimed = result.verdict === "BILLABLE" ? Math.min(result.amountUsd, truth.amountUsd) : 0;
+      card.dockclock.unclaimedPayableUsd += truth.amountUsd - claimed;
+    }
     if (result.verdict !== truth.verdict || result.amountUsd !== truth.amountUsd) {
       card.mismatches.push(`${evidence.loadId}: engine ${result.verdict} $${result.amountUsd}, contract ${truth.verdict} $${truth.amountUsd}`);
     }
@@ -71,6 +80,7 @@ export function scorecard(fixtures: FixtureLoad[]): Scorecard {
         card.baseline.deniableUsd += base.amountUsd;
       } else if (truth.verdict === "NEEDS_HUMAN") {
         card.baseline.unsupportable += 1;
+        card.baseline.unsupportableUsd += base.amountUsd;
       } else if (base.amountUsd > truth.amountUsd) {
         card.baseline.overbilledUsd += base.amountUsd - truth.amountUsd;
       }
@@ -80,17 +90,33 @@ export function scorecard(fixtures: FixtureLoad[]): Scorecard {
   card.baseline.claimedUsd = cents(card.baseline.claimedUsd);
   card.baseline.deniableUsd = cents(card.baseline.deniableUsd);
   card.baseline.overbilledUsd = cents(card.baseline.overbilledUsd);
+  card.baseline.unsupportableUsd = cents(card.baseline.unsupportableUsd);
+  card.baseline.uncollectibleUsd = cents(card.baseline.deniableUsd + card.baseline.overbilledUsd + card.baseline.unsupportableUsd);
+  card.dockclock.unclaimedPayableUsd = cents(card.dockclock.unclaimedPayableUsd);
   card.contractPayableUsd = cents(card.contractPayableUsd);
   return card;
 }
 
+function usd(n: number): string {
+  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function percent(part: number, whole: number): string {
+  return whole === 0 ? "0%" : `${Math.round((part / whole) * 100)}%`;
+}
+
+// README line one. Leads with money owed, not with how many claims were filed, and never says
+// "all" unless it is true.
 export function headline(card: Scorecard): string {
   const d = card.dockclock;
   const b = card.baseline;
+  const claimedOfOwed = d.claimedUsd - Math.max(0, d.claimedUsd - (card.contractPayableUsd - d.unclaimedPayableUsd));
+  const valid = d.filedValid === d.filed ? `all ${d.filed} valid` : `${d.filedValid} of ${d.filed} valid`;
   return (
-    `On ${card.loads} test loads, DockClock filed ${d.filed} claims, all ${d.filedValid} contract-valid ` +
-    `(${d.falseHolds} false holds), held ${d.held} with the clause reason and sent ${d.routedToHuman} to a person. ` +
-    `The industry's 2-hour rule would have filed ${b.filed}: ${b.deniableUnderContract} the contract denies ` +
-    `($${b.deniableUsd.toFixed(2)}) and ${b.unsupportable} the evidence can't support.`
+    `On ${card.loads} test loads the contracts owe ${usd(card.contractPayableUsd)} in detention. ` +
+    `DockClock claims ${usd(claimedOfOwed)} of it (${percent(claimedOfOwed, card.contractPayableUsd)}) and nothing a contract denies: ` +
+    `${d.filed} claims, ${valid}, ${d.falseHolds} owed claims held back. ` +
+    `The common "bill every stop over 2 hours" rule asks for ${usd(b.claimedUsd)}, and ${usd(b.uncollectibleUsd)} of that ` +
+    `(${percent(b.uncollectibleUsd, b.claimedUsd)}) is denied by the contract, more than the clause pays, or unprovable.`
   );
 }
