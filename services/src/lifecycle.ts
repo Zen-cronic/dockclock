@@ -1,9 +1,31 @@
+import { parseClock } from "@dockclock/evidence";
 import type { InboundEvent } from "@dockclock/whatsapp";
 import { parseButtonPayload, parseFlowToken, parseReleaseFlow } from "@dockclock/whatsapp";
 
-export type Phase = "dispatched" | "awaiting_arrival_pin" | "at_dock" | "awaiting_release_pin" | "awaiting_bol" | "documented";
+export type Phase =
+  | "dispatched"
+  | "awaiting_arrival_pin"
+  | "at_dock"
+  | "awaiting_release_pin"
+  | "awaiting_bol"
+  | "documented"
+  // Terminal: the workflow sealed the pack, or ended the load (timeout, superseded, seal failure).
+  | "sealed"
+  | "closed";
 export type Step = "arrived" | "released" | "bol";
-export type MessageKey = "tap_arrived_first" | "dispatch_notified" | "bol_received" | "bol_incomplete";
+export type MessageKey =
+  | "tap_arrived_first"
+  | "dispatch_notified"
+  | "bol_received"
+  | "bol_partial"
+  | "bol_incomplete"
+  | "bol_times_unreadable"
+  | "flow_limit"
+  | "load_closed"
+  | "use_bol_button";
+
+export const MAX_FLOW_SENDS = 3;
+const TERMINAL: readonly Phase[] = ["sealed", "closed"];
 
 export interface PinRecord {
   serverAt: string;
@@ -28,6 +50,7 @@ export interface BolRecord {
   outTime: string | null;
   delayReason: string | null;
   consignee: string | null;
+  receiverSigned: boolean;
   shareConsent: boolean;
   // "pending" until every photo is stored and hashed, or found to be unavailable.
   media: "pending" | "hashed" | "unavailable";
@@ -41,6 +64,7 @@ export interface LoadState {
   arrived: PinRecord | null;
   released: PinRecord | null;
   bol: BolRecord | null;
+  flowSends: number;
 }
 
 export type Outcome =
@@ -49,6 +73,7 @@ export type Outcome =
   | "REJECTED_OUT_OF_ORDER"
   | "REJECTED_WRONG_LOAD"
   | "REJECTED_STALE_BUTTON"
+  | "REJECTED_CLOSED_LOAD"
   | "REJECTED_INCOMPLETE_FLOW"
   | "IGNORED_UNSOLICITED_PIN"
   | "ESCALATED"
@@ -60,13 +85,17 @@ export type Effect =
   | { type: "send_release_flow" }
   | { type: "download_media" }
   | { type: "tell_driver"; key: MessageKey }
-  | { type: "escalate" }
+  | { type: "escalate"; reason: string }
   | { type: "resume"; step: Step };
 
 export interface Transition {
   state: LoadState;
   outcome: Outcome;
   effects: Effect[];
+}
+
+export function isTerminal(phase: Phase): boolean {
+  return TERMINAL.includes(phase);
 }
 
 function stay(state: LoadState, outcome: Outcome, effects: Effect[] = []): Transition {
@@ -76,21 +105,33 @@ function stay(state: LoadState, outcome: Outcome, effects: Effect[] = []): Trans
 // The only place a driver event changes a load. SQS can redeliver and reorder, so every branch is
 // safe to see twice, and a tap that arrives before its prerequisite changes nothing. Buttons and
 // Flow tokens carry the load id and a per-load nonce, so a tap from another load or an old message
-// is refused rather than applied.
+// is refused rather than applied. Once the workflow has ended a load, nothing reopens it.
 export function applyEvent(state: LoadState, event: InboundEvent): Transition {
-  const next = (patch: Partial<LoadState>, effects: Effect[]): Transition => ({
+  const next = (patch: Partial<LoadState>, effects: Effect[], outcome: Outcome = "ADVANCED"): Transition => ({
     state: { ...state, ...patch, version: state.version + 1 },
-    outcome: "ADVANCED",
+    outcome,
     effects,
   });
+  // Re-sends the release Flow, up to a limit, so a persistent problem cannot loop messages.
+  const resendFlow = (key: MessageKey): Transition =>
+    state.flowSends < MAX_FLOW_SENDS
+      ? next({ flowSends: state.flowSends + 1 }, [{ type: "tell_driver", key }, { type: "send_release_flow" }], "REJECTED_INCOMPLETE_FLOW")
+      : stay(state, "REJECTED_INCOMPLETE_FLOW", [{ type: "tell_driver", key: "flow_limit" }, { type: "escalate", reason: "release Flow rejected after the re-send limit" }]);
   const body = event.body;
+
+  if (isTerminal(state.phase)) {
+    const owned = body.type === "button" || body.type === "flow";
+    return stay(state, "REJECTED_CLOSED_LOAD", owned ? [{ type: "tell_driver", key: "load_closed" }] : []);
+  }
 
   if (body.type === "button") {
     const payload = parseButtonPayload(body.payload);
     if (!payload) return stay(state, "RECORDED");
     if (payload.loadId !== state.loadId) return stay(state, "REJECTED_WRONG_LOAD");
     if (payload.nonce !== state.nonce) return stay(state, "REJECTED_STALE_BUTTON");
-    if (payload.action === "dispatch") return stay(state, "ESCALATED", [{ type: "escalate" }, { type: "tell_driver", key: "dispatch_notified" }]);
+    if (payload.action === "dispatch") {
+      return stay(state, "ESCALATED", [{ type: "escalate", reason: "driver tapped Talk to dispatch" }, { type: "tell_driver", key: "dispatch_notified" }]);
+    }
     if (payload.action === "arrived") {
       if (state.phase !== "dispatched") return stay(state, "IGNORED_DUPLICATE_TAP");
       return next({ phase: "awaiting_arrival_pin" }, [{ type: "request_location", step: "arrived" }]);
@@ -111,7 +152,7 @@ export function applyEvent(state: LoadState, event: InboundEvent): Transition {
       return next({ phase: "at_dock", arrived: pin }, [{ type: "resume", step: "arrived" }, { type: "offer_release" }]);
     }
     if (state.phase === "awaiting_release_pin") {
-      return next({ phase: "awaiting_bol", released: pin }, [{ type: "resume", step: "released" }, { type: "send_release_flow" }]);
+      return next({ phase: "awaiting_bol", released: pin, flowSends: 1 }, [{ type: "resume", step: "released" }, { type: "send_release_flow" }]);
     }
     return stay(state, "IGNORED_UNSOLICITED_PIN");
   }
@@ -123,9 +164,8 @@ export function applyEvent(state: LoadState, event: InboundEvent): Transition {
     if (token.loadId !== state.loadId) return stay(state, "REJECTED_WRONG_LOAD");
     if (token.nonce !== state.nonce) return stay(state, "REJECTED_STALE_BUTTON");
     if (state.phase !== "awaiting_bol") return stay(state, state.phase === "documented" ? "IGNORED_DUPLICATE_TAP" : "REJECTED_OUT_OF_ORDER");
-    if (response.photos.length === 0 || !response.shareConsent) {
-      return stay(state, "REJECTED_INCOMPLETE_FLOW", [{ type: "tell_driver", key: "bol_incomplete" }, { type: "send_release_flow" }]);
-    }
+    if (response.photos.length === 0 || !response.shareConsent) return resendFlow("bol_incomplete");
+    if (!parseClock(response.inTime) || !parseClock(response.outTime)) return resendFlow("bol_times_unreadable");
     const bol: BolRecord = {
       serverAt: event.serverAt,
       messageId: event.wamid,
@@ -134,17 +174,37 @@ export function applyEvent(state: LoadState, event: InboundEvent): Transition {
       outTime: response.outTime,
       delayReason: response.delayReason,
       consignee: response.consignee,
+      receiverSigned: response.receiverSigned,
       shareConsent: response.shareConsent,
       media: "pending",
     };
-    return next({ phase: "documented", bol }, [{ type: "download_media" }, { type: "tell_driver", key: "bol_received" }, { type: "resume", step: "bol" }]);
+    // download_media tells the driver what was saved once it knows, then the bol step resumes.
+    return next({ phase: "documented", bol }, [{ type: "download_media" }, { type: "resume", step: "bol" }]);
   }
+
+  if (body.type === "image" && state.phase === "awaiting_bol") return stay(state, "RECORDED", [{ type: "tell_driver", key: "use_bol_button" }]);
 
   return stay(state, "RECORDED");
 }
 
 export function stepSatisfied(state: Pick<LoadState, "arrived" | "released" | "bol">, step: Step): boolean {
-  if (step === "arrived") return state.arrived !== null;
-  if (step === "released") return state.released !== null;
-  return state.bol !== null && state.bol.media !== "pending";
+  switch (step) {
+    case "arrived":
+      return state.arrived !== null;
+    case "released":
+      return state.released !== null;
+    case "bol":
+      return state.bol !== null && state.bol.media !== "pending";
+  }
+}
+
+export function stepAt(state: Pick<LoadState, "arrived" | "released" | "bol">, step: Step): string | undefined {
+  switch (step) {
+    case "arrived":
+      return state.arrived?.serverAt;
+    case "released":
+      return state.released?.serverAt;
+    case "bol":
+      return state.bol?.serverAt;
+  }
 }

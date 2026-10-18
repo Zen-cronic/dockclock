@@ -6,5 +6,6 @@ export const keys = {
   pack: (loadId: string, packId: string) => ({ pk: `LOAD#${loadId}`, sk: `PACK#${packId}` }),
   dedupe: (wamid: string) => ({ pk: `WAMID#${wamid}`, sk: "DEDUPE" }),
   driver: (driverKey: string) => ({ pk: `DRIVER#${driverKey}`, sk: "ACTIVE" }),
-  receipt: (wamid: string) => ({ pk: `MSG#${wamid}`, sk: "RECEIPT" }),
+  receipt: (messageId: string) => ({ pk: `MSG#${messageId}`, sk: "RECEIPT" }),
+  optOut: (driverKey: string) => ({ pk: `OPTOUT#${driverKey}`, sk: "OPTOUT" }),
 };

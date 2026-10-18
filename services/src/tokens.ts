@@ -1,6 +1,6 @@
 import { SendTaskSuccessCommand, SFNClient } from "@aws-sdk/client-sfn";
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { stepSatisfied, type Step } from "./lifecycle.js";
+import { stepAt, stepSatisfied, type Step } from "./lifecycle.js";
 import { ddb, getLoad } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
@@ -17,7 +17,7 @@ export async function reconcile(loadId: string): Promise<Step[]> {
   for (const step of Object.keys(load.tokens ?? {}) as Step[]) {
     const token = load.tokens[step];
     if (!token || !stepSatisfied(load, step)) continue;
-    const at = step === "arrived" ? load.arrived?.serverAt : step === "released" ? load.released?.serverAt : load.bol?.serverAt;
+    const at = stepAt(load, step);
     try {
       await sfn.send(new SendTaskSuccessCommand({ taskToken: token, output: JSON.stringify({ loadId, step, at }) }));
       resumed.push(step);

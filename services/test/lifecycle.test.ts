@@ -3,7 +3,7 @@ import { encodeFlowToken } from "@dockclock/whatsapp";
 import { describe, expect, it } from "vitest";
 import { applyEvent, stepSatisfied, type LoadState } from "../src/lifecycle.js";
 
-const start: LoadState = { loadId: "4471", nonce: "abc123", phase: "dispatched", version: 1, arrived: null, released: null, bol: null };
+const start: LoadState = { loadId: "4471", nonce: "abc123", phase: "dispatched", version: 1, arrived: null, released: null, bol: null, flowSends: 0 };
 let n = 0;
 const sender = { kind: "phone" as const, e164: "+14165550100" };
 function tap(action: string, loadId = "4471", nonce = "abc123"): InboundEvent {
@@ -20,6 +20,7 @@ function flow(overrides: Record<string, unknown> = {}, token = encodeFlowToken("
     out_time: "17:18",
     delay_reason: "dock_not_ready",
     consignee: "R. Alvarez",
+    receiver_signed: true,
     share_consent: true,
     ...overrides,
   };
@@ -42,7 +43,7 @@ describe("applyEvent", () => {
     const { state, outcomes } = run([...toBol, flow()]);
     expect(outcomes).toEqual(["ADVANCED", "ADVANCED", "ADVANCED", "ADVANCED", "ADVANCED"]);
     expect(state.phase).toBe("documented");
-    expect(state.bol).toMatchObject({ inTime: "13:52", outTime: "17:18", consignee: "R. Alvarez", media: "pending", photos: [{ mediaId: "media-1" }] });
+    expect(state.bol).toMatchObject({ inTime: "13:52", outTime: "17:18", consignee: "R. Alvarez", receiverSigned: true, media: "pending", photos: [{ mediaId: "media-1" }] });
     expect(state.version).toBe(6);
   });
 
@@ -76,7 +77,7 @@ describe("applyEvent", () => {
     const t = applyEvent(start, tap("dispatch"));
     expect(t.outcome).toBe("ESCALATED");
     expect(t.state).toBe(start);
-    expect(t.effects).toEqual([{ type: "escalate" }, { type: "tell_driver", key: "dispatch_notified" }]);
+    expect(t.effects).toEqual([{ type: "escalate", reason: "driver tapped Talk to dispatch" }, { type: "tell_driver", key: "dispatch_notified" }]);
   });
 
   it("ignores a pin nobody asked for", () => {
@@ -90,12 +91,50 @@ describe("applyEvent", () => {
     const noPhoto = applyEvent(awaiting, flow({ bol_photo: [] }));
     expect(noPhoto.outcome).toBe("REJECTED_INCOMPLETE_FLOW");
     expect(noPhoto.effects).toEqual([{ type: "tell_driver", key: "bol_incomplete" }, { type: "send_release_flow" }]);
+    expect(noPhoto.state.flowSends).toBe(2);
     expect(applyEvent(awaiting, flow({ share_consent: false })).outcome).toBe("REJECTED_INCOMPLETE_FLOW");
   });
 
   it("ignores a second Flow submission once documented", () => {
     const { outcomes } = run([...toBol, flow(), flow()]);
     expect(outcomes.at(-1)).toBe("IGNORED_DUPLICATE_TAP");
+  });
+
+  it("refuses unreadable times instead of saving a claim that silently loses them", () => {
+    const awaiting = run(toBol).state;
+    const t = applyEvent(awaiting, flow({ in_time: "around two", out_time: "17:18" }));
+    expect(t.outcome).toBe("REJECTED_INCOMPLETE_FLOW");
+    expect(t.effects[0]).toEqual({ type: "tell_driver", key: "bol_times_unreadable" });
+    expect(applyEvent(awaiting, flow({ in_time: "1:52 PM", out_time: "5:18pm" })).outcome).toBe("ADVANCED");
+  });
+
+  it("stops re-sending the Flow after the limit and hands the load to dispatch", () => {
+    let state = run(toBol).state;
+    const outcomes: Array<string | undefined> = [];
+    for (let i = 0; i < 4; i++) {
+      const t = applyEvent(state, flow({ bol_photo: [] }));
+      state = t.state;
+      outcomes.push(t.effects.find((e) => e.type === "send_release_flow")?.type ?? t.effects.find((e) => e.type === "escalate")?.type);
+    }
+    expect(outcomes).toEqual(["send_release_flow", "send_release_flow", "escalate", "escalate"]);
+  });
+
+  it("refuses every tap and Flow once the workflow has sealed or closed the load", () => {
+    for (const phase of ["sealed", "closed"] as const) {
+      const ended = { ...run([...toBol, flow()]).state, phase };
+      for (const event of [tap("released"), flow(), tap("arrived")]) {
+        const t = applyEvent(ended, event);
+        expect(t.outcome).toBe("REJECTED_CLOSED_LOAD");
+        expect(t.state).toBe(ended);
+        expect(t.effects).toEqual([{ type: "tell_driver", key: "load_closed" }]);
+      }
+    }
+  });
+
+  it("points a driver who sends the BOL as a chat photo to the Flow button", () => {
+    const awaiting = run(toBol).state;
+    const photo: InboundEvent = { kind: "inbound", wamid: "w-img", serverAt: "2026-10-13T17:24:00.000Z", sender, body: { type: "image", mediaId: "m", mimeType: "image/jpeg", metaSha256: null } };
+    expect(applyEvent(awaiting, photo)).toMatchObject({ outcome: "RECORDED", effects: [{ type: "tell_driver", key: "use_bol_button" }] });
   });
 
   it("treats the bill-of-lading step as done only once media is settled", () => {

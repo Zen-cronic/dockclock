@@ -1,7 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Channel } from "@dockclock/evidence";
-import type { LoadState, PinRecord, Step } from "./lifecycle.js";
+import type { Effect, LoadState, Step } from "./lifecycle.js";
 import type { Language } from "./messages.js";
 import { env } from "./config.js";
 import { keys } from "./keys.js";
@@ -11,6 +11,12 @@ export const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
 });
 
 export type Address = { kind: "bsuid"; id: string } | { kind: "phone"; e164: string };
+
+// A side effect committed with the state change that caused it, removed only once it has run.
+export interface OutboxEntry {
+  seq: string;
+  effect: Effect;
+}
 
 export interface LoadItem extends LoadState {
   pk: string;
@@ -23,13 +29,27 @@ export interface LoadItem extends LoadState {
   channel: Channel;
   language: Language;
   tokens: Partial<Record<Step, string>>;
+  outbox?: Record<string, OutboxEntry>;
   executionArn?: string;
   createdAt?: string;
+  sealedPackId?: string;
+  outcome?: string;
+  synthetic?: boolean;
 }
 
+// One record per key a driver is known by. The dispatched key's record is the driver's live load;
+// a BSUID record bound from it follows that load so payload-less messages (pins) route correctly.
 export interface DriverItem {
   loadId: string;
   address: Address;
+  dispatchedAt?: string;
+  boundFrom?: string;
+  boundBsuid?: string;
+  language?: Language;
+}
+
+export interface DriverRecord extends DriverItem {
+  key: string;
 }
 
 export async function getLoad(loadId: string): Promise<LoadItem | null> {
@@ -37,45 +57,23 @@ export async function getLoad(loadId: string): Promise<LoadItem | null> {
   return (out.Item as LoadItem | undefined) ?? null;
 }
 
-export async function getActiveLoadId(driverKey: string): Promise<string | null> {
-  const out = await ddb.send(new GetCommand({ TableName: env.table(), Key: keys.driver(driverKey), ConsistentRead: true }));
-  return (out.Item as DriverItem | undefined)?.loadId ?? null;
-}
-
-export interface DriverRecord extends DriverItem {
-  key: string;
-  dispatchedAt?: string;
-  boundFrom?: string;
+export async function getDriver(key: string): Promise<DriverRecord | null> {
+  const out = await ddb.send(new GetCommand({ TableName: env.table(), Key: keys.driver(key), ConsistentRead: true }));
+  const item = out.Item as DriverItem | undefined;
+  return item?.loadId ? { ...item, key } : null;
 }
 
 async function driverRecords(candidateKeys: string[]): Promise<DriverRecord[]> {
   const out: DriverRecord[] = [];
   for (const key of candidateKeys) {
-    const got = await ddb.send(new GetCommand({ TableName: env.table(), Key: keys.driver(key), ConsistentRead: true }));
-    const item = got.Item as (DriverItem & { dispatchedAt?: string; boundFrom?: string }) | undefined;
-    if (item?.loadId) out.push({ ...item, key });
+    const record = await getDriver(key);
+    if (record) out.push(record);
   }
   return out;
 }
 
-// Points the sender's primary key (their BSUID) at a load, so payload-less messages such as a
-// location pin route to it. Written only when it would change something.
-export async function bindPrimary(candidateKeys: string[], loadId: string, dispatchedFrom: string, address: Address, dispatchedAt: string): Promise<boolean> {
-  const primary = candidateKeys[0];
-  if (!primary || primary === dispatchedFrom) return false;
-  const [current] = await driverRecords([primary]);
-  if (current?.loadId === loadId) return false;
-  await ddb.send(
-    new PutCommand({
-      TableName: env.table(),
-      Item: { ...keys.driver(primary), loadId, address, dispatchedAt, boundFrom: dispatchedFrom, boundAt: new Date().toISOString() },
-    }),
-  );
-  return true;
-}
-
 // The load a payload-less message belongs to: the most recently dispatched load across every key
-// the sender is known by (their BSUID and the phone number Meta sent with it).
+// the sender is known by. Dispatch supersedes a driver's previous load, so this is their live one.
 export async function resolveActiveLoad(candidateKeys: string[]): Promise<{ loadId: string; key: string } | null> {
   const records = await driverRecords(candidateKeys);
   const latest = records.sort((a, b) => (b.dispatchedAt ?? "").localeCompare(a.dispatchedAt ?? ""))[0];
@@ -83,15 +81,61 @@ export async function resolveActiveLoad(candidateKeys: string[]): Promise<{ load
 }
 
 // A button or Flow names its load; the sender must be the driver it was dispatched to, either by
-// the same key or through a BSUID previously bound from that key.
+// the same key or through a BSUID bound from that key.
 export async function ownsLoad(candidateKeys: string[], load: Pick<LoadItem, "driverKey">): Promise<boolean> {
   if (candidateKeys.includes(load.driverKey)) return true;
   const records = await driverRecords(candidateKeys);
   return records.some((r) => r.boundFrom === load.driverKey);
 }
 
-export function toState(item: LoadItem): LoadState {
-  return { loadId: item.loadId, nonce: item.nonce, phase: item.phase, version: item.version, arrived: item.arrived, released: item.released, bol: item.bol ?? null };
+// Points the sender's BSUID at a load, but only the driver's live load: a tap on an older
+// message never re-routes their pins. Returns true when it wrote something.
+export async function bindPrimary(candidateKeys: string[], load: Pick<LoadItem, "loadId" | "driverKey">): Promise<boolean> {
+  const primary = candidateKeys[0];
+  if (!primary || primary === load.driverKey) return false;
+  const dispatched = await getDriver(load.driverKey);
+  if (!dispatched || dispatched.loadId !== load.loadId) return false;
+  const current = await getDriver(primary);
+  if (current?.loadId === load.loadId && current.boundFrom === load.driverKey) return false;
+  await ddb.send(
+    new PutCommand({
+      TableName: env.table(),
+      Item: {
+        ...keys.driver(primary),
+        loadId: load.loadId,
+        address: dispatched.address,
+        dispatchedAt: dispatched.dispatchedAt,
+        language: dispatched.language,
+        boundFrom: load.driverKey,
+        boundAt: new Date().toISOString(),
+      },
+    }),
+  );
+  await ddb.send(
+    new UpdateCommand({ TableName: env.table(), Key: keys.driver(load.driverKey), UpdateExpression: "SET boundBsuid = :b", ExpressionAttributeValues: { ":b": primary } }),
+  );
+  return true;
 }
 
-export type { PinRecord };
+export async function setOptOut(driverKeys: string[], optedOut: boolean): Promise<void> {
+  for (const key of driverKeys) {
+    if (optedOut) {
+      await ddb.send(new PutCommand({ TableName: env.table(), Item: { ...keys.optOut(key), at: new Date().toISOString() } }));
+    } else {
+      await ddb.send(new DeleteCommand({ TableName: env.table(), Key: keys.optOut(key) }));
+    }
+  }
+}
+
+export function toState(item: LoadItem): LoadState {
+  return {
+    loadId: item.loadId,
+    nonce: item.nonce,
+    phase: item.phase,
+    version: item.version,
+    arrived: item.arrived,
+    released: item.released,
+    bol: item.bol ?? null,
+    flowSends: item.flowSends ?? 0,
+  };
+}

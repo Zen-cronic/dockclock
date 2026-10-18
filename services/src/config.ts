@@ -1,4 +1,4 @@
-import type { ChannelConfig } from "@dockclock/whatsapp";
+import { normalizeE164, type ChannelConfig } from "@dockclock/whatsapp";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -19,7 +19,18 @@ export const env = {
   flowMode: () => (process.env.FLOW_MODE === "published" ? "published" : "draft"),
   driverReplies: () => process.env.DRIVER_REPLIES === "on",
   // Comma-separated E.164 numbers or BSUIDs that may receive driver messages. Empty means nobody.
-  driverAllowlist: () => new Set((process.env.DRIVER_ALLOWLIST ?? "").split(",").map((s) => s.trim()).filter(Boolean)),
+  // Phone numbers are normalized so "+1 416-555-0100" and "14165550100" are the same entry.
+  driverAllowlist: () =>
+    new Set(
+      (process.env.DRIVER_ALLOWLIST ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => (/^[+\d\s().-]+$/.test(s) ? (normalizeE164(s) ?? s) : s)),
+    ),
+  dispatchEmail: () => required("DISPATCH_EMAIL"),
+  fromEmail: () => required("FROM_EMAIL"),
+  configurationSet: () => required("SES_CONFIGURATION_SET"),
   channel: (): ChannelConfig => ({
     account: required("ACCOUNT_ID"),
     topicArn: required("TOPIC_ARN"),

@@ -1,39 +1,58 @@
 import { SendWhatsAppMessageCommand, SocialMessagingClient } from "@aws-sdk/client-socialmessaging";
-import { PutCommand } from "@aws-sdk/lib-dynamodb";
-import { encodeButtonPayload, encodeFlowToken } from "@dockclock/whatsapp";
+import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { encodeButtonPayload, encodeFlowToken, normalizeE164 } from "@dockclock/whatsapp";
 import { COPY, type Language } from "./messages.js";
 import { ddb, type Address } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
 
-const messaging = new SocialMessagingClient({ maxAttempts: 1 });
-type Message = Record<string, unknown>;
+// Retries and timeouts keep one slow call from stalling a batch. Driver prompts are safe to
+// receive twice (a second location request or button changes nothing), so a retried send is
+// preferable to a lost one; the outbox in ingest.ts replays anything that still fails.
+const messaging = new SocialMessagingClient({ maxAttempts: 3, requestHandler: { requestTimeout: 5000, connectionTimeout: 2000 } });
+
+// Message bodies without a recipient: send() adds the recipient from the same address it checked.
+type Body = Record<string, unknown>;
+
+export interface Target {
+  address: Address;
+  driverKey: string;
+}
+
+export function canonical(address: Address): Address {
+  if (address.kind === "bsuid") return address;
+  const e164 = normalizeE164(address.e164);
+  if (!e164) throw new Error("invalid phone number");
+  return { kind: "phone", e164 };
+}
 
 export function addressValue(address: Address): string {
   return address.kind === "bsuid" ? address.id : address.e164;
 }
 
-function base(address: Address): Message {
-  return { messaging_product: "whatsapp", recipient_type: "individual", ...(address.kind === "bsuid" ? { recipient: address.id } : { to: address.e164 }) };
+function recipient(address: Address): Body {
+  return {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    ...(address.kind === "bsuid" ? { recipient: address.id } : { to: address.e164 }),
+  };
 }
 
-export function textMessage(address: Address, body: string): Message {
-  return { ...base(address), type: "text", text: { preview_url: false, body } };
+export function textMessage(body: string): Body {
+  return { type: "text", text: { preview_url: false, body } };
 }
 
-export function locationRequest(address: Address, language: Language, step: "arrived" | "released"): Message {
+export function locationRequest(language: Language, step: "arrived" | "released"): Body {
   const copy = COPY[language];
   return {
-    ...base(address),
     type: "interactive",
     interactive: { type: "location_request_message", body: { text: step === "arrived" ? copy.locationArrived : copy.locationReleased }, action: { name: "send_location" } },
   };
 }
 
-export function releaseButtons(address: Address, language: Language, loadId: string, nonce: string, facility: string, time: string): Message {
+export function releaseButtons(language: Language, loadId: string, nonce: string, facility: string, time: string): Body {
   const copy = COPY[language];
   return {
-    ...base(address),
     type: "interactive",
     interactive: {
       type: "button",
@@ -54,10 +73,9 @@ export interface ReleaseFlowData {
   releasedHint: string;
 }
 
-export function releaseFlowMessage(address: Address, language: Language, loadId: string, nonce: string, facility: string, data: ReleaseFlowData): Message {
+export function releaseFlowMessage(language: Language, loadId: string, nonce: string, facility: string, data: ReleaseFlowData): Body {
   const copy = COPY[language];
   return {
-    ...base(address),
     type: "interactive",
     interactive: {
       type: "flow",
@@ -83,7 +101,7 @@ export function releaseFlowMessage(address: Address, language: Language, loadId:
 
 export const TEMPLATE_DISPATCH = "dockclock_load_dispatch";
 
-export function dispatchTemplate(address: Address, language: Language, loadId: string, nonce: string, facility: string, appointment: string): Message {
+export function dispatchTemplate(language: Language, loadId: string, nonce: string, facility: string, appointment: string): Body {
   const quickReply = (index: number, action: "arrived" | "dispatch") => ({
     type: "button",
     sub_type: "quick_reply",
@@ -91,7 +109,6 @@ export function dispatchTemplate(address: Address, language: Language, loadId: s
     parameters: [{ type: "payload", payload: encodeButtonPayload({ action, loadId, nonce }) }],
   });
   return {
-    ...base(address),
     type: "template",
     template: {
       name: TEMPLATE_DISPATCH,
@@ -105,30 +122,46 @@ export function dispatchTemplate(address: Address, language: Language, loadId: s
   };
 }
 
-// Sends one message, and records End User Messaging's message id against the load so delivery and
-// read receipts join back to it. Never retried blindly: a send that may have been accepted is
-// surfaced for review instead of duplicated.
-export async function send(address: Address, message: Message, purpose: string, loadId: string): Promise<string | null> {
+export async function isOptedOut(driverKey: string): Promise<boolean> {
+  const out = await ddb.send(new GetCommand({ TableName: env.table(), Key: keys.optOut(driverKey), ConsistentRead: true }));
+  return out.Item !== undefined;
+}
+
+// Sends one message to one driver. Checks, in order: replies enabled, the allowlist, and the
+// driver's opt-out; the recipient is then taken from the very address that passed those checks.
+// The send is recorded under End User Messaging's message id so receipts join back to the load.
+export async function send(target: Target, body: Body, purpose: string, loadId: string, options: { ignoreOptOut?: boolean } = {}): Promise<string | null> {
   if (!env.driverReplies()) {
     log("send_skipped", { purpose, loadId, reason: "DRIVER_REPLIES off" });
     return null;
   }
+  const address = canonical(target.address);
   if (!env.driverAllowlist().has(addressValue(address))) {
     log("send_blocked", { purpose, loadId, reason: "recipient not on DRIVER_ALLOWLIST", recipientKind: address.kind });
+    return null;
+  }
+  if (!options.ignoreOptOut && (await isOptedOut(target.driverKey))) {
+    log("send_blocked", { purpose, loadId, reason: "driver opted out" });
     return null;
   }
   const out = await messaging.send(
     new SendWhatsAppMessageCommand({
       originationPhoneNumberId: env.originationPhoneId(),
       metaApiVersion: env.metaApiVersion(),
-      message: Buffer.from(JSON.stringify(message)),
+      message: Buffer.from(JSON.stringify({ ...recipient(address), ...body })),
     }),
   );
   const messageId = out.messageId ?? null;
   log("send_accepted", { purpose, loadId, messageId });
   if (messageId) {
+    // Merge, never replace: a status webhook may already have written delivery fields.
     await ddb.send(
-      new PutCommand({ TableName: env.table(), Item: { ...keys.receipt(messageId), loadId, purpose, acceptedAt: new Date().toISOString() } }),
+      new UpdateCommand({
+        TableName: env.table(),
+        Key: keys.receipt(messageId),
+        UpdateExpression: "SET loadId = :l, purpose = :p, acceptedAt = if_not_exists(acceptedAt, :a)",
+        ExpressionAttributeValues: { ":l": loadId, ":p": purpose, ":a": new Date().toISOString() },
+      }),
     );
   }
   return messageId;

@@ -1,12 +1,14 @@
 import { CopyObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { clauseById, evaluate } from "@dockclock/clause-engine";
 import {
   buildPack,
   corroborate,
   facilityById,
+  isoToLocalClock,
   KmsSigner,
   localClockToIso,
+  normalizeClock,
   packDigest,
   sealPack,
   toLoadEvidence,
@@ -27,16 +29,22 @@ function pinEvent(kind: PinEvent["kind"], pin: PinRecord | null, load: LoadItem)
 }
 
 // Paperwork times are wall-clock at the facility; each is pinned to the day of the matching pin.
+// A time is "edited" only if it differs from the value the Flow pre-filled from that pin.
 function bolCapture(bol: BolRecord | null, load: LoadItem, timeZone: string): BolCapture | null {
   if (!bol) return null;
-  const firstHash = bol.photos.find((p) => p.sha256)?.sha256 ?? null;
+  const prefilled = (pinAt: string | undefined) => (pinAt ? isoToLocalClock(pinAt, timeZone) : null);
   return {
     channel: load.channel,
     messageId: bol.messageId,
     serverAt: bol.serverAt,
     cameraOnly: true,
-    mediaSha256: bol.media === "hashed" ? firstHash : null,
-    signed: bol.consignee !== null,
+    pageSha256s: bol.photos.map((p) => p.sha256 ?? null),
+    timesEdited: {
+      in: normalizeClock(bol.inTime) !== prefilled(load.arrived?.serverAt),
+      out: normalizeClock(bol.outTime) !== prefilled(load.released?.serverAt),
+    },
+    // Only the receiver-signed box counts as a signature, never text typed into a name field.
+    signed: bol.receiverSigned === true,
     checkIn: localClockToIso(bol.inTime, load.arrived?.serverAt ?? bol.serverAt, timeZone),
     checkOut: localClockToIso(bol.outTime, load.released?.serverAt ?? bol.serverAt, timeZone),
     confirmedByDriver: true,
@@ -68,10 +76,19 @@ export interface SealOutput {
 }
 
 // Evaluates the load against its clause, signs the pack with the KMS key, and writes it to the
-// Object Lock bucket so it cannot be changed or deleted during the retention window.
+// Object Lock bucket so it cannot be changed or deleted during the retention window. Sealing is
+// once per load: a retried or redriven execution returns the pack that already exists.
 export async function handler(input: { loadId: string }): Promise<SealOutput> {
   const load = await getLoad(input.loadId);
   if (!load) throw new Error(`load ${input.loadId} missing`);
+  if (load.sealedPackId) {
+    const existing = await ddb.send(new GetCommand({ TableName: env.table(), Key: keys.pack(load.loadId, load.sealedPackId) }));
+    const item = existing.Item as (SealOutput & { s3Key: string }) | undefined;
+    if (item) {
+      log("pack_already_sealed", { loadId: load.loadId, packId: load.sealedPackId });
+      return { packId: load.sealedPackId, s3Key: item.s3Key, digest: item.digest, verdict: item.verdict, confidence: item.confidence };
+    }
+  }
   const sealedAt = new Date().toISOString();
   const record = toRecord(load);
   const evaluation = evaluate(toLoadEvidence(record, sealedAt), clauseById(load.clauseId));
@@ -116,8 +133,10 @@ export async function handler(input: { loadId: string }): Promise<SealOutput> {
     new UpdateCommand({
       TableName: env.table(),
       Key: keys.load(load.loadId),
-      UpdateExpression: "SET sealedPackId = :p, verdict = :v",
-      ExpressionAttributeValues: { ":p": pack.packId, ":v": evaluation.verdict },
+      // The load becomes terminal here, so later taps and Flows are refused instead of "saved".
+      UpdateExpression: "SET sealedPackId = :p, verdict = :v, phase = :s, sealedAt = :t",
+      ConditionExpression: "attribute_not_exists(sealedPackId)",
+      ExpressionAttributeValues: { ":p": pack.packId, ":v": evaluation.verdict, ":s": "sealed", ":t": sealedAt },
     }),
   );
   log("pack_sealed", { loadId: load.loadId, packId: pack.packId, verdict: evaluation.verdict, confidence: corroboration.confidence, digest });
