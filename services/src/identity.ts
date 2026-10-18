@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
-import type { Sender } from "@dockclock/whatsapp";
+import type { InboundEvent, Sender } from "@dockclock/whatsapp";
+import type { Address } from "./store.js";
 import { env } from "./config.js";
 
 const secrets = new SecretsManagerClient({});
@@ -37,4 +38,11 @@ export async function driverKeys(sender: Sender): Promise<string[]> {
   const out = [driverKeyWith(key, sender)];
   if (sender.kind === "bsuid" && sender.e164) out.push(driverKeyWith(key, { kind: "phone", e164: sender.e164 }));
   return out;
+}
+
+// Where to answer a sender: the phone number when WhatsApp reports one, else the business-scoped id.
+export function replyAddress(event: InboundEvent): Address {
+  const sender = event.sender;
+  if (sender.kind === "phone") return { kind: "phone", e164: sender.e164 };
+  return sender.e164 ? { kind: "phone", e164: sender.e164 } : { kind: "bsuid", id: sender.id };
 }

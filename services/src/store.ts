@@ -36,6 +36,8 @@ export interface LoadItem extends LoadState {
   outcome?: string;
   synthetic?: boolean;
   askDispatcher?: boolean;
+  // A judge try-it load: the driver is also the dispatcher who approves the claim.
+  demo?: boolean;
   notice?: NoticeItem;
   // Set when the workflow asked for a clearer photo: the message id of the unreadable one.
   retakeOf?: string;

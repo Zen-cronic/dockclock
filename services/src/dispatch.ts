@@ -38,6 +38,8 @@ export interface DispatchInput {
   synthetic?: boolean;
   // A test load that should still ask the real dispatcher to approve its claim.
   askDispatcher?: boolean;
+  // A judge try-it load (see demo.ts).
+  demo?: boolean;
 }
 
 export interface DispatchOutput {
@@ -182,6 +184,7 @@ export async function handler(input: DispatchInput): Promise<DispatchOutput> {
               outbox: {},
               synthetic: input.synthetic === true,
               ...(input.askDispatcher === true ? { askDispatcher: true } : {}),
+              ...(input.demo === true ? { demo: true } : {}),
               createdAt,
             },
             ConditionExpression: "attribute_not_exists(pk)",

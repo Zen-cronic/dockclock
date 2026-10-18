@@ -16,12 +16,13 @@ import {
 } from "@dockclock/whatsapp";
 import { applyEvent, failoverEffect, isTerminal, type Effect } from "./lifecycle.js";
 import { COPY, formatAppointment, type Language } from "./messages.js";
-import { bindPrimary, ddb, getDriver, getLoad, ownsLoad, resolveActiveLoad, setOptOut, toState, type Address, type LoadItem, type OutboxEntry } from "./store.js";
-import { driverKeys } from "./identity.js";
+import { bindPrimary, ddb, getDriver, getLoad, ownsLoad, resolveActiveLoad, setOptOut, toState, type LoadItem, type OutboxEntry } from "./store.js";
+import { driverKeys, replyAddress } from "./identity.js";
 import { locationRequest, releaseButtons, releaseFlowMessage, send, sendDispatchPrompt, sendRcs, textMessage, type Body, type Target } from "./sender.js";
 import { rcsBolRequest, rcsLocationRequest, rcsReleaseOffer, rcsText } from "./rcs.js";
 import { notifyDispatch } from "./escalate.js";
 import { handleApprovalTap, isApprovalTap } from "./approval.js";
+import { demoLanguage, handleDemo } from "./demo.js";
 import { finishBol } from "./media.js";
 import { reconcile } from "./tokens.js";
 import { env, log } from "./config.js";
@@ -220,12 +221,6 @@ function namedLoadId(event: InboundEvent): string | null {
   return null;
 }
 
-function replyAddress(event: InboundEvent): Address {
-  const sender = event.sender;
-  if (sender.kind === "phone") return { kind: "phone", e164: sender.e164 };
-  return sender.e164 ? { kind: "phone", e164: sender.e164 } : { kind: "bsuid", id: sender.id };
-}
-
 // STOP and START are honoured for every key the driver is known by, before any load routing.
 async function handleOptOut(event: InboundEvent, candidateKeys: string[]): Promise<boolean> {
   if (event.body.type !== "text") return false;
@@ -252,10 +247,16 @@ async function handleOptOut(event: InboundEvent, candidateKeys: string[]): Promi
 async function onInbound(event: InboundEvent): Promise<void> {
   const candidateKeys = await driverKeys(event.sender);
   if (await handleOptOut(event, candidateKeys)) return;
+  // DEMO starts the judge try-it path, whatever load the sender may have open.
+  const demo = demoLanguage(event);
+  if (demo) {
+    await handleDemo(event, demo, candidateKeys);
+    return;
+  }
   // Approve and Hold come from the dispatcher, not the driver, and act on sealed loads.
   const tap = event.body.type === "button" ? parseButtonPayload(event.body.payload) : null;
   if (isApprovalTap(tap)) {
-    await handleApprovalTap(event, tap);
+    await handleApprovalTap(event, tap, candidateKeys);
     return;
   }
   const named = namedLoadId(event);

@@ -62,7 +62,8 @@ export async function requestApproval(input: { loadId: string; token: string; am
       Item: { ...keys.approvalRequest(load.loadId), token: input.token, nonce, requestedAt: new Date().toISOString() } satisfies ApprovalRequest & Record<string, unknown>,
     }),
   );
-  const target = await dispatcherTarget(env.dispatcherPhone());
+  // On a judge demo load the judge is the dispatcher too.
+  const target = load.demo ? { address: load.address, driverKey: load.driverKey } : await dispatcherTarget(env.dispatcherPhone());
   await send(target, approvalTemplate(load.loadId, nonce, summary, `$${input.amountUsd.toFixed(2)}`), "dispatch_approval", load.loadId);
   log("approval_requested", { loadId: load.loadId, confidence: pack?.confidence, photo });
 }
@@ -78,13 +79,17 @@ export function isApprovalTap(payload: ButtonPayload | null): payload is ButtonP
 
 // A dispatcher's Approve or Hold tap. Accepted only from the dispatcher's number, with the nonce of
 // the open request, and only once; it then resumes the waiting workflow.
-export async function handleApprovalTap(event: InboundEvent, payload: ButtonPayload & { action: "approve" | "hold" }): Promise<void> {
-  // WhatsApp may report a business-scoped id; the phone number, when present, is what we match.
+export async function handleApprovalTap(event: InboundEvent, payload: ButtonPayload & { action: "approve" | "hold" }, candidateKeys: string[] = []): Promise<void> {
+  // WhatsApp may report a business-scoped id; the phone number, when present, is what we match. On
+  // a judge demo load the approver is the load's own driver, matched by driver key.
   const from = event.sender.e164;
+  const load = await getLoad(payload.loadId);
+  const demoApprover = load?.demo === true && candidateKeys.includes(load.driverKey);
   const reply = async (text: string) => {
-    if (from) await send(await dispatcherTarget(from), textMessage(text), "approval_reply", payload.loadId);
+    if (demoApprover && load) await send({ address: load.address, driverKey: load.driverKey }, textMessage(text), "approval_reply", payload.loadId);
+    else if (from) await send(await dispatcherTarget(from), textMessage(text), "approval_reply", payload.loadId);
   };
-  if (!from || from !== env.dispatcherPhone()) {
+  if (!demoApprover && (!from || from !== env.dispatcherPhone())) {
     log("approval_rejected", { loadId: payload.loadId, reason: "not the dispatcher" });
     return;
   }

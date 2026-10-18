@@ -28,10 +28,10 @@ function tap(action: "approve" | "hold", nonce = "nonce01", e164: string | null 
   return [event, parseButtonPayload(payload)];
 }
 
-async function run(action: "approve" | "hold", nonce?: string, e164?: string | null) {
+async function run(action: "approve" | "hold", nonce?: string, e164?: string | null, candidateKeys: string[] = []) {
   const [event, payload] = tap(action, nonce, e164);
   if (!isApprovalTap(payload)) throw new Error("not an approval tap");
-  await handleApprovalTap(event, payload);
+  await handleApprovalTap(event, payload, candidateKeys);
 }
 
 describe("dispatcher approval", () => {
@@ -101,6 +101,16 @@ describe("dispatcher approval", () => {
     await run("approve", "stale01");
     expect(sfn.calls()).toHaveLength(0);
     expect(approval).toBeUndefined();
+  });
+
+  it("on a judge demo load, takes the approval from the load's own driver and nobody else", async () => {
+    dynamo.on(GetCommand, { Key: { pk: "LOAD#4471", sk: "META" } }).resolves({
+      Item: { loadId: "4471", demo: true, driverKey: "phone:judge", address: { kind: "phone", e164: "+15550100001" } },
+    });
+    await run("approve", "nonce01", "+15550100002", ["phone:stranger"]);
+    expect(sfn.calls()).toHaveLength(0);
+    await run("approve", "nonce01", "+15550100001", ["phone:judge"]);
+    expect(sfn.commandCalls(SendTaskSuccessCommand)).toHaveLength(1);
   });
 
   it("acts once: a second tap after the decision changes nothing", async () => {

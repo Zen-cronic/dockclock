@@ -40,6 +40,7 @@ export const env = {
   fromEmail: () => required("FROM_EMAIL"),
   claimsFromEmail: () => required("CLAIMS_FROM_EMAIL"),
   counterpartyEmail: (role: "broker" | "shipper") => required(role === "broker" ? "COUNTERPARTY_EMAIL_BROKER" : "COUNTERPARTY_EMAIL_SHIPPER"),
+  demoDailyLimit: () => Number(process.env.DEMO_DAILY_LIMIT ?? "40"),
   scheduleGroup: () => required("NOTICE_SCHEDULE_GROUP"),
   schedulerRoleArn: () => required("NOTICE_SCHEDULER_ROLE_ARN"),
   configurationSet: () => required("SES_CONFIGURATION_SET"),

@@ -89,7 +89,10 @@ export class MessagingStack extends Stack {
     const sendWhatsApp = new iam.PolicyStatement({ actions: ["social-messaging:SendWhatsAppMessage"], resources: [phoneArn] });
     const taskResponse = new iam.PolicyStatement({ actions: ["states:SendTaskSuccess", "states:SendTaskFailure"], resources: [stateMachineArn] });
 
-    const ingest = fn("Ingest", "ingest.ts", channelEnv);
+    // Ingest also starts judge demo loads (DEMO), so it can start and supersede executions.
+    const ingest = fn("Ingest", "ingest.ts", { ...channelEnv, STATE_MACHINE_ARN: stateMachineArn, DEMO_DAILY_LIMIT: "40" });
+    ingest.addToRolePolicy(new iam.PolicyStatement({ actions: ["states:StartExecution"], resources: [stateMachineArn] }));
+    ingest.addToRolePolicy(new iam.PolicyStatement({ actions: ["states:StopExecution"], resources: [`arn:aws:states:${config.region}:${config.account}:execution:${STATE_MACHINE_NAME}:*`] }));
     core.table.grantReadWriteData(ingest);
     core.identitySecret.grantRead(ingest);
     ingest.addToRolePolicy(taskResponse);
@@ -126,6 +129,8 @@ export class MessagingStack extends Stack {
     dispatch.addToRolePolicy(sendWhatsApp);
     if (rcs) dispatch.addToRolePolicy(rcs.sendRcs);
     dispatch.addToRolePolicy(new iam.PolicyStatement({ actions: ["states:StartExecution"], resources: [stateMachineArn] }));
+    // Superseding a driver's previous load stops its execution.
+    dispatch.addToRolePolicy(new iam.PolicyStatement({ actions: ["states:StopExecution"], resources: [`arn:aws:states:${config.region}:${config.account}:execution:${STATE_MACHINE_NAME}:*`] }));
 
     // Lifecycle: wait for the Arrived pin, the Released pin and the bill-of-lading Flow, then seal.
     const waitFor = (step: "arrived" | "released" | "bol" | "retake", timeout: sfn.Timeout) =>
@@ -299,18 +304,41 @@ export class MessagingStack extends Stack {
       errors: ["States.ALL"],
       resultPath: "$.approvalError",
     });
+    // The driver's thread hears the contract's decision after sealing and again once the claim is
+    // filed; a failed message never changes the load's path.
+    const outcomeFn = fn("TellOutcome", "outcome.ts", channelEnv);
+    core.table.grantReadData(outcomeFn);
+    core.identitySecret.grantRead(outcomeFn);
+    outcomeFn.addToRolePolicy(sendWhatsApp);
+    if (rcs) outcomeFn.addToRolePolicy(rcs.sendRcs);
+    const tell = (id: string, payload: Record<string, unknown>) =>
+      new tasks.LambdaInvoke(this, id, {
+        lambdaFunction: outcomeFn,
+        payload: sfn.TaskInput.fromObject({ loadId: sfn.JsonPath.stringAt("$.loadId"), ...payload }),
+        resultPath: sfn.JsonPath.DISCARD,
+      });
+    const claimFiled = new sfn.Succeed(this, "Claim filed");
+    const tellFiled = tell("Tell the driver the claim was filed", { kind: "filed" });
+    tellFiled.addCatch(claimFiled, { errors: ["States.ALL"], resultPath: "$.tellError" });
+    tellFiled.next(claimFiled);
     requestApproval.next(fileClaim).next(checkClaim).next(
       new sfn.Choice(this, "Claim sent?")
         // A selector on a missing field fails uncatchably, so presence is checked in the condition.
-        .when(sfn.Condition.and(sfn.Condition.isPresent("$.claim.Item.status.S"), sfn.Condition.stringEquals("$.claim.Item.status.S", "sent")), new sfn.Succeed(this, "Claim filed"))
+        .when(sfn.Condition.and(sfn.Condition.isPresent("$.claim.Item.status.S"), sfn.Condition.stringEquals("$.claim.Item.status.S", "sent")), tellFiled)
         .otherwise(notFiled),
     );
-    sealPack.next(
-      new sfn.Choice(this, "Verdict?")
-        .when(sfn.Condition.stringEquals("$.seal.pack.verdict", "BILLABLE"), requestApproval)
-        .when(sfn.Condition.stringEquals("$.seal.pack.verdict", "NEEDS_HUMAN"), notify("Tell dispatch it needs a person", "sealed as NEEDS_HUMAN; review the pack before any claim").next(new sfn.Succeed(this, "Needs a person")))
-        .otherwise(new sfn.Succeed(this, "Not billable")),
-    );
+    const verdict = new sfn.Choice(this, "Verdict?")
+      .when(sfn.Condition.stringEquals("$.seal.pack.verdict", "BILLABLE"), requestApproval)
+      .when(sfn.Condition.stringEquals("$.seal.pack.verdict", "NEEDS_HUMAN"), notify("Tell dispatch it needs a person", "sealed as NEEDS_HUMAN; review the pack before any claim").next(new sfn.Succeed(this, "Needs a person")))
+      .otherwise(new sfn.Succeed(this, "Not billable"));
+    const tellVerdict = tell("Tell the driver the verdict", {
+      kind: "verdict",
+      verdict: sfn.JsonPath.stringAt("$.seal.pack.verdict"),
+      amountUsd: sfn.JsonPath.numberAt("$.seal.pack.amountUsd"),
+      reasons: sfn.JsonPath.listAt("$.seal.pack.reasons"),
+    });
+    tellVerdict.addCatch(verdict, { errors: ["States.ALL"], resultPath: "$.tellError" });
+    sealPack.next(tellVerdict).next(verdict);
     // Missing paperwork never holds a load open: after six hours the pack is sealed without it,
     // and the clause engine routes the claim to a person.
     // The arrival wait is measured from the appointment (dispatch passes the seconds), so a load

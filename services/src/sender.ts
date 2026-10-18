@@ -131,17 +131,23 @@ export async function isOptedOut(driverKey: string): Promise<boolean> {
   return out.Item !== undefined;
 }
 
+// A judge who texted DEMO is enrolled for 24 hours (see demo.ts).
+export async function isDemoEnrolled(driverKey: string): Promise<boolean> {
+  const out = await ddb.send(new GetCommand({ TableName: env.table(), Key: keys.demoUser(driverKey) }));
+  return typeof out.Item?.expiresAt === "string" && Date.parse(out.Item.expiresAt) > Date.now();
+}
+
 type SendOptions = { ignoreOptOut?: boolean };
 
 // The gates every driver message passes, whatever the channel, in order: replies enabled, the
-// allowlist, and the driver's opt-out. Returns the canonical address that passed, or null.
+// allowlist (or a judge's 24-hour demo enrolment), and the driver's opt-out. Returns the canonical address that passed, or null.
 async function cleared(target: Target, purpose: string, loadId: string, options: SendOptions): Promise<Address | null> {
   if (!env.driverReplies()) {
     log("send_skipped", { purpose, loadId, reason: "DRIVER_REPLIES off" });
     return null;
   }
   const address = canonical(target.address);
-  if (!env.driverAllowlist().has(addressValue(address))) {
+  if (!env.driverAllowlist().has(addressValue(address)) && !(await isDemoEnrolled(target.driverKey))) {
     log("send_blocked", { purpose, loadId, reason: "recipient not on DRIVER_ALLOWLIST", recipientKind: address.kind });
     return null;
   }
