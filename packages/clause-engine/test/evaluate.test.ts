@@ -5,6 +5,7 @@ import {
   buildFixtures,
   clauseById,
   CLAUSES,
+  JUDGE_DEMO_CLAUSE,
   evaluate,
   scorecard,
   type FixtureLoad,
@@ -98,3 +99,50 @@ describe("daily cap", () => {
   });
 });
 
+
+// The judge try-it path's clause: a positive case, the ordinary early-release control, one changed
+// condition (a typed time that disagrees with the pins) and the cap. Amounts are computed here from
+// the clause, not hard-coded, so the README's numbers are checked separately against the same clause.
+describe("judge demo clause", () => {
+  const clause = clauseById(JUDGE_DEMO_CLAUSE.id);
+  const at = (minutes: number) => new Date(Date.parse("2026-10-18T21:00:00.000Z") + minutes * 60_000).toISOString();
+  const demoLoad = (releasedAfter: number, typedOutShift = 0) => ({
+    loadId: "DEMO-test",
+    clauseId: clause.id,
+    facility: "judge-demo",
+    appointmentAt: at(0),
+    arrived: { at: at(0), insideGeofence: true },
+    released: { at: at(releasedAfter), insideGeofence: true },
+    bol: { signed: false, checkIn: at(0), checkOut: at(releasedAfter + typedOutShift) },
+    status214: false,
+    noticeSentAt: at(1),
+    shipperConfirmed: false,
+    evaluatedAt: at(releasedAfter + 2),
+  });
+
+  it("bills the minutes past free time at the clause's rate", () => {
+    const result = evaluate(demoLoad(15), clause);
+    expect(result.verdict).toBe("BILLABLE");
+    expect(result.billableMinutes).toBe(15 - clause.freeTimeMinutes);
+    expect(result.amountUsd).toBe(((15 - clause.freeTimeMinutes) / 60) * clause.ratePerHourUsd);
+  });
+
+  it("explains an early release instead of repairing it", () => {
+    const result = evaluate(demoLoad(clause.freeTimeMinutes - 1), clause);
+    expect(result).toMatchObject({ verdict: "NOT_BILLABLE", reasons: ["WITHIN_FREE_TIME"], amountUsd: 0 });
+  });
+
+  it("holds the load for a person when a typed time disagrees with the pins", () => {
+    const result = evaluate(demoLoad(15, 20), clause);
+    expect(result).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["BOL_TIMESTAMP_CONFLICT"] });
+  });
+
+  it("stops at the cap", () => {
+    const result = evaluate(demoLoad(120), clause);
+    expect(result).toMatchObject({ verdict: "BILLABLE", amountUsd: clause.capUsdPerOccurrence, reasons: ["CAP_APPLIED"] });
+  });
+
+  it("is not one of the scored clauses", () => {
+    expect(CLAUSES.map((c) => c.id)).not.toContain(JUDGE_DEMO_CLAUSE.id);
+  });
+});
