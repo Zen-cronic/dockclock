@@ -2,13 +2,30 @@
 // exact instant using the date of the nearest server-timestamped pin, so the clause engine can
 // compare them with WhatsApp's own timestamps.
 
-const HHMM = /^([01]?\d|2[0-3])[:.h ]?([0-5]\d)$/i;
+// 24-hour "13:52", "1352", "13h52", "13:52:00", and 12-hour "1:52 PM", "5:18pm", "1:52 p.m.".
+const CLOCK = /^(\d{1,2})[:.h]?([0-5]\d)(?::[0-5]\d)?(a|p|am|pm|a\.m\.|p\.m\.)?$/;
 
 export function parseClock(value: string | null): { hour: number; minute: number } | null {
   if (!value) return null;
-  const match = HHMM.exec(value.trim().replace(/\s+/g, ""));
+  const match = CLOCK.exec(value.trim().toLowerCase().replace(/\s+/g, ""));
   if (!match) return null;
-  return { hour: Number(match[1]), minute: Number(match[2]) };
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3]?.[0];
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    if (meridiem === "a" && hour === 12) hour = 0;
+    if (meridiem === "p" && hour !== 12) hour += 12;
+  } else if (hour > 23) {
+    return null;
+  }
+  return { hour, minute };
+}
+
+// The canonical "HH:MM" of a clock string, used to tell whether a driver changed a pre-filled time.
+export function normalizeClock(value: string | null): string | null {
+  const parsed = parseClock(value);
+  return parsed ? `${String(parsed.hour).padStart(2, "0")}:${String(parsed.minute).padStart(2, "0")}` : null;
 }
 
 function zoneParts(instant: Date, timeZone: string) {

@@ -13,7 +13,7 @@ export interface EvidencePack {
   events: {
     arrived: { serverAt: string; messageId: string } | null;
     released: { serverAt: string; messageId: string } | null;
-    bol: { serverAt: string; messageId: string; mediaSha256: string | null; cameraOnly: boolean } | null;
+    bol: { serverAt: string; messageId: string; pageSha256s: Array<string | null>; cameraOnly: boolean; timesEdited: { in: boolean; out: boolean } } | null;
     notice: { sentAt: string; deliveredAt: string | null; messageId: string } | null;
   };
   corroboration: Corroboration;
@@ -56,8 +56,9 @@ export function buildPack(
       bol: record.bol && {
         serverAt: record.bol.serverAt,
         messageId: record.bol.messageId,
-        mediaSha256: record.bol.mediaSha256,
+        pageSha256s: record.bol.pageSha256s,
         cameraOnly: record.bol.cameraOnly,
+        timesEdited: record.bol.timesEdited,
       },
       notice: record.notice && { ...record.notice },
     },

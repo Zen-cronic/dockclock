@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { isoToLocalClock, localClockToIso, parseClock } from "../src/index.js";
+import { isoToLocalClock, localClockToIso, normalizeClock, parseClock } from "../src/index.js";
 
 describe("paperwork times", () => {
-  it("parses common clock spellings", () => {
-    for (const v of ["13:52", "1352", "13.52", "13h52", " 13 : 52 "]) expect(parseClock(v)).toEqual({ hour: 13, minute: 52 });
-    for (const v of ["25:00", "abc", "", null]) expect(parseClock(v)).toBeNull();
+  it("parses 24-hour and 12-hour clock spellings drivers actually type", () => {
+    for (const v of ["13:52", "1352", "13.52", "13h52", " 13 : 52 ", "13:52:00", "1:52 PM", "1:52pm", "1:52 p.m.", "1:52P"]) {
+      expect(parseClock(v), v).toEqual({ hour: 13, minute: 52 });
+    }
+    expect(parseClock("12:05 AM")).toEqual({ hour: 0, minute: 5 });
+    expect(parseClock("12:05 PM")).toEqual({ hour: 12, minute: 5 });
+    expect(parseClock("9:07")).toEqual({ hour: 9, minute: 7 });
+    for (const v of ["25:00", "13:52 PM", "0:30 am", "abc", "", null]) expect(parseClock(v), String(v)).toBeNull();
+    expect(normalizeClock("1:52 PM")).toBe("13:52");
   });
 
   it("pins a facility clock time to the pin's day in that zone", () => {

@@ -19,8 +19,11 @@ export interface BolCapture {
   messageId: string;
   serverAt: string;
   cameraOnly: boolean;
-  // SHA-256 of the bytes we downloaded and stored; null when the media could not be retrieved.
-  mediaSha256: string | null;
+  // One entry per page: SHA-256 of the bytes we stored, or null when that page could not be retrieved.
+  pageSha256s: Array<string | null>;
+  // Whether the driver changed each time from the value pre-filled from their pin. An unchanged
+  // value is the pin echoed back, so it cannot corroborate the pin.
+  timesEdited: { in: boolean; out: boolean };
   // Times read from the photo by the model, then confirmed or corrected by the driver.
   signed: boolean;
   checkIn: string | null;
@@ -58,6 +61,8 @@ export type Confidence = "high" | "medium" | "low";
 export interface Signal {
   name: string;
   ok: boolean;
+  // True when the signal comes from a source other than the driver's own pins.
+  independent?: boolean;
   detail: string;
 }
 
@@ -110,34 +115,37 @@ export function corroborate(record: LoadRecord): Corroboration {
   const bol = record.bol;
   if (bol) {
     signals.push({ name: "bol_camera_only", ok: bol.cameraOnly, detail: bol.cameraOnly ? "captured in camera-only Flow" : "uploaded from gallery" });
+    const stored = bol.pageSha256s.filter((h): h is string => h !== null);
     signals.push({
       name: "bol_media_hashed",
-      ok: bol.mediaSha256 !== null,
-      detail: bol.mediaSha256 ? `sha256 ${bol.mediaSha256.slice(0, 12)}… of the stored photo` : "photo could not be downloaded",
+      ok: stored.length > 0 && stored.length === bol.pageSha256s.length,
+      detail:
+        bol.pageSha256s.length === 0
+          ? "no photo submitted"
+          : `${stored.length} of ${bol.pageSha256s.length} pages stored and hashed`,
     });
     signals.push({ name: "bol_confirmed_by_driver", ok: bol.confirmedByDriver, detail: "driver confirmed or corrected extracted times" });
-    const pairs: Array<[string, string | null, PinEvent | null]> = [
-      ["bol_in_matches_arrived_pin", bol.checkIn, record.arrived],
-      ["bol_out_matches_released_pin", bol.checkOut, record.released],
+    const pairs: Array<[string, string | null, PinEvent | null, boolean]> = [
+      ["bol_in_matches_arrived_pin", bol.checkIn, record.arrived, bol.timesEdited.in],
+      ["bol_out_matches_released_pin", bol.checkOut, record.released, bol.timesEdited.out],
     ];
-    for (const [name, written, event] of pairs) {
+    for (const [name, written, event, edited] of pairs) {
       if (written === null || event === null) continue;
       const gap = minutesApart(written, event.serverAt);
-      signals.push({ name, ok: gap <= BOL_TOLERANCE_MINUTES, detail: `${Math.round(gap)} min apart (tolerance ${BOL_TOLERANCE_MINUTES})` });
+      const note = edited ? "entered by the driver from the paperwork" : "pre-filled from the pin and left unchanged, so not independent";
+      signals.push({ name, ok: gap <= BOL_TOLERANCE_MINUTES, independent: edited, detail: `${Math.round(gap)} min apart (tolerance ${BOL_TOLERANCE_MINUTES}); ${note}` });
     }
   }
   if (record.notice) {
     signals.push({ name: "notice_delivered", ok: record.notice.deliveredAt !== null, detail: record.notice.deliveredAt ?? "no delivery event" });
   }
   if (record.shipperConfirmation) {
-    signals.push({ name: "counterparty_confirmed", ok: record.shipperConfirmation.confirmed, detail: `via ${record.shipperConfirmation.channel}` });
+    signals.push({ name: "counterparty_confirmed", ok: record.shipperConfirmation.confirmed, independent: true, detail: `via ${record.shipperConfirmation.channel}` });
   }
 
   const failed = signals.some((s) => !s.ok);
   const pinsPresent = record.arrived !== null && record.released !== null;
-  const independent = signals.some(
-    (s) => s.ok && (s.name.startsWith("bol_in") || s.name.startsWith("bol_out") || s.name === "counterparty_confirmed"),
-  );
+  const independent = signals.some((s) => s.ok && s.independent === true);
   const confidence: Confidence = !pinsPresent || failed ? "low" : independent ? "high" : "medium";
   return { confidence, signals };
 }

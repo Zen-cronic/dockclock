@@ -36,7 +36,8 @@ function record(overrides: Partial<LoadRecord> = {}): LoadRecord {
       messageId: "m-bol",
       serverAt: "2026-10-13T17:21:00.000Z",
       cameraOnly: true,
-      mediaSha256: "ab".repeat(32),
+      pageSha256s: ["ab".repeat(32)],
+      timesEdited: { in: true, out: true },
       signed: true,
       checkIn: "2026-10-13T13:52:00.000Z",
       checkOut: "2026-10-13T17:18:00.000Z",
@@ -84,6 +85,21 @@ describe("corroborate", () => {
 
   it("is medium with pins alone, because a shared pin can be moved", () => {
     expect(corroborate(record({ bol: null })).confidence).toBe("medium");
+  });
+
+  it("is medium, not high, when the BOL times are the pre-filled pin times left unchanged", () => {
+    const echoed = record();
+    if (echoed.bol) echoed.bol.timesEdited = { in: false, out: false };
+    const result = corroborate(echoed);
+    expect(result.confidence).toBe("medium");
+    expect(result.signals.find((s) => s.name === "bol_in_matches_arrived_pin")?.detail).toContain("not independent");
+  });
+
+  it("attests every page and fails when any page is missing", () => {
+    const partial = record();
+    if (partial.bol) partial.bol.pageSha256s = ["ab".repeat(32), null, "cd".repeat(32)];
+    const signal = corroborate(partial).signals.find((s) => s.name === "bol_media_hashed");
+    expect(signal).toMatchObject({ ok: false, detail: "2 of 3 pages stored and hashed" });
   });
 
   it("is low when any signal disagrees", () => {
