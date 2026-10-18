@@ -51,13 +51,18 @@ We'll tell you before you find it. Every line below is traced to a test, a file 
 Today the scorecard measures the clause engine on 24 hand-labelled test loads. Its truth column was written by us from each clause's text, so it is a consistency check, not field data.
 
 ## Try it yourself (judges)
-Send **DEMO** on WhatsApp to the DockClock number given on the Devpost submission page (**DEMO ES** for Spanish, **DEMO FR** for Québécois French). You get a short demo load in which you are both the driver and the dispatcher:
+Send **DEMO** on WhatsApp to the DockClock number given on the Devpost submission page (**DEMO ES** for Spanish, **DEMO FR** for Québécois French). It takes about 10 minutes, most of it the real wait. You are both the driver and the dispatcher:
 1. Tap **Arrived** and share your location. In the demo any location counts; the pin is still recorded with WhatsApp's server timestamp.
-2. Free time is 5 minutes. Wait longer than that; a detention notice goes out by email when free time is about to end, and you are told in the chat.
-3. Tap **Released**, share your location again, and photograph any paper with an in time and an out time written on it.
-4. The contract's verdict arrives in the chat. If it is billable, approve the claim with **Approve claim**. The AgentCore agent files it, and you are told the amount and the evidence pack's digest.
+2. Free time is 5 minutes. Wait longer than that. Shortly after you arrive a detention notice is emailed, and the chat tells you.
+3. Tap **Released**, share your location again, write the two times on a piece of paper and photograph it in the form. Keep the times the form suggests.
+4. The contract's verdict arrives in the chat. If it is billable, tap **Approve claim**. The AgentCore agent files it, and the chat tells you the amount and the evidence pack's digest.
 
-The demo uses a fictional clause (5 minutes free, $60 an hour, $30 cap) that is not part of the scored set. Claim and notice emails go to our own test mailbox, never to you. Each number is limited to 5 demos a day.
+**Change one thing** (send DEMO again to start over):
+- Tap Released before 5 minutes: the chat explains "the wait stayed within free time". Nothing is claimed, and nothing is "repaired".
+- In the form, change the out time by more than 15 minutes: the typed time no longer matches your pin, so the load is held for a person instead of claimed.
+- Send a blurred photo: you are asked once for a clearer one; in the demo the first photo is used if none comes.
+
+**What is real and what is not.** The clause is fictional (5 minutes free, $60 an hour, $30 cap) and is not part of the scored set. The demo yard accepts any location, so the demo does not test the geofence. Claim and notice emails go to our own test mailbox, never to you. The KMS signature proves the recorded messages, times and photo hash have not changed since sealing; it cannot prove where your phone really was. Each number gets 5 demos a day, reset at 00:00 UTC. Your pins and photo are kept as signed evidence for 30 days.
 
 ## Architecture
 ![DockClock architecture](docs/architecture.png)

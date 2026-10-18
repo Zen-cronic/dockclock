@@ -75,7 +75,10 @@ describe("judge demo", () => {
     await handleDemo(text("DEMO"), "en_US", []);
     expect([...items.keys()].some((k) => k.startsWith("DEMOUSER#"))).toBe(true);
     const sends = sentTexts();
-    expect(sends[0].text.body).toContain("You are the truck driver and the dispatcher");
+    const intro: string = sends[0].text.body;
+    for (const disclosure of ["about 10 minutes", "You are the truck driver and the dispatcher", "Free time is 5 minutes", "never to you", "Send DEMO again to start over", "5 a day per number, reset at 00:00 UTC", "30 days"]) {
+      expect(intro).toContain(disclosure);
+    }
     expect(sends[1].template.name).toBe("dockclock_load_dispatch");
     expect(sends.every((s) => s.to === JUDGE)).toBe(true);
     const load = dynamo.commandCalls(TransactWriteCommand)[0]!.args[0].input.TransactItems![0]!.Put!.Item!;
