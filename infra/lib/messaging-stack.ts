@@ -16,6 +16,7 @@ import type { Construct } from "constructs";
 import type { DockClockConfig } from "./config.js";
 import { CONFIGURATION_SET_NAME } from "./email-stack.js";
 import type { CoreStack } from "./core-stack.js";
+import { RCS_MEDIA_PREFIX, RcsChannel } from "./rcs.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const STATE_MACHINE_NAME = "dockclock-load-lifecycle";
@@ -56,7 +57,11 @@ export class MessagingStack extends Stack {
         bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true, externalModules: [], esbuildArgs: { "--conditions": "source" } },
       });
 
+    const rcs = config.rcsAgentId
+      ? new RcsChannel(this, "Rcs", { account: config.account, region: config.region, agentId: config.rcsAgentId, mediaBucket: core.mediaBucket })
+      : null;
     const channelEnv = {
+      ...rcs?.environment,
       ACCOUNT_ID: config.account,
       TOPIC_ARN: config.whatsappEventsTopicArn,
       META_WABA_ID: config.metaWabaId,
@@ -82,6 +87,7 @@ export class MessagingStack extends Stack {
     core.identitySecret.grantRead(ingest);
     ingest.addToRolePolicy(taskResponse);
     ingest.addToRolePolicy(sendWhatsApp);
+    if (rcs) ingest.addToRolePolicy(rcs.sendRcs);
     ingest.addToRolePolicy(new iam.PolicyStatement({ actions: ["social-messaging:GetWhatsAppMessageMedia"], resources: [phoneArn] }));
     core.mediaBucket.grantReadWrite(ingest);
     ingest.addToRolePolicy(
@@ -113,6 +119,7 @@ export class MessagingStack extends Stack {
     core.table.grantReadWriteData(dispatch);
     core.identitySecret.grantRead(dispatch);
     dispatch.addToRolePolicy(sendWhatsApp);
+    if (rcs) dispatch.addToRolePolicy(rcs.sendRcs);
     dispatch.addToRolePolicy(new iam.PolicyStatement({ actions: ["states:StartExecution"], resources: [stateMachineArn] }));
 
     // Lifecycle: wait for the Arrived pin, the Released pin and the bill-of-lading Flow, then seal.
@@ -183,6 +190,7 @@ export class MessagingStack extends Stack {
       deadLetterQueue: { queue: deadLetters, maxReceiveCount: 5 },
     });
     sns.Topic.fromTopicArn(this, "WhatsAppEvents", config.whatsappEventsTopicArn).addSubscription(new SqsSubscription(queue));
+    rcs?.topic.addSubscription(new SqsSubscription(queue));
     ingest.addEventSource(new SqsEventSource(queue, { batchSize: 10, reportBatchItemFailures: true }));
 
     new cloudwatch.Alarm(this, "IngestDeadLettersAlarm", {
@@ -210,5 +218,13 @@ export class MessagingStack extends Stack {
     new CfnOutput(this, "EvidenceBucket", { value: core.evidenceBucket.bucketName });
     new CfnOutput(this, "EvidenceKeyArn", { value: core.evidenceKey.keyArn });
     new CfnOutput(this, "IdentitySecretArn", { value: core.identitySecret.secretArn });
+    if (rcs) {
+      // Inputs for update-rcs-agent (npm run rcs:two-way), which turns two-way on for the agent.
+      new CfnOutput(this, "RcsTopicArn", { value: rcs.topic.topicArn });
+      new CfnOutput(this, "RcsTwoWayRoleArn", { value: rcs.twoWayRole.roleArn });
+      new CfnOutput(this, "RcsMediaRoleArn", { value: rcs.mediaRole.roleArn });
+      new CfnOutput(this, "RcsMediaBucket", { value: core.mediaBucket.bucketName });
+      new CfnOutput(this, "RcsMediaPrefix", { value: RCS_MEDIA_PREFIX });
+    }
   }
 }

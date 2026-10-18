@@ -14,6 +14,8 @@ export interface DockClockConfig {
   // Escalations go to dispatch by email. In the SES sandbox both must be verified identities.
   dispatchEmail: string;
   fromEmail: string;
+  // Existing AWS RCS agent (rcs-...) for drivers without WhatsApp and for failover. Empty: no RCS.
+  rcsAgentId: string;
   // Optional private facility JSON ({ id, name, timeZone, polygon }) passed through to the Lambdas.
   demoFacility: string;
 }
@@ -40,5 +42,6 @@ export function configFromEnv(): DockClockConfig {
     dispatchEmail: required("DOCKCLOCK_DISPATCH_EMAIL"),
     fromEmail: required("DOCKCLOCK_FROM_EMAIL"),
     demoFacility: process.env.DOCKCLOCK_DEMO_FACILITY ?? "",
+    rcsAgentId: process.env.DOCKCLOCK_RCS_AGENT_ID ?? "",
   };
 }

@@ -18,6 +18,7 @@ const config = {
   dispatchEmail: "dispatch@example.com",
   fromEmail: "dockclock@example.com",
   demoFacility: "",
+  rcsAgentId: "rcs-0123456789abcdef",
 };
 
 describe("stacks", () => {
@@ -67,5 +68,24 @@ describe("stacks", () => {
     // Ingest replies in-window and dispatch sends the template; nothing else can message drivers.
     expect(policies.filter((p) => p.includes("social-messaging:SendWhatsAppMessage"))).toHaveLength(2);
     expect(policies.filter((p) => p.includes("social-messaging:GetWhatsAppMessageMedia"))).toHaveLength(1);
+    // The same two functions may send RCS, and only through the configured agent.
+    const rcs = policies.filter((p) => p.includes("sms-voice:SendRcsMessage"));
+    expect(rcs).toHaveLength(2);
+    for (const p of rcs) expect(p).toContain(`rcs-agent/${config.rcsAgentId}`);
+  });
+
+  it("feeds RCS two-way traffic and delivery events into the same ingest queue", () => {
+    msgT.hasResourceProperties("AWS::SNS::Topic", { TopicName: "dockclock-rcs-events" });
+    msgT.resourceCountIs("AWS::SNS::Subscription", 2);
+    msgT.hasResourceProperties("AWS::SMSVOICE::ConfigurationSet", {
+      ConfigurationSetName: "dockclock-rcs",
+      EventDestinations: [Match.objectLike({ Enabled: true, MatchingEventTypes: ["RCS_ALL"] })],
+    });
+    // Both roles are assumable only by End User Messaging, on behalf of this account.
+    const trust = Object.values(msgT.findResources("AWS::IAM::Role")).map((r) => JSON.stringify(r.Properties.AssumeRolePolicyDocument));
+    expect(trust.filter((t) => t.includes("sms-voice.amazonaws.com") && t.includes(config.account))).toHaveLength(2);
+    const media = Object.values(msgT.findResources("AWS::IAM::Policy")).map((p) => JSON.stringify(p)).find((p) => p.includes("rcs-inbound/*"));
+    expect(media).toContain("s3:PutObject");
+    expect(media).not.toContain("s3:GetObject");
   });
 });
