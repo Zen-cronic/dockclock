@@ -195,9 +195,9 @@ async function sendDetentionClaim(input: ClaimRequest) {
     `Evidence pack ${load.sealedPackId} (sha256 ${pack.digest}) is attached.`,
     `It is signed with AWS KMS key ${pack.keyId} (ECDSA P-256). Verify the signature with that key's public key before relying on it.`,
     `Contract amount: ${formatUsd(evaluation.amountUsd)}, computed by the clause engine, not by the agent.`,
-    "Sent by DockClock on behalf of the carrier. Reply to this email to dispute.",
+    "Sent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
   ].join("\n");
-  const raw = buildClaimMime({ from: env("CLAIMS_FROM_EMAIL"), to, subject: input.subject, body: input.body, packFileName: `${load.sealedPackId}.json`, packJson, footer });
+  const raw = buildClaimMime({ from: env("CLAIMS_FROM_EMAIL"), to, replyTo: process.env.REPLY_TO_EMAIL, subject: input.subject, body: input.body, packFileName: `${load.sealedPackId}.json`, packJson, footer });
   let sesMessageId: string | undefined;
   try {
     const out = await ses.send(

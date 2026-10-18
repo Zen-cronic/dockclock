@@ -50,6 +50,12 @@ describe("claim email", () => {
     const parts = mime.split("--b1");
     expect(Buffer.from(parts[1]!.split("\r\n\r\n")[1]!.replace(/\r\n/g, ""), "base64").toString()).toContain("Verify with KMS");
     expect(Buffer.from(parts[2]!.split("\r\n\r\n")[1]!.replace(/\r\n/g, ""), "base64").toString()).toBe('{"a":1}');
+    expect(mime).not.toMatch(/^Reply-To:/m);
+  });
+
+  it("sends replies to the carrier's dispatch desk", () => {
+    const mime = buildClaimMime({ from: "claims@example.com", to: "broker@example.com", replyTo: "dispatch@example.com", subject: "Claim", body, packFileName: "p.json", packJson: "{}", footer: "f" }, "b1");
+    expect(mime).toMatch(/^Reply-To: dispatch@example\.com\r$/m);
   });
 });
 

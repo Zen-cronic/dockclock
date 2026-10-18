@@ -19,7 +19,7 @@ export async function notifyDispatch(load: LoadItem, reason: string): Promise<st
     `Reason: ${reason}.`,
     `Phase: ${load.phase}. Driver language: ${load.language}.`,
     `Arrived pin: ${load.arrived?.serverAt ?? "none"}. Released pin: ${load.released?.serverAt ?? "none"}.`,
-    "Reply to the driver from the DockClock console or call them.",
+    "Reply to the driver on WhatsApp or call them.",
   ].join("\n");
   const out = await ses.send(
     new SendEmailCommand({

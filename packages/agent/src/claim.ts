@@ -54,6 +54,8 @@ export function checkClaim(request: ClaimRequest, basis: SealedClaimBasis): Clai
 export interface ClaimEmailParts {
   from: string;
   to: string;
+  // Where the counterparty's reply goes: the carrier's dispatch desk.
+  replyTo?: string | undefined;
   subject: string;
   body: string;
   packFileName: string;
@@ -71,6 +73,7 @@ export function buildClaimMime(parts: ClaimEmailParts, boundary = `dockclock-${D
   return [
     `From: ${parts.from}`,
     `To: ${parts.to}`,
+    ...(parts.replyTo ? [`Reply-To: ${parts.replyTo}`] : []),
     `Subject: ${encodeHeader(parts.subject)}`,
     "MIME-Version: 1.0",
     `Content-Type: multipart/mixed; boundary="${boundary}"`,

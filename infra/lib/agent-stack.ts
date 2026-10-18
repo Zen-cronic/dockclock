@@ -68,6 +68,7 @@ export class AgentStack extends Stack {
         MEDIA_BUCKET: core.mediaBucket.bucketName,
         BOL_MODEL_ID: config.agentModelId,
         CLAIMS_FROM_EMAIL: config.claimsFromEmail,
+        REPLY_TO_EMAIL: config.dispatchEmail,
         COUNTERPARTY_EMAIL_BROKER: config.counterpartyEmailBroker,
         COUNTERPARTY_EMAIL_SHIPPER: config.counterpartyEmailShipper,
         SES_CONFIGURATION_SET: CONFIGURATION_SET_NAME,
