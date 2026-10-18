@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "aws-cdk-lib": "^2.273.0",
-    "constructs": "^10.8.1"
+    "constructs": "^10.8.1",
+    "@dockclock/agent": "0.1.0"
   }
 }

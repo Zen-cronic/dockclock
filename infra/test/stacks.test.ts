@@ -18,11 +18,15 @@ const config = {
   dispatchEmail: "dispatch@example.com",
   fromEmail: "dockclock@example.com",
   demoFacility: "",
+  agentModelId: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+  claimsFromEmail: "DockClock Claims <claims@example.com>",
+  counterpartyEmailBroker: "broker@example.com",
+  counterpartyEmailShipper: "shipper@example.com",
   rcsAgentId: "rcs-0123456789abcdef",
 };
 
 describe("stacks", () => {
-  const { core, messaging, email } = buildApp(config, new App({ context: { "aws:cdk:bundling-stacks": [] } }));
+  const { core, messaging, email, agent } = buildApp(config, new App({ context: { "aws:cdk:bundling-stacks": [] } }));
   const coreT = Template.fromStack(core);
   const msgT = Template.fromStack(messaging);
 
@@ -87,5 +91,21 @@ describe("stacks", () => {
     const media = Object.values(msgT.findResources("AWS::IAM::Policy")).map((p) => JSON.stringify(p)).find((p) => p.includes("rcs-inbound/*"));
     expect(media).toContain("s3:PutObject");
     expect(media).not.toContain("s3:GetObject");
+  });
+
+  it("runs the claims agent on AgentCore with only Gateway tools bounded by Cedar", () => {
+    const agentT = Template.fromStack(agent);
+    agentT.hasResourceProperties("AWS::BedrockAgentCore::Harness", {
+      HarnessName: "dockclock_claims_agent",
+      Model: { BedrockModelConfig: Match.objectLike({ ModelId: config.agentModelId }) },
+      Tools: [Match.objectLike({ Type: "agentcore_gateway" })],
+      MaxIterations: 12,
+    });
+    agentT.hasResourceProperties("AWS::BedrockAgentCore::Gateway", { ProtocolType: "MCP", AuthorizerType: "AWS_IAM", PolicyEngineConfiguration: Match.objectLike({ Mode: "ENFORCE" }) });
+    agentT.hasResourceProperties("AWS::BedrockAgentCore::GatewayTarget", { Name: "dockclock-tools" });
+    agentT.resourceCountIs("AWS::BedrockAgentCore::Policy", 2);
+    const policies = JSON.stringify(agentT.findResources("AWS::BedrockAgentCore::Policy"));
+    expect(policies).toContain("dockclock-tools___send_detention_claim");
+    expect(policies).toContain("lessThanOrEqual(decimal(\\\"1000.0\\\"))");
   });
 });
