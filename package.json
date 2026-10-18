@@ -24,7 +24,8 @@
     "deploy": "tsc -b && npm run deploy -w @dockclock/infra",
     "templates:submit": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/submit-templates.ts",
     "live:dispatch": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/dispatch-live.ts",
-    "live:watch": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/watch-load.ts"
+    "live:watch": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/watch-load.ts",
+    "demo:facility": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/demo-facility.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-lambda": "^3.1152.0",
