@@ -26,6 +26,20 @@ export const FACILITIES: readonly Facility[] = [
   },
 ];
 
+// The judge try-it path: judges are wherever they are, so this "yard" is the whole map. A pin is
+// still recorded with its server timestamp; only the geofence test is waived, and the name says so.
+export const JUDGE_DEMO_FACILITY: Facility = {
+  id: "judge-demo",
+  name: "Judge demo yard (any location counts)",
+  timeZone: "America/New_York",
+  polygon: [
+    [-180, -85],
+    [180, -85],
+    [180, 85],
+    [-180, 85],
+  ],
+};
+
 // Facilities supplied at runtime, such as a private demo yard whose polygon must not live in the
 // repository. Registered ids may not shadow the built-in fixtures.
 const registered = new Map<string, Facility>();
@@ -37,7 +51,7 @@ export function registerFacility(facility: Facility): void {
 }
 
 export function facilityById(id: string): Facility {
-  const facility = FACILITIES.find((f) => f.id === id) ?? registered.get(id);
+  const facility = FACILITIES.find((f) => f.id === id) ?? (id === JUDGE_DEMO_FACILITY.id ? JUDGE_DEMO_FACILITY : undefined) ?? registered.get(id);
   if (!facility) throw new Error(`unknown facility ${id}`);
   return facility;
 }

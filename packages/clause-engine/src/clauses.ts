@@ -129,8 +129,30 @@ export const CLAUSES: readonly ClauseSpec[] = [
   },
 ];
 
+// The clause behind the judge try-it path (text DEMO to the WhatsApp number). Short on purpose, so a
+// judge sees a billable claim in minutes. It is not one of the scored clauses and is modelled on no
+// published terms.
+export const JUDGE_DEMO_CLAUSE: ClauseSpec = {
+  id: "judge-demo",
+  counterparty: "Demo Receiving Co. (fictional)",
+  role: "shipper",
+  modelledOn: { label: "DockClock judge demo, not modelled on any published terms", url: "https://github.com/Zen-cronic/dockclock", fetched: "2026-10-18" },
+  assumptions: ["5 minutes of free time so the demo fits in a few minutes", "$30 cap per load to bound the demo"],
+  freeTimeMinutes: 5,
+  freeTimeAnchor: "arrival",
+  requireOnTimeArrival: false,
+  onTimeGraceMinutes: 0,
+  ratePerHourUsd: 60,
+  capUsdPerOccurrence: 30,
+  capHoursPerDay: null,
+  noticeLeadMinutes: null,
+  acceptedRecords: ["app_gps", "signed_bol_times"],
+  claimWindowHours: 24,
+  shipperConfirmationRequired: false,
+};
+
 export function clauseById(id: string): ClauseSpec {
-  const clause = CLAUSES.find((c) => c.id === id);
+  const clause = CLAUSES.find((c) => c.id === id) ?? (id === JUDGE_DEMO_CLAUSE.id ? JUDGE_DEMO_CLAUSE : undefined);
   if (!clause) throw new Error(`unknown clause ${id}`);
   return clause;
 }
