@@ -65,7 +65,8 @@ export function gatewayAction(tool: string): string {
 // Cedar is default-deny: only these permits let the agent call anything at all.
 export const CEDAR_POLICIES: Record<string, string> = {
   allow_read_tools: `permit(principal, action in [${gatewayAction("get_load_evidence")}, ${gatewayAction("read_bill_of_lading")}], resource);`,
-  allow_approved_claims: `permit(principal, action == ${gatewayAction("send_detention_claim")}, resource) when { context.input has approvalId && context.input has amountUsd && context.input.amountUsd > 0 && context.input.amountUsd <= ${MAX_CLAIM_USD} };`,
+  // JSON numbers are Cedar decimals, compared with decimal methods.
+  allow_approved_claims: `permit(principal, action == ${gatewayAction("send_detention_claim")}, resource) when { context.input has approvalId && context.input has amountUsd && context.input.amountUsd.greaterThan(decimal("0.0")) && context.input.amountUsd.lessThanOrEqual(decimal("${MAX_CLAIM_USD}.0")) };`,
 };
 
 export const SYSTEM_PROMPT = [
@@ -74,5 +75,6 @@ export const SYSTEM_PROMPT = [
   "The clause engine decides whether detention is owed and how much. You never change its verdict or amount: copy amountUsd and packDigest exactly from get_load_evidence.",
   "When asked to review a load: call get_load_evidence, then read_bill_of_lading if a photo exists and no reading is recorded. Report whether the photo is legible and whether its times agree with the pins and the driver's entries.",
   "When asked to file a claim: call get_load_evidence. If the verdict is not BILLABLE or there is no dispatch approval, stop and say why. Otherwise write a short, factual, polite email to the counterparty that names the load id, the facility, the clause terms (free time, rate, notice), the server-timestamped arrival and release times, the detention minutes and the amount in the form $123.45, and says the signed evidence pack is attached. Then call send_detention_claim once.",
+  "Never name companies, documents or sources other than the load's counterparty and facility as given by the tools.",
   "If a tool refuses, report the refusal reason and stop. Do not retry with different numbers.",
 ].join("\n");

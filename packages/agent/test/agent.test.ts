@@ -56,7 +56,7 @@ describe("tool contracts and policy", () => {
   it("names every tool the Cedar policies permit, and nothing else", () => {
     const policyText = Object.values(CEDAR_POLICIES).join("\n");
     for (const tool of TOOLS) expect(policyText).toContain(`dockclock-tools___${tool.name}`);
-    expect(CEDAR_POLICIES.allow_approved_claims).toContain("context.input.amountUsd <= 1000");
+    expect(CEDAR_POLICIES.allow_approved_claims).toContain('lessThanOrEqual(decimal("1000.0"))');
   });
 
   it("tells the agent it never sets the amount", () => {

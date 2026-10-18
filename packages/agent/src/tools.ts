@@ -96,7 +96,6 @@ async function getLoadEvidence(input: { loadId: string }) {
       noticeLeadMinutes: clause.noticeLeadMinutes,
       claimWindowHours: clause.claimWindowHours,
       capUsdPerOccurrence: clause.capUsdPerOccurrence,
-      modelledOn: clause.modelledOn.label,
     },
     appointment: local(load.appointmentAt),
     arrivedPin: local(load.arrived?.serverAt),
