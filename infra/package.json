@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "synth": "cdk synth --quiet",
-    "deploy": "cdk deploy --all --require-approval never"
+    "deploy": "cdk deploy --all --require-approval never --outputs-file ../.cdk-outputs.json"
   },
   "devDependencies": {
     "aws-cdk": "^2.1145.0",

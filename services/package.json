@@ -16,5 +16,12 @@
     "@dockclock/clause-engine": "0.1.0",
     "@dockclock/evidence": "0.1.0",
     "@dockclock/whatsapp": "0.1.0"
+  },
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   }
 }

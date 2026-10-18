@@ -1,5 +1,5 @@
 {
-  "app": "node --env-file-if-exists=../.env --import tsx bin/app.ts",
+  "app": "node --env-file-if-exists=../.env --conditions=source --import tsx bin/app.ts",
   "context": {
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:target-partitions": [
