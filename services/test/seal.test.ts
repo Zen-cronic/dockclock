@@ -79,9 +79,9 @@ describe("seal", () => {
     const s3 = mockClient(S3Client);
     const kms = mockClient(KMSClient);
     dynamo.on(GetCommand, { Key: { pk: "LOAD#4471", sk: "META" } }).resolves({ Item: { ...base, sealedPackId: "4471-abc" } });
-    dynamo.on(GetCommand, { Key: { pk: "LOAD#4471", sk: "PACK#4471-abc" } }).resolves({ Item: { s3Key: "packs/4471/4471-abc.json", digest: "d", verdict: "BILLABLE", confidence: "high", amountUsd: 80 } });
+    dynamo.on(GetCommand, { Key: { pk: "LOAD#4471", sk: "PACK#4471-abc" } }).resolves({ Item: { s3Key: "packs/4471/4471-abc.json", digest: "d", verdict: "BILLABLE", confidence: "high", amountUsd: 80, reasons: [] } });
     const out = await seal({ loadId: "4471" });
-    expect(out).toEqual({ packId: "4471-abc", s3Key: "packs/4471/4471-abc.json", digest: "d", verdict: "BILLABLE", confidence: "high", amountUsd: 80 });
+    expect(out).toEqual({ packId: "4471-abc", s3Key: "packs/4471/4471-abc.json", digest: "d", verdict: "BILLABLE", confidence: "high", amountUsd: 80, reasons: [] });
     expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);
     expect(kms.commandCalls(SignCommand)).toHaveLength(0);
     for (const m of [dynamo, s3, kms]) m.restore();

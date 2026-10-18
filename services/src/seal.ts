@@ -112,6 +112,7 @@ export interface SealOutput {
   verdict: string;
   confidence: string;
   amountUsd: number;
+  reasons: string[];
 }
 
 // Evaluates the load against its clause, signs the pack with the KMS key, and writes it to the
@@ -125,7 +126,7 @@ export async function handler(input: { loadId: string }): Promise<SealOutput> {
     const item = existing.Item as (SealOutput & { s3Key: string }) | undefined;
     if (item) {
       log("pack_already_sealed", { loadId: load.loadId, packId: load.sealedPackId });
-      return { packId: load.sealedPackId, s3Key: item.s3Key, digest: item.digest, verdict: item.verdict, confidence: item.confidence, amountUsd: item.amountUsd ?? 0 };
+      return { packId: load.sealedPackId, s3Key: item.s3Key, digest: item.digest, verdict: item.verdict, confidence: item.confidence, amountUsd: item.amountUsd ?? 0, reasons: item.reasons ?? [] };
     }
   }
   const sealedAt = new Date().toISOString();
@@ -165,7 +166,7 @@ export async function handler(input: { loadId: string }): Promise<SealOutput> {
   await ddb.send(
     new PutCommand({
       TableName: env.table(),
-      Item: { ...keys.pack(load.loadId, pack.packId), s3Key, digest, keyId: signed.keyId, verdict: evaluation.verdict, confidence: corroboration.confidence, amountUsd: evaluation.amountUsd, sealedAt },
+      Item: { ...keys.pack(load.loadId, pack.packId), s3Key, digest, keyId: signed.keyId, verdict: evaluation.verdict, confidence: corroboration.confidence, amountUsd: evaluation.amountUsd, reasons: evaluation.reasons, sealedAt },
     }),
   );
   await ddb.send(
@@ -179,5 +180,5 @@ export async function handler(input: { loadId: string }): Promise<SealOutput> {
     }),
   );
   log("pack_sealed", { loadId: load.loadId, packId: pack.packId, verdict: evaluation.verdict, confidence: corroboration.confidence, digest });
-  return { packId: pack.packId, s3Key, digest, verdict: evaluation.verdict, confidence: corroboration.confidence, amountUsd: evaluation.amountUsd };
+  return { packId: pack.packId, s3Key, digest, verdict: evaluation.verdict, confidence: corroboration.confidence, amountUsd: evaluation.amountUsd, reasons: evaluation.reasons };
 }
