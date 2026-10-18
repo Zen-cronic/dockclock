@@ -28,6 +28,27 @@ function pinEvent(kind: PinEvent["kind"], pin: PinRecord | null, load: LoadItem)
   return pin && { kind, channel: pin.channel ?? load.channel, messageId: pin.messageId, serverAt: pin.serverAt, location: [pin.lon, pin.lat] };
 }
 
+interface RecordedReading {
+  legible: boolean;
+  inTime: string | null;
+  outTime: string | null;
+  receiverSigned: boolean;
+}
+
+// The claims agent's reading of the photo, if it ran before sealing, with its times pinned to instants.
+function photoReadingOf(load: LoadItem, timeZone: string): Pick<BolCapture, "photoReading"> {
+  const reading = (load as unknown as { bolReading?: RecordedReading }).bolReading;
+  if (!reading) return {};
+  return {
+    photoReading: {
+      legible: reading.legible,
+      checkIn: localClockToIso(reading.inTime, load.arrived?.serverAt ?? load.bol?.serverAt ?? new Date().toISOString(), timeZone),
+      checkOut: localClockToIso(reading.outTime, load.released?.serverAt ?? load.bol?.serverAt ?? new Date().toISOString(), timeZone),
+      receiverSigned: reading.receiverSigned,
+    },
+  };
+}
+
 // Paperwork times are wall-clock at the facility; each is pinned to the day of the matching pin.
 // A time is "edited" only if it differs from the value the Flow pre-filled from that pin.
 function bolCapture(bol: BolRecord | null, load: LoadItem, timeZone: string): BolCapture | null {
@@ -58,6 +79,7 @@ function bolCapture(bol: BolRecord | null, load: LoadItem, timeZone: string): Bo
       in: normalizeClock(bol.inTime) !== prefilled(load.arrived?.serverAt),
       out: normalizeClock(bol.outTime) !== prefilled(load.released?.serverAt),
     },
+    ...photoReadingOf(load, timeZone),
     // Only the receiver-signed box counts as a signature, never text typed into a name field.
     signed: bol.receiverSigned === true,
     checkIn: localClockToIso(bol.inTime, load.arrived?.serverAt ?? bol.serverAt, timeZone),
@@ -88,6 +110,7 @@ export interface SealOutput {
   digest: string;
   verdict: string;
   confidence: string;
+  amountUsd: number;
 }
 
 // Evaluates the load against its clause, signs the pack with the KMS key, and writes it to the
@@ -101,7 +124,7 @@ export async function handler(input: { loadId: string }): Promise<SealOutput> {
     const item = existing.Item as (SealOutput & { s3Key: string }) | undefined;
     if (item) {
       log("pack_already_sealed", { loadId: load.loadId, packId: load.sealedPackId });
-      return { packId: load.sealedPackId, s3Key: item.s3Key, digest: item.digest, verdict: item.verdict, confidence: item.confidence };
+      return { packId: load.sealedPackId, s3Key: item.s3Key, digest: item.digest, verdict: item.verdict, confidence: item.confidence, amountUsd: item.amountUsd ?? 0 };
     }
   }
   const sealedAt = new Date().toISOString();
@@ -141,7 +164,7 @@ export async function handler(input: { loadId: string }): Promise<SealOutput> {
   await ddb.send(
     new PutCommand({
       TableName: env.table(),
-      Item: { ...keys.pack(load.loadId, pack.packId), s3Key, digest, keyId: signed.keyId, verdict: evaluation.verdict, confidence: corroboration.confidence, sealedAt },
+      Item: { ...keys.pack(load.loadId, pack.packId), s3Key, digest, keyId: signed.keyId, verdict: evaluation.verdict, confidence: corroboration.confidence, amountUsd: evaluation.amountUsd, sealedAt },
     }),
   );
   await ddb.send(
@@ -155,5 +178,5 @@ export async function handler(input: { loadId: string }): Promise<SealOutput> {
     }),
   );
   log("pack_sealed", { loadId: load.loadId, packId: pack.packId, verdict: evaluation.verdict, confidence: corroboration.confidence, digest });
-  return { packId: pack.packId, s3Key, digest, verdict: evaluation.verdict, confidence: corroboration.confidence };
+  return { packId: pack.packId, s3Key, digest, verdict: evaluation.verdict, confidence: corroboration.confidence, amountUsd: evaluation.amountUsd };
 }

@@ -24,6 +24,9 @@ export interface BolCapture {
   // Whether the driver changed each time from the value pre-filled from their pin. An unchanged
   // value is the pin echoed back, so it cannot corroborate the pin.
   timesEdited: { in: boolean; out: boolean };
+  // What a vision model read from the photo, times already pinned to instants. The comparison with
+  // the pins is done here, in code; the model only reports what is written.
+  photoReading?: { legible: boolean; checkIn: string | null; checkOut: string | null; receiverSigned: boolean };
   // Times read from the photo by the model, then confirmed or corrected by the driver.
   signed: boolean;
   checkIn: string | null;
@@ -140,6 +143,24 @@ export function corroborate(record: LoadRecord): Corroboration {
       const gap = minutesApart(written, event.serverAt);
       const note = edited ? "entered by the driver from the paperwork" : "pre-filled from the pin and left unchanged, so not independent";
       signals.push({ name, ok: gap <= BOL_TOLERANCE_MINUTES, independent: edited, detail: `${Math.round(gap)} min apart (tolerance ${BOL_TOLERANCE_MINUTES}); ${note}` });
+    }
+  }
+  const photo = bol?.photoReading;
+  if (bol && photo) {
+    signals.push({ name: "bol_photo_legible", ok: photo.legible, detail: photo.legible ? "photo read by the vision model" : "photo could not be read" });
+    if (photo.legible) {
+      const readPairs: Array<[string, string | null, PinEvent | null]> = [
+        ["bol_photo_in_matches_arrived_pin", photo.checkIn, record.arrived],
+        ["bol_photo_out_matches_released_pin", photo.checkOut, record.released],
+      ];
+      for (const [name, written, event] of readPairs) {
+        if (written === null || event === null) continue;
+        const gap = minutesApart(written, event.serverAt);
+        signals.push({ name, ok: gap <= BOL_TOLERANCE_MINUTES, independent: true, detail: `${Math.round(gap)} min apart; written on the paper by the receiver` });
+      }
+      if (bol.channel === "whatsapp") {
+        signals.push({ name: "bol_photo_signature_matches", ok: photo.receiverSigned === bol.signed, detail: photo.receiverSigned ? "signature visible on the photo" : "no signature visible on the photo" });
+      }
     }
   }
   if (record.notice) {

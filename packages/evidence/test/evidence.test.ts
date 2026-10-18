@@ -155,3 +155,25 @@ describe("evidence pack", () => {
     kms.restore();
   });
 });
+
+describe("photo reading", () => {
+  it("counts receiver-written times that match the pins as independent", () => {
+    const read = record();
+    if (read.bol) {
+      read.bol.timesEdited = { in: false, out: false };
+      read.bol.photoReading = { legible: true, checkIn: "2026-10-13T13:52:00.000Z", checkOut: "2026-10-13T17:18:00.000Z", receiverSigned: true };
+    }
+    const result = corroborate(read);
+    expect(result.confidence).toBe("high");
+    expect(result.signals.find((s) => s.name === "bol_photo_in_matches_arrived_pin")).toMatchObject({ ok: true, independent: true });
+  });
+
+  it("is low when the photo is unreadable or contradicts the driver's signature tick", () => {
+    const blurry = record();
+    if (blurry.bol) blurry.bol.photoReading = { legible: false, checkIn: null, checkOut: null, receiverSigned: false };
+    expect(corroborate(blurry).confidence).toBe("low");
+    const contradicted = record();
+    if (contradicted.bol) contradicted.bol.photoReading = { legible: true, checkIn: "2026-10-13T13:52:00.000Z", checkOut: "2026-10-13T17:18:00.000Z", receiverSigned: false };
+    expect(corroborate(contradicted).signals.find((s) => s.name === "bol_photo_signature_matches")?.ok).toBe(false);
+  });
+});
