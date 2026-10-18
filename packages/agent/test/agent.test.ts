@@ -7,14 +7,14 @@ const basis: SealedClaimBasis = {
   loadId: "LIVE-abc",
   phase: "sealed",
   verdict: "BILLABLE",
-  amountUsd: 80,
+  amountCents: 8000,
   packDigest: "d1",
   packId: "LIVE-abc-1",
   approvalId: "appr-1",
   alreadySentAt: null,
 };
 const body = "Detention claim for load LIVE-abc at Lakeshore DC. The driver arrived on time and was released 80 minutes past free time. Amount owed: $80.00. Signed evidence attached.";
-const request: ClaimRequest = { loadId: "LIVE-abc", subject: "Detention claim, load LIVE-abc", body, amountUsd: 80, packDigest: "d1", approvalId: "appr-1" };
+const request: ClaimRequest = { loadId: "LIVE-abc", subject: "Detention claim, load LIVE-abc", body, amountCents: 8000, packDigest: "d1", approvalId: "appr-1" };
 
 describe("checkClaim: the agent words the claim, the sealed pack decides it", () => {
   it("accepts a claim that matches the sealed pack and the approval", () => {
@@ -22,7 +22,8 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
   });
 
   it.each([
-    ["a different amount", { amountUsd: 95 }, /differs from the contract amount \$80\.00/],
+    ["a different amount", { amountCents: 9500 }, /differs from the contract amount 8000 cents/],
+    ["a fractional amount", { amountCents: 8000.5 }, /differs/],
     ["a different digest", { packDigest: "x" }, /digest/],
     ["no approval", { approvalId: "other" }, /not approved/],
     ["an amount missing from the text", { body: body.replace("$80.00", "eighty dollars") }, /must state the contract amount/],
@@ -56,11 +57,11 @@ describe("tool contracts and policy", () => {
   it("names every tool the Cedar policies permit, and nothing else", () => {
     const policyText = Object.values(CEDAR_POLICIES).join("\n");
     for (const tool of TOOLS) expect(policyText).toContain(`dockclock-tools___${tool.name}`);
-    expect(CEDAR_POLICIES.allow_approved_claims).toContain('lessThanOrEqual(decimal("1000.0"))');
+    expect(CEDAR_POLICIES.allow_approved_claims).toContain("context.input.amountCents <= 500000");
   });
 
   it("tells the agent it never sets the amount", () => {
-    expect(SYSTEM_PROMPT).toContain("copy amountUsd and packDigest exactly");
+    expect(SYSTEM_PROMPT).toContain("copy amountCents and packDigest exactly");
   });
 });
 

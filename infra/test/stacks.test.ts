@@ -106,6 +106,6 @@ describe("stacks", () => {
     agentT.resourceCountIs("AWS::BedrockAgentCore::Policy", 2);
     const policies = JSON.stringify(agentT.findResources("AWS::BedrockAgentCore::Policy"));
     expect(policies).toContain("dockclock-tools___send_detention_claim");
-    expect(policies).toContain("lessThanOrEqual(decimal(\\\"1000.0\\\"))");
+    expect(policies).toContain("context.input.amountCents <= 500000");
   });
 });

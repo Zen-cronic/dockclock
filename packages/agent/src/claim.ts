@@ -5,7 +5,7 @@ export interface SealedClaimBasis {
   loadId: string;
   phase: string;
   verdict: string;
-  amountUsd: number;
+  amountCents: number;
   packDigest: string;
   packId: string;
   approvalId: string | null;
@@ -16,7 +16,8 @@ export interface ClaimRequest {
   loadId: string;
   subject: string;
   body: string;
-  amountUsd: number;
+  // Integer cents, so policy and code compare exact whole numbers.
+  amountCents: number;
   packDigest: string;
   approvalId: string;
 }
@@ -27,6 +28,10 @@ export function formatUsd(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
+export function toCents(amountUsd: number): number {
+  return Math.round(amountUsd * 100);
+}
+
 export function checkClaim(request: ClaimRequest, basis: SealedClaimBasis): ClaimDecision {
   const refuse = (reason: string): ClaimDecision => ({ ok: false, reason });
   if (request.loadId !== basis.loadId) return refuse("load id does not match the sealed load");
@@ -35,10 +40,11 @@ export function checkClaim(request: ClaimRequest, basis: SealedClaimBasis): Clai
   if (basis.alreadySentAt) return refuse(`a claim for this load was already sent at ${basis.alreadySentAt}`);
   if (!basis.approvalId || request.approvalId !== basis.approvalId) return refuse("dispatch has not approved this claim");
   if (request.packDigest !== basis.packDigest) return refuse("evidence pack digest does not match the sealed pack");
-  if (Math.round(request.amountUsd * 100) !== Math.round(basis.amountUsd * 100)) {
-    return refuse(`amount ${formatUsd(request.amountUsd)} differs from the contract amount ${formatUsd(basis.amountUsd)}`);
+  const amount = formatUsd(basis.amountCents / 100);
+  if (!Number.isInteger(request.amountCents) || request.amountCents !== basis.amountCents) {
+    return refuse(`amount ${request.amountCents} cents differs from the contract amount ${basis.amountCents} cents (${amount})`);
   }
-  if (!request.body.includes(formatUsd(basis.amountUsd))) return refuse(`the email must state the contract amount ${formatUsd(basis.amountUsd)}`);
+  if (!request.body.includes(amount)) return refuse(`the email must state the contract amount ${amount}`);
   if (!request.body.includes(basis.loadId)) return refuse("the email must name the load id");
   if (request.subject.length === 0 || request.subject.length > 160) return refuse("subject must be 1-160 characters");
   if (request.body.length < 80 || request.body.length > 6000) return refuse("body must be 80-6000 characters");

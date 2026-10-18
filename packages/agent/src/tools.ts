@@ -6,7 +6,7 @@ import type { Context } from "aws-lambda";
 import { clauseById } from "@dockclock/clause-engine";
 import { facilityById, isoToLocalClock, normalizeClock, registerFacility, type Facility } from "@dockclock/evidence";
 import { readBol, type BolReading } from "./bol-reader.js";
-import { buildClaimMime, checkClaim, formatUsd, type ClaimRequest } from "./claim.js";
+import { buildClaimMime, checkClaim, formatUsd, toCents, type ClaimRequest } from "./claim.js";
 
 if (process.env.DEMO_FACILITY) registerFacility(JSON.parse(process.env.DEMO_FACILITY) as Facility);
 
@@ -111,6 +111,7 @@ async function getLoadEvidence(input: { loadId: string }) {
     verdict: evaluation?.verdict ?? load.verdict ?? null,
     reasons: evaluation?.reasons ?? [],
     amountUsd: evaluation?.amountUsd ?? 0,
+    amountCents: toCents(evaluation?.amountUsd ?? 0),
     detentionMinutes: evaluation?.detentionMinutes ?? 0,
     packId: load.sealedPackId ?? null,
     packDigest: pack?.digest ?? null,
@@ -164,7 +165,7 @@ async function sendDetentionClaim(input: ClaimRequest) {
     loadId: load.loadId,
     phase: load.phase,
     verdict: evaluation?.verdict ?? "NONE",
-    amountUsd: evaluation?.amountUsd ?? 0,
+    amountCents: toCents(evaluation?.amountUsd ?? 0),
     packDigest: pack?.digest ?? "",
     packId: load.sealedPackId ?? "",
     approvalId: approval?.approvalId ?? null,
@@ -179,7 +180,7 @@ async function sendDetentionClaim(input: ClaimRequest) {
     await ddb.send(
       new PutCommand({
         TableName: env("TABLE_NAME"),
-        Item: { ...key(load.loadId, "CLAIM"), status: "sending", amountUsd: evaluation.amountUsd, packDigest: pack.digest, recipientRole: clause.role, reservedAt: new Date().toISOString() },
+        Item: { ...key(load.loadId, "CLAIM"), status: "sending", amountUsd: evaluation.amountUsd, amountCents: toCents(evaluation.amountUsd), packDigest: pack.digest, recipientRole: clause.role, reservedAt: new Date().toISOString() },
         ConditionExpression: "attribute_not_exists(pk)",
       }),
     );
@@ -196,8 +197,9 @@ async function sendDetentionClaim(input: ClaimRequest) {
     `Contract amount: ${formatUsd(evaluation.amountUsd)}, computed by the clause engine, not by the agent.`,
     "Sent by DockClock on behalf of the carrier. Reply to this email to dispute.",
   ].join("\n");
+  const raw = buildClaimMime({ from: env("CLAIMS_FROM_EMAIL"), to, subject: input.subject, body: input.body, packFileName: `${load.sealedPackId}.json`, packJson, footer });
+  let sesMessageId: string | undefined;
   try {
-    const raw = buildClaimMime({ from: env("CLAIMS_FROM_EMAIL"), to, subject: input.subject, body: input.body, packFileName: `${load.sealedPackId}.json`, packJson, footer });
     const out = await ses.send(
       new SendEmailCommand({
         Content: { Raw: { Data: Buffer.from(raw, "utf8") } },
@@ -205,22 +207,29 @@ async function sendDetentionClaim(input: ClaimRequest) {
         EmailTags: [{ Name: "purpose", Value: "detention_claim" }],
       }),
     );
-    const sentAt = new Date().toISOString();
+    sesMessageId = out.MessageId;
+  } catch (error) {
+    // Only an SES failure frees the reservation. The send was not accepted, so a retry is safe.
+    await ddb.send(new DeleteCommand({ TableName: env("TABLE_NAME"), Key: key(load.loadId, "CLAIM") }));
+    throw error;
+  }
+  // From here the email is out. A failure to record it keeps the reservation, so no retry re-sends.
+  const sentAt = new Date().toISOString();
+  try {
     await ddb.send(
       new UpdateCommand({
         TableName: env("TABLE_NAME"),
         Key: key(load.loadId, "CLAIM"),
         UpdateExpression: "SET #s = :s, sentAt = :t, sesMessageId = :m, subject = :sub",
         ExpressionAttributeNames: { "#s": "status" },
-        ExpressionAttributeValues: { ":s": "sent", ":t": sentAt, ":m": out.MessageId, ":sub": input.subject },
+        ExpressionAttributeValues: { ":s": "sent", ":t": sentAt, ":m": sesMessageId, ":sub": input.subject },
       }),
     );
-    console.log(JSON.stringify({ kind: "claim_sent", loadId: load.loadId, amountUsd: evaluation.amountUsd, sesMessageId: out.MessageId }));
-    return { sent: true, sentAt, sesMessageId: out.MessageId, recipientRole: clause.role, amountUsd: evaluation.amountUsd };
   } catch (error) {
-    await ddb.send(new DeleteCommand({ TableName: env("TABLE_NAME"), Key: key(load.loadId, "CLAIM") }));
-    throw error;
+    console.log(JSON.stringify({ kind: "claim_sent_unrecorded", loadId: load.loadId, sesMessageId, error: (error as Error).name }));
   }
+  console.log(JSON.stringify({ kind: "claim_sent", loadId: load.loadId, amountUsd: evaluation.amountUsd, sesMessageId }));
+  return { sent: true, sentAt, sesMessageId, recipientRole: clause.role, amountUsd: evaluation.amountUsd };
 }
 
 type ToolInput = Record<string, unknown>;
