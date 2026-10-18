@@ -29,7 +29,7 @@ Status key:
 | Claim | Evidence | Status |
 |---|---|---|
 | Dispatch template, Arrived → location request → pin, Released → pin, camera-only BOL Flow, photo stored and hashed, KMS-signed pack under Object Lock | Live load `LIVE-mve0rrez` (2026-10-18). The pack signature verifies with the KMS public key, and the photo's sha256 matches the pack | live (phone) |
-| Templates approved in en_US, es_MX and fr_CA | `list-whatsapp-message-templates` read 2026-10-18 18:20 EDT: all 9 DockClock templates (3 names × 3 languages) APPROVED. Only en_US has been sent live | live (en_US) |
+| Templates approved in en_US, es_MX and fr_CA | `list-whatsapp-message-templates` read 2026-10-18 18:20 EDT: all 9 DockClock templates (3 names × 3 languages) APPROVED. Only en_US has been sent live | live (integration) |
 | Duplicate, out-of-order and stale taps are refused | `services/test/lifecycle.test.ts`; `npm run smoke:lifecycle` on the deployed stack | tested + live (integration) |
 | A failed send is replayed, not lost | `services/test/ingest.test.ts` ("replays a send that failed…") | tested |
 | STOP/START honoured; no message without a recorded opt-in | `services/test/ingest.test.ts`, `services/test/dispatch.test.ts` | tested |

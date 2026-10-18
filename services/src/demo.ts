@@ -17,7 +17,7 @@ import { keys } from "./keys.js";
 // judge, and the judge is told on WhatsApp what was sent.
 const DEMO_WORDS = /^\s*demo(?:\s+(en|es|fr))?\s*[.!]?\s*$/i;
 const ENROLL_HOURS = 24;
-const PER_SENDER_PER_DAY = 5;
+export const PER_SENDER_PER_DAY = 5;
 const LANGUAGE: Record<string, Language> = { en: "en_US", es: "es_MX", fr: "fr_CA" };
 
 export function demoLanguage(event: InboundEvent): Language | null {
