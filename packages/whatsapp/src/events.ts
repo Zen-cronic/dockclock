@@ -9,7 +9,8 @@ export type Sender = { kind: "bsuid"; id: string; e164: string | null } | { kind
 export type InboundBody =
   | { type: "button"; payload: string }
   | { type: "location"; lat: number; lon: number }
-  | { type: "image"; mediaId: string; mimeType: string; metaSha256: string | null }
+  // s3Key is set when the channel already stored the photo in our bucket (RCS two-way media).
+  | { type: "image"; mediaId: string; mimeType: string; metaSha256: string | null; s3Key?: string }
   | { type: "audio"; mediaId: string; mimeType: string }
   | { type: "flow"; responseJson: string }
   | { type: "text"; text: string }
@@ -17,6 +18,8 @@ export type InboundBody =
 
 export interface InboundEvent {
   kind: "inbound";
+  // Absent for WhatsApp; the RCS decoder sets "rcs". The lifecycle is otherwise channel-agnostic.
+  channel?: "whatsapp" | "rcs";
   wamid: string;
   serverAt: string;
   sender: Sender;

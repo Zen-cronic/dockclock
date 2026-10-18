@@ -43,7 +43,7 @@ export interface RawStatus {
 }
 
 export class UntrustedEventError extends Error {
-  constructor(readonly code: "UNTRUSTED_TOPIC" | "WRONG_ACCOUNT" | "WRONG_WABA") {
+  constructor(readonly code: "UNTRUSTED_TOPIC" | "WRONG_ACCOUNT" | "WRONG_WABA" | "WRONG_AGENT") {
     super(code);
     this.name = "UntrustedEventError";
   }
