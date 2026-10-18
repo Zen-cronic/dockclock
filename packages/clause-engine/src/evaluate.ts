@@ -51,6 +51,13 @@ function held(load: LoadEvidence, verdict: Evaluation["verdict"], reasons: Reaso
   };
 }
 
+// When the detention clock starts: free time counted from the appointment (if the truck was early)
+// or from arrival. The notice timer and the verdict both use this, so they cannot disagree.
+export function detentionStartsAt(clause: Pick<ClauseSpec, "freeTimeAnchor" | "freeTimeMinutes">, appointmentAt: string, arrivedAt: string): string {
+  const clockStartAt = clause.freeTimeAnchor === "appointment" && Date.parse(arrivedAt) < Date.parse(appointmentAt) ? appointmentAt : arrivedAt;
+  return addMinutes(clockStartAt, clause.freeTimeMinutes);
+}
+
 // Decides whether a detention claim is owed under one counterparty's clause. The model never
 // reaches this function: its inputs are server timestamps, geofence results and structured fields.
 export function evaluate(load: LoadEvidence, clause: ClauseSpec): Evaluation {
@@ -66,7 +73,7 @@ export function evaluate(load: LoadEvidence, clause: ClauseSpec): Evaluation {
     clause.freeTimeAnchor === "appointment" && Date.parse(arrived.at) < Date.parse(load.appointmentAt)
       ? load.appointmentAt
       : arrived.at;
-  const detentionStartAt = addMinutes(clockStartAt, clause.freeTimeMinutes);
+  const detentionStartAt = detentionStartsAt(clause, load.appointmentAt, arrived.at);
   const detentionMinutes = Math.max(0, minutesBetween(detentionStartAt, released.at));
 
   const denied: ReasonCode[] = [];
