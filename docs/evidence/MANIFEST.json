@@ -1,0 +1,28 @@
+{
+  "about": "One evidence pack sealed by the deployed DockClock stack, kept unaltered so anyone can check its signature offline with npm run verify:pack.",
+  "pack": {
+    "file": "SMOKE-mve8yfv3.pack.json",
+    "fileSha256": "ae12995d1f33b0a14825170a22046c7dfe7f106e971ca5271c2e7665638a2578",
+    "packId": "SMOKE-mve8yfv3-58ac48e9edf6",
+    "packDigestSha256": "54ef08df8465bc8b1ebb8267293dc902b791c914d95c18c5f31bb2eb93ad9be9",
+    "sealedAt": "2026-10-18T19:57:35.239Z",
+    "verdict": "BILLABLE",
+    "amountUsd": 90.99,
+    "source": "s3://<evidence bucket>/packs/SMOKE-mve8yfv3/SMOKE-mve8yfv3-58ac48e9edf6.json, under S3 Object Lock (governance, 30 days)",
+    "sealedBy": "the stack deployed on 2026-10-18 from the working tree committed as 6f7f970..9e30ba4"
+  },
+  "publicKey": {
+    "file": "public-key.pem",
+    "fileSha256": "8876fe3fc644cd347dee167da5720bf46a2b36feaea629b2ea3d9896a855e299",
+    "spkiSha256": "bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c",
+    "algorithm": "ECDSA P-256, SHA-256",
+    "obtainedWith": "aws kms get-public-key (read-only), 2026-10-18",
+    "note": "The pack's keyId is the full KMS key ARN, which includes the AWS account id. It is left as sealed, because changing it would change the file."
+  },
+  "runKind": {
+    "driverMessages": "synthetic (npm run smoke:lifecycle)",
+    "approval": "a real tap on the operator's phone, 2026-10-18 15:58:03 EDT",
+    "claimEmail": "sent by SES to our test mailbox, 2026-10-18 15:58:17 EDT, with this pack attached"
+  },
+  "whatTheSignatureProves": "The recorded messages, times, photo hashes and verdict have not changed since sealing. It does not prove where a phone physically was or what a photo shows."
+}
