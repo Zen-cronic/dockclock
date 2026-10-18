@@ -36,6 +36,8 @@ export interface DispatchInput {
   resend?: boolean;
   // Test loads: escalations are logged, never emailed to dispatch.
   synthetic?: boolean;
+  // A test load that should still ask the real dispatcher to approve its claim.
+  askDispatcher?: boolean;
 }
 
 export interface DispatchOutput {
@@ -179,6 +181,7 @@ export async function handler(input: DispatchInput): Promise<DispatchOutput> {
               tokens: {},
               outbox: {},
               synthetic: input.synthetic === true,
+              ...(input.askDispatcher === true ? { askDispatcher: true } : {}),
               createdAt,
             },
             ConditionExpression: "attribute_not_exists(pk)",

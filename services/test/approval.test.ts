@@ -5,7 +5,7 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@
 import { encodeButtonPayload, parseButtonPayload, type InboundEvent } from "@dockclock/whatsapp";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { approvalTemplate, handleApprovalTap, isApprovalTap } from "../src/approval.js";
+import { approvalTemplate, handleApprovalTap, isApprovalTap, requestApproval } from "../src/approval.js";
 
 const dynamo = mockClient(DynamoDBDocumentClient);
 const sfn = mockClient(SFNClient);
@@ -72,6 +72,13 @@ describe("dispatcher approval", () => {
     expect(body).toContain(encodeButtonPayload({ action: "hold", loadId: "4471", nonce: "nonce01" }));
   });
 
+  it("does not page the dispatcher for a test load unless asked", async () => {
+    dynamo.on(GetCommand, { Key: { pk: "LOAD#4471", sk: "META" } }).resolves({ Item: { loadId: "4471", sealedPackId: "4471-p", synthetic: true } });
+    await requestApproval({ loadId: "4471", token: "tok-2", amountUsd: 80 });
+    expect(messaging.calls()).toHaveLength(0);
+    expect(sfn.commandCalls(SendTaskFailureCommand)[0]?.args[0].input).toMatchObject({ taskToken: "tok-2", error: "HeldByDispatch" });
+  });
+
   it("records an approval and resumes the workflow with its id", async () => {
     await run("approve");
     expect(approval).toMatchObject({ approver: "dispatcher-whatsapp", approvalMessageId: "wamid.approve.nonce01" });
@@ -101,6 +108,8 @@ describe("dispatcher approval", () => {
     await run("hold");
     expect(sfn.calls()).toHaveLength(1);
     expect(request?.decision).toBe("approve");
+    const replies = messaging.commandCalls(SendWhatsAppMessageCommand).map((c) => Buffer.from(c.args[0].input.message as Uint8Array).toString());
+    expect(replies.at(-1)).toContain("was already approved. Nothing changed.");
   });
 
   it("finishes a redelivered approval whose workflow already resumed", async () => {

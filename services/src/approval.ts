@@ -45,6 +45,12 @@ export function approvalTemplate(loadId: string, nonce: string, summary: string,
 export async function requestApproval(input: { loadId: string; token: string; amountUsd: number }): Promise<void> {
   const load = await getLoad(input.loadId);
   if (!load?.sealedPackId) throw new Error(`load ${input.loadId} is not sealed`);
+  // Test loads never page the dispatcher unless the test asked for it; they end as held.
+  if (load.synthetic && !load.askDispatcher) {
+    await sfn.send(new SendTaskFailureCommand({ taskToken: input.token, error: "HeldByDispatch", cause: "synthetic test load: approval not requested" }));
+    log("approval_skipped", { loadId: load.loadId, reason: "synthetic test load" });
+    return;
+  }
   const pack = (await ddb.send(new GetCommand({ TableName: env.table(), Key: keys.pack(load.loadId, load.sealedPackId) }))).Item as PackItem | undefined;
   const reading = (load as unknown as { bolReading?: { legible: boolean } }).bolReading;
   const photo = reading ? (reading.legible ? "photo readable" : "photo NOT readable") : "no photo reading";
@@ -88,7 +94,10 @@ export async function handleApprovalTap(event: InboundEvent, payload: ButtonPayl
     return;
   }
   if (request.decidedAt) {
+    // A second tap (ingest has already dropped redeliveries of the same message): say what stands.
     log("approval_ignored", { loadId: payload.loadId, reason: "already decided" });
+    const decided = (request as ApprovalRequest & { decision?: string }).decision === "approve" ? "approved" : "held";
+    await reply(`Load ${payload.loadId} was already ${decided}. Nothing changed.`);
     return;
   }
   // Order matters for redelivery: record the decision, resume the workflow (tolerating a token that

@@ -3,6 +3,7 @@
 // lifecycle workflow, then verifies the sealed pack against the KMS public key.
 import { readFileSync } from "node:fs";
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
+import { GetScheduleCommand, SchedulerClient } from "@aws-sdk/client-scheduler";
 import { DescribeExecutionCommand, SFNClient } from "@aws-sdk/client-sfn";
 import { GetObjectCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
@@ -78,6 +79,8 @@ const dispatched = await lambda.send(
         address: { kind: "phone", e164: `+${phone}` },
         optIn: { method: "smoke_test_fixture", at: new Date(now).toISOString() },
         synthetic: true,
+        // SMOKE_APPROVAL=1 sends the real dispatcher the approval template for this test load.
+        ...(process.env.SMOKE_APPROVAL === "1" ? { askDispatcher: true } : {}),
       }),
     ),
   }),
@@ -119,11 +122,38 @@ const arrivedWamid = `wamid.smoke.${loadId}.arrived`;
 await feed("Arrived", envelope(button("arrived"), t(248), arrivedWamid));
 await feed("Arrived again, same message id (SQS redelivery)", envelope(button("arrived"), t(248), arrivedWamid));
 await feed("arrival pin", envelope(pin, t(247)));
+if (process.env.SMOKE_NOTICE === "1") await checkNotice();
 await feed("second Arrived tap (should be ignored)", envelope(button("arrived"), t(200)));
 await feed("Released with a stale nonce (should be rejected)", envelope(button("released", "stale000"), t(31)));
 await feed("Released", envelope(button("released"), t(30)));
 await feed("release pin", envelope(pin, t(29)));
 await feed("release Flow with BOL photo and times", envelope(flowReply, t(25)));
+
+// SMOKE_NOTICE=1: the arrival must create the notice schedule; the notice is then sent now (the
+// schedule's timing is unit-tested) and SES must report it delivered before the load is released.
+async function checkNotice(): Promise<void> {
+  const scheduler = new SchedulerClient({});
+  let expression: string | undefined;
+  for (let i = 0; i < 20 && !expression; i++) {
+    expression = await scheduler
+      .send(new GetScheduleCommand({ Name: `notice-${loadId}`, GroupName: "dockclock-notices" }))
+      .then((s) => s.ScheduleExpression)
+      .catch(() => undefined);
+    if (!expression) await sleep(2000);
+  }
+  if (!expression) throw new Error("no notice schedule was created after the arrival pin");
+  console.log(`notice schedule ${expression} UTC`);
+  await lambda.send(new InvokeCommand({ FunctionName: out("NoticeFunction"), Payload: Buffer.from(JSON.stringify({ kind: "send", loadId })) }));
+  for (let i = 0; i < 45; i++) {
+    const notice = (await ddb.send(new GetCommand({ TableName: out("TableName"), Key: { pk: `LOAD#${loadId}`, sk: "META" }, ConsistentRead: true }))).Item?.notice;
+    if (notice?.deliveredAt) {
+      console.log(`notice sent ${notice.sentAt} (SES ${notice.messageId}), delivered ${notice.deliveredAt}`);
+      return;
+    }
+    await sleep(2000);
+  }
+  throw new Error("the detention notice was not reported delivered by SES");
+}
 
 let status = "RUNNING";
 for (let i = 0; i < 45 && status === "RUNNING"; i++) {
