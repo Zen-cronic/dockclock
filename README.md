@@ -62,7 +62,7 @@ Send **DEMO** on WhatsApp to the DockClock number given on the Devpost submissio
 - In the form, change the out time by more than 15 minutes: the typed time no longer matches your pin, so the load is held for a person instead of claimed.
 - Send a blurred photo: you are asked once for a clearer one; in the demo the first photo is used if none comes.
 
-**What is real and what is not.** The clause is fictional (5 minutes free, $60 an hour, $30 cap) and is not part of the scored set. The demo yard accepts any location, so the demo does not test the geofence. Claim and notice emails go to our own test mailbox, never to you. The KMS signature proves the recorded messages, times and photo hash have not changed since sealing; it cannot prove where your phone really was. Each number gets 5 demos a day, reset at 00:00 UTC. Your pins and photo are kept as signed evidence for 30 days.
+**What is real and what is not.** The clause is fictional (5 minutes free, $60 an hour, $30 cap, notice required before free time ends) and is not part of the scored set. The demo yard accepts any location, so the demo does not test the geofence. Claim and notice emails go to our own test mailbox, never to you. The KMS signature proves the recorded messages, times and photo hash have not changed since sealing; it cannot prove where your phone really was. Each number gets 5 demos a day, reset at 00:00 UTC. Your pins and photo are kept as signed evidence for 30 days.
 
 ## Architecture
 ![DockClock architecture](docs/architecture.png)

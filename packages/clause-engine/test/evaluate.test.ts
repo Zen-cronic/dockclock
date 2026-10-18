@@ -137,6 +137,11 @@ describe("judge demo clause", () => {
     expect(result).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["BOL_TIMESTAMP_CONFLICT"] });
   });
 
+  it("needs the notice, as clauses that require one do", () => {
+    expect(evaluate({ ...demoLoad(15), noticeSentAt: null }, clause)).toMatchObject({ verdict: "NOT_BILLABLE", reasons: ["NOTICE_MISSING"] });
+    expect(evaluate({ ...demoLoad(15), noticeSentAt: at(clause.freeTimeMinutes + 1) }, clause)).toMatchObject({ verdict: "NOT_BILLABLE", reasons: ["NOTICE_LATE"] });
+  });
+
   it("stops at the cap", () => {
     const result = evaluate(demoLoad(120), clause);
     expect(result).toMatchObject({ verdict: "BILLABLE", amountUsd: clause.capUsdPerOccurrence, reasons: ["CAP_APPLIED"] });

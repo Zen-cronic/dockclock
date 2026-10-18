@@ -92,6 +92,13 @@ describe("detention notice", () => {
     expect(sendAt).toBe("2026-10-17T19:20:00.000Z");
   });
 
+  it("goes out within a minute of arrival on the judge demo, before its 5 minutes of free time end", () => {
+    const arrivedAt = "2026-10-18T21:00:00.000Z";
+    const { sendAt, detentionStartAt } = noticeTime({ clauseId: "judge-demo", appointmentAt: arrivedAt }, arrivedAt, Date.parse(arrivedAt));
+    expect(sendAt).toBe("2026-10-18T21:01:00.000Z");
+    expect(Date.parse(sendAt)).toBeLessThan(Date.parse(detentionStartAt));
+  });
+
   it("is never scheduled in the past", () => {
     const now = Date.parse("2026-10-17T19:50:00.000Z");
     expect(noticeTime(load as unknown as LoadItem, "2026-10-17T17:40:00.000Z", now).sendAt).toBe("2026-10-17T19:51:00.000Z");
