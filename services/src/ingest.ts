@@ -92,7 +92,8 @@ async function applyOnce(loadId: string, event: InboundEvent): Promise<Applied> 
                   outcome: transition.outcome,
                   phaseBefore: load.phase,
                   phaseAfter: transition.state.phase,
-                  channel: load.channel,
+                  // The channel this event came in on, which after a failover can differ from the load's.
+                  channel: event.channel ?? "whatsapp",
                   serverAt: event.serverAt,
                   messageId: event.wamid,
                   detail: detailOf(event),
