@@ -42,7 +42,10 @@ Status key:
 | The agent reviewed a real load: read evidence, read the photo, reported it "not legible" instead of guessing | `npm run agent:run -- LIVE-mve0rrez review` (2026-10-18, 19 s, tools get_load_evidence + read_bill_of_lading) | live |
 | Bill-of-lading reading: 26 of 26 fields correct on 7 fictional rendered test photos (incl. 12-hour times, missing out time, unsigned, dim/angled, blurry) | `npm run bol:photos && npm run eval:bol` | live |
 | Without dispatch approval the agent does not file | `npm run agent:run -- SMOKE-mve2mb0j file_claim` before approval (2026-10-18) | live |
-| With approval it filed the claim by SES from claims@claims.kaungzinhein.com with the signed pack attached, copying the sealed amount ($90.98) and digest exactly | Same load after `npm run approve:load` (CLI test approval); email received 2026-10-18 17:00 UTC | live |
+| With approval it filed the claim by SES from claims@claims.kaungzinhein.com with the signed pack attached, copying the sealed amount ($90.98) and digest exactly | Load `SMOKE-mve2mb0j` after `npm run approve:load` (CLI test approval); email received 2026-10-18 13:00 EDT | live |
+| After sealing, the workflow asks dispatch on WhatsApp, waits for the tap, runs the agent and then checks the claim record itself | Load `SMOKE-mve8yfv3` (2026-10-18): approval template sent 15:57:36 EDT; operator tapped Approve on a real phone 15:58:03 EDT; claim email from claims@claims.kaungzinhein.com 15:58:17 EDT; execution ended in "Claim filed" | live |
+| Only the dispatcher's number, with the open request's nonce, can approve, once; Hold fails the waiting task | `services/test/approval.test.ts` | tested |
+| Claim amounts reach Cedar as integer cents (0 < amount ≤ $5,000) | `packages/agent/src/definitions.ts`; `packages/agent/test/agent.test.ts` | tested |
 | A claim is never sent twice | Second `file_claim` run stopped; tool reserves the claim before sending (`packages/agent/src/tools.ts`) | live + tested |
 | The claim tool refuses a different amount, a different digest, no approval, an unsealed or non-billable load | `packages/agent/test/agent.test.ts` | tested |
 
@@ -55,7 +58,6 @@ Status key:
 | Claim | Status |
 |---|---|
 | Detention notice by SES before free time ends | planned |
-| Dispatcher approval as a WhatsApp tap (today: CLI test approval) | planned |
-| Workflow wiring: review → approval → filing after sealing; photo retake when unreadable | planned |
+| Photo retake request when the bill of lading is unreadable | planned |
 | Dispute replies | planned |
 | Judge self-service try-it path; architecture diagram; demo video | planned |
