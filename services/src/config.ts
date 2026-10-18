@@ -35,6 +35,8 @@ export const env = {
         .map((s) => (/^[+\d\s().-]+$/.test(s) ? (normalizeE164(s) ?? s) : s)),
     ),
   dispatchEmail: () => required("DISPATCH_EMAIL"),
+  // The dispatcher who approves claims on WhatsApp. Only taps from this number can approve.
+  dispatcherPhone: () => normalizeE164(required("DISPATCHER_PHONE")) ?? "",
   fromEmail: () => required("FROM_EMAIL"),
   configurationSet: () => required("SES_CONFIGURATION_SET"),
   // RCS is optional: without an agent id, loads stay on WhatsApp and failures go to dispatch.

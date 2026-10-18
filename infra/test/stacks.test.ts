@@ -16,6 +16,7 @@ const config = {
   releaseFlowId: "1000",
   flowMode: "draft" as const,
   dispatchEmail: "dispatch@example.com",
+  dispatcherPhone: "+15555550100",
   fromEmail: "dockclock@example.com",
   demoFacility: "",
   agentModelId: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
@@ -66,16 +67,25 @@ describe("stacks", () => {
     emailT.resourceCountIs("AWS::CloudWatch::Alarm", 2);
   });
 
-  it("lets only the seal function sign, and only ingest and dispatch send WhatsApp", () => {
+  it("lets only the seal function sign, and only ingest, dispatch and the approval request send WhatsApp", () => {
     const policies = Object.values(msgT.findResources("AWS::IAM::Policy")).map((p) => JSON.stringify(p));
     expect(policies.filter((p) => p.includes("kms:Sign"))).toHaveLength(1);
-    // Ingest replies in-window and dispatch sends the template; nothing else can message drivers.
-    expect(policies.filter((p) => p.includes("social-messaging:SendWhatsAppMessage"))).toHaveLength(2);
+    // Ingest replies in-window, dispatch sends the load template and the approval request messages
+    // the dispatcher; nothing else can send WhatsApp.
+    expect(policies.filter((p) => p.includes("social-messaging:SendWhatsAppMessage"))).toHaveLength(3);
     expect(policies.filter((p) => p.includes("social-messaging:GetWhatsAppMessageMedia"))).toHaveLength(1);
     // The same two functions may send RCS, and only through the configured agent.
     const rcs = policies.filter((p) => p.includes("sms-voice:SendRcsMessage"));
     expect(rcs).toHaveLength(2);
     for (const p of rcs) expect(p).toContain(`rcs-agent/${config.rcsAgentId}`);
+  });
+
+  it("seals, asks dispatch, lets the agent file and then checks the claim record", () => {
+    const [definition] = Object.values(msgT.findResources("AWS::StepFunctions::StateMachine")).map((r) => JSON.stringify(r));
+    for (const state of ["Read bill of lading", "Seal evidence", "Verdict?", "Ask dispatch to approve", "Agent files the claim", "Check claim record", "Claim sent?", "Held by dispatch"]) {
+      expect(definition).toContain(state);
+    }
+    expect(definition).toContain("waitForTaskToken");
   });
 
   it("feeds RCS two-way traffic and delivery events into the same ingest queue", () => {

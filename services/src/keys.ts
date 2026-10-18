@@ -8,4 +8,6 @@ export const keys = {
   driver: (driverKey: string) => ({ pk: `DRIVER#${driverKey}`, sk: "ACTIVE" }),
   receipt: (messageId: string) => ({ pk: `MSG#${messageId}`, sk: "RECEIPT" }),
   optOut: (driverKey: string) => ({ pk: `OPTOUT#${driverKey}`, sk: "OPTOUT" }),
+  approvalRequest: (loadId: string) => ({ pk: `LOAD#${loadId}`, sk: "APPROVAL_REQUEST" }),
+  approval: (loadId: string) => ({ pk: `LOAD#${loadId}`, sk: "APPROVAL" }),
 };

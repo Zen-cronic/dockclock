@@ -11,6 +11,8 @@ export function buildApp(config: DockClockConfig, app = new App()) {
   const messaging = new MessagingStack(app, "DockClockMessaging", { env, config, core });
   const email = new EmailStack(app, "DockClockEmail", { env });
   const agent = new AgentStack(app, "DockClockAgent", { env, config, core });
+  // The lifecycle calls the agent's functions by name, so the agent deploys first.
+  messaging.addDependency(agent);
   Tags.of(app).add("project", "dockclock");
   return { app, core, messaging, email, agent };
 }

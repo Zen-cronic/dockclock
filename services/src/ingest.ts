@@ -21,6 +21,7 @@ import { driverKeys } from "./identity.js";
 import { locationRequest, releaseButtons, releaseFlowMessage, send, sendDispatchPrompt, sendRcs, textMessage, type Body, type Target } from "./sender.js";
 import { rcsBolRequest, rcsLocationRequest, rcsReleaseOffer, rcsText } from "./rcs.js";
 import { notifyDispatch } from "./escalate.js";
+import { handleApprovalTap, isApprovalTap } from "./approval.js";
 import { finishBol } from "./media.js";
 import { reconcile } from "./tokens.js";
 import { env, log } from "./config.js";
@@ -251,6 +252,12 @@ async function handleOptOut(event: InboundEvent, candidateKeys: string[]): Promi
 async function onInbound(event: InboundEvent): Promise<void> {
   const candidateKeys = await driverKeys(event.sender);
   if (await handleOptOut(event, candidateKeys)) return;
+  // Approve and Hold come from the dispatcher, not the driver, and act on sealed loads.
+  const tap = event.body.type === "button" ? parseButtonPayload(event.body.payload) : null;
+  if (isApprovalTap(tap)) {
+    await handleApprovalTap(event, tap);
+    return;
+  }
   const named = namedLoadId(event);
   let loadId: string;
   if (named) {
@@ -395,6 +402,8 @@ async function failover(messageId: string, receipt: Record<string, unknown>, eve
   } catch (error) {
     if (error instanceof TransactionCanceledException && error.CancellationReasons?.[0]?.Code === "ConditionalCheckFailed") {
       log("failover_skipped", { messageId, loadId, reason: "already handled" });
+      const drained = await drainOutbox(loadId);
+      if (drained) log("outbox_drained", { loadId, effects: drained });
       return;
     }
     throw error;
@@ -402,8 +411,6 @@ async function failover(messageId: string, receipt: Record<string, unknown>, eve
   log("failover", { loadId, messageId, from, purpose, action, queued: effect?.type ?? null });
   const drained = await drainOutbox(loadId);
   if (drained) log("outbox_drained", { loadId, effects: drained });
-      const drained = await drainOutbox(loadId);
-      if (drained) log("outbox_drained", { loadId, effects: drained });
 }
 
 export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {

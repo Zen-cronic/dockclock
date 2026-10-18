@@ -16,6 +16,7 @@ import type { Construct } from "constructs";
 import type { DockClockConfig } from "./config.js";
 import { CONFIGURATION_SET_NAME } from "./email-stack.js";
 import type { CoreStack } from "./core-stack.js";
+import { INVOKE_AGENT_FUNCTION_NAME, TOOLS_FUNCTION_NAME } from "./agent-stack.js";
 import { RCS_MEDIA_PREFIX, RcsChannel } from "./rcs.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -75,6 +76,7 @@ export class MessagingStack extends Stack {
       RELEASE_FLOW_ID: config.releaseFlowId,
       FLOW_MODE: config.flowMode,
       DISPATCH_EMAIL: config.dispatchEmail,
+      DISPATCHER_PHONE: config.dispatcherPhone,
       FROM_EMAIL: config.fromEmail,
       SES_CONFIGURATION_SET: CONFIGURATION_SET_NAME,
     };
@@ -90,15 +92,13 @@ export class MessagingStack extends Stack {
     if (rcs) ingest.addToRolePolicy(rcs.sendRcs);
     ingest.addToRolePolicy(new iam.PolicyStatement({ actions: ["social-messaging:GetWhatsAppMessageMedia"], resources: [phoneArn] }));
     core.mediaBucket.grantReadWrite(ingest);
-    ingest.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["ses:SendEmail"],
-        resources: [
-          `arn:aws:ses:${config.region}:${config.account}:identity/*`,
-          `arn:aws:ses:${config.region}:${config.account}:configuration-set/${CONFIGURATION_SET_NAME}`,
-        ],
-      }),
-    );
+    // identity/* rather than the sender alone: in the SES sandbox the recipient identities are
+    // authorized too.
+    const sesSend = new iam.PolicyStatement({
+      actions: ["ses:SendEmail"],
+      resources: [`arn:aws:ses:${config.region}:${config.account}:identity/*`, `arn:aws:ses:${config.region}:${config.account}:configuration-set/${CONFIGURATION_SET_NAME}`],
+    });
+    ingest.addToRolePolicy(sesSend);
 
     const awaitStep = fn("AwaitStep", "await-step.ts", {});
     core.table.grantReadWriteData(awaitStep);
@@ -158,7 +158,82 @@ export class MessagingStack extends Stack {
     });
     sealPack.addRetry({ errors: ["States.TaskFailed"], interval: Duration.seconds(10), maxAttempts: 3, backoffRate: 2 });
     sealPack.addCatch(markSealFailed, { errors: ["States.ALL"], resultPath: "$.sealError" });
-    sealPack.next(new sfn.Succeed(this, "Sealed"));
+
+    // Before sealing, the agent's bill-of-lading tool reads the photo once, so the reading is part
+    // of the signed evidence. It never blocks: an unreadable or missing photo just seals without it.
+    const agentTools = lambda.Function.fromFunctionName(this, "AgentTools", TOOLS_FUNCTION_NAME);
+    const invokeAgent = lambda.Function.fromFunctionName(this, "InvokeAgent", INVOKE_AGENT_FUNCTION_NAME);
+    const readBol = new tasks.LambdaInvoke(this, "Read bill of lading", {
+      lambdaFunction: agentTools,
+      clientContext: Buffer.from(JSON.stringify({ custom: { bedrockAgentCoreToolName: "dockclock-tools___read_bill_of_lading" } })).toString("base64"),
+      payload: sfn.TaskInput.fromObject({ loadId: sfn.JsonPath.stringAt("$.loadId") }),
+      // The whole tool result: on a missing photo it is an error object with no reading.
+      resultSelector: { "result.$": "$.Payload" },
+      resultPath: "$.bolReading",
+      taskTimeout: sfn.Timeout.duration(Duration.seconds(90)),
+    });
+    readBol.addCatch(sealPack, { errors: ["States.ALL"], resultPath: "$.bolReadError" });
+    readBol.next(sealPack);
+
+    const notifyFn = fn("NotifyDispatch", "notify.ts", channelEnv);
+    core.table.grantReadData(notifyFn);
+    notifyFn.addToRolePolicy(sesSend);
+    const notify = (id: string, reason: string) =>
+      new tasks.LambdaInvoke(this, id, {
+        lambdaFunction: notifyFn,
+        payload: sfn.TaskInput.fromObject({ loadId: sfn.JsonPath.stringAt("$.loadId"), reason }),
+        resultPath: sfn.JsonPath.DISCARD,
+      });
+
+    const requestApprovalFn = fn("RequestApproval", "request-approval.ts", channelEnv);
+    core.table.grantReadWriteData(requestApprovalFn);
+    core.identitySecret.grantRead(requestApprovalFn);
+    requestApprovalFn.addToRolePolicy(sendWhatsApp);
+    // The dispatcher's Approve tap (handled by ingest) returns this task; Hold fails it.
+    const requestApproval = new tasks.LambdaInvoke(this, "Ask dispatch to approve", {
+      lambdaFunction: requestApprovalFn,
+      integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
+      payload: sfn.TaskInput.fromObject({ loadId: sfn.JsonPath.stringAt("$.loadId"), amountUsd: sfn.JsonPath.numberAt("$.seal.pack.amountUsd"), token: sfn.JsonPath.taskToken }),
+      resultPath: "$.approval",
+      taskTimeout: sfn.Timeout.duration(Duration.days(2)),
+    });
+    const fileClaim = new tasks.LambdaInvoke(this, "Agent files the claim", {
+      lambdaFunction: invokeAgent,
+      payload: sfn.TaskInput.fromObject({ loadId: sfn.JsonPath.stringAt("$.loadId"), task: "file_claim" }),
+      resultSelector: { "result.$": "$.Payload" },
+      resultPath: "$.agent",
+    });
+    // Trust, then verify: the workflow reads the claim record itself rather than the agent's words.
+    const checkClaim = new tasks.DynamoGetItem(this, "Check claim record", {
+      table: core.table,
+      key: {
+        pk: tasks.DynamoAttributeValue.fromString(sfn.JsonPath.format("LOAD#{}", sfn.JsonPath.stringAt("$.loadId"))),
+        sk: tasks.DynamoAttributeValue.fromString("CLAIM"),
+      },
+      consistentRead: true,
+      resultPath: "$.claim",
+    });
+    const handedOver = new sfn.Succeed(this, "Claim handed to a person");
+    const notFiled = notify("Tell dispatch the claim was not filed", "approved, but the claims agent did not file the claim; send it by hand").next(handedOver);
+    fileClaim.addCatch(notFiled, { errors: ["States.ALL"], resultPath: "$.agentError" });
+    checkClaim.addCatch(notFiled, { errors: ["States.ALL"], resultPath: "$.claimError" });
+    requestApproval.addCatch(new sfn.Succeed(this, "Held by dispatch"), { errors: ["HeldByDispatch"], resultPath: "$.held" });
+    requestApproval.addCatch(notify("Tell dispatch approval timed out", "no approval within two days; nothing was sent").next(new sfn.Succeed(this, "Approval timed out")), {
+      errors: ["States.ALL"],
+      resultPath: "$.approvalError",
+    });
+    requestApproval.next(fileClaim).next(checkClaim).next(
+      new sfn.Choice(this, "Claim sent?")
+        // A selector on a missing field fails uncatchably, so presence is checked in the condition.
+        .when(sfn.Condition.and(sfn.Condition.isPresent("$.claim.Item.status.S"), sfn.Condition.stringEquals("$.claim.Item.status.S", "sent")), new sfn.Succeed(this, "Claim filed"))
+        .otherwise(notFiled),
+    );
+    sealPack.next(
+      new sfn.Choice(this, "Verdict?")
+        .when(sfn.Condition.stringEquals("$.seal.pack.verdict", "BILLABLE"), requestApproval)
+        .when(sfn.Condition.stringEquals("$.seal.pack.verdict", "NEEDS_HUMAN"), notify("Tell dispatch it needs a person", "sealed as NEEDS_HUMAN; review the pack before any claim").next(new sfn.Succeed(this, "Needs a person")))
+        .otherwise(new sfn.Succeed(this, "Not billable")),
+    );
     // Missing paperwork never holds a load open: after six hours the pack is sealed without it,
     // and the clause engine routes the claim to a person.
     // The arrival wait is measured from the appointment (dispatch passes the seconds), so a load
@@ -167,13 +242,13 @@ export class MessagingStack extends Stack {
       .addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" })
       .next(waitFor("released", sfn.Timeout.duration(Duration.days(3))).addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" }))
       .next(waitFor("bol", sfn.Timeout.duration(Duration.hours(6))).addCatch(sealPack, { errors: ["States.Timeout"], resultPath: "$.bolTimeout" }))
-      .next(sealPack);
+      .next(readBol);
 
     const lifecycle = new sfn.StateMachine(this, "LoadLifecycle", {
       stateMachineName: STATE_MACHINE_NAME,
       stateMachineType: sfn.StateMachineType.STANDARD,
       definitionBody: sfn.DefinitionBody.fromChainable(definition),
-      timeout: Duration.days(7),
+      timeout: Duration.days(10),
       tracingEnabled: true,
       logs: {
         destination: new logs.LogGroup(this, "LifecycleLogs", { retention: logs.RetentionDays.TWO_WEEKS, removalPolicy: RemovalPolicy.DESTROY }),

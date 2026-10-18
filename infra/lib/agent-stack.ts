@@ -15,6 +15,9 @@ import { CONFIGURATION_SET_NAME } from "./email-stack.js";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const HARNESS_NAME = "dockclock_claims_agent";
 const GATEWAY_NAME = "dockclock-tools-gateway";
+// Fixed names, so the load lifecycle can call the agent without a cross-stack export.
+export const TOOLS_FUNCTION_NAME = "dockclock-agent-tools";
+export const INVOKE_AGENT_FUNCTION_NAME = "dockclock-invoke-agent";
 
 export interface AgentStackProps extends StackProps {
   config: DockClockConfig;
@@ -33,8 +36,9 @@ export class AgentStack extends Stack {
     const { config, core } = props;
     const { region, account } = config;
 
-    const fn = (name: string, entry: string, environment: Record<string, string>, timeout: Duration) =>
+    const fn = (name: string, entry: string, environment: Record<string, string>, timeout: Duration, functionName: string) =>
       new NodejsFunction(this, name, {
+        functionName,
         entry: join(repoRoot, "packages", "agent", "src", entry),
         projectRoot: repoRoot,
         depsLockFilePath: join(repoRoot, "package-lock.json"),
@@ -69,6 +73,7 @@ export class AgentStack extends Stack {
         SES_CONFIGURATION_SET: CONFIGURATION_SET_NAME,
       },
       Duration.seconds(60),
+      TOOLS_FUNCTION_NAME,
     );
     core.table.grantReadWriteData(tools);
     core.evidenceBucket.grantRead(tools);
@@ -176,7 +181,7 @@ export class AgentStack extends Stack {
     this.harnessArn = harness.attrArn;
 
     // How the workflow and scripts start the agent: a fixed task line and a validated load id.
-    this.invokeFunction = fn("InvokeAgent", "invoke.ts", { HARNESS_ARN: harness.attrArn }, Duration.minutes(5));
+    this.invokeFunction = fn("InvokeAgent", "invoke.ts", { HARNESS_ARN: harness.attrArn }, Duration.minutes(5), INVOKE_AGENT_FUNCTION_NAME);
     this.invokeFunction.addToRolePolicy(
       new iam.PolicyStatement({ actions: ["bedrock-agentcore:InvokeHarness", "bedrock-agentcore:InvokeAgentRuntime"], resources: [harness.attrArn, `${harness.attrArn}/*`] }),
     );

@@ -13,6 +13,7 @@ export interface DockClockConfig {
   flowMode: "draft" | "published";
   // Escalations go to dispatch by email. In the SES sandbox both must be verified identities.
   dispatchEmail: string;
+  dispatcherPhone: string;
   fromEmail: string;
   // Existing AWS RCS agent (rcs-...) for drivers without WhatsApp and for failover. Empty: no RCS.
   rcsAgentId: string;
@@ -45,6 +46,7 @@ export function configFromEnv(): DockClockConfig {
     releaseFlowId: required("DOCKCLOCK_RELEASE_FLOW_ID"),
     flowMode: process.env.DOCKCLOCK_FLOW_MODE === "published" ? "published" : "draft",
     dispatchEmail: required("DOCKCLOCK_DISPATCH_EMAIL"),
+    dispatcherPhone: required("DOCKCLOCK_DISPATCHER_PHONE"),
     fromEmail: required("DOCKCLOCK_FROM_EMAIL"),
     demoFacility: process.env.DOCKCLOCK_DEMO_FACILITY ?? "",
     agentModelId: process.env.DOCKCLOCK_AGENT_MODEL_ID ?? "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
