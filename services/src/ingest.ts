@@ -324,8 +324,16 @@ async function onStatus(event: StatusEvent | RcsStatusEvent): Promise<void> {
 async function failover(messageId: string, receipt: Record<string, unknown>, event: StatusEvent): Promise<void> {
   const loadId = typeof receipt.loadId === "string" ? receipt.loadId : null;
   const purpose = typeof receipt.purpose === "string" ? receipt.purpose : "";
-  if (!loadId || loadId === "-" || receipt.failoverAt) {
-    log("failover_skipped", { messageId, reason: !loadId || loadId === "-" ? "not a load message" : "already handled" });
+  if (!loadId || loadId === "-") {
+    log("failover_skipped", { messageId, reason: "not a load message" });
+    return;
+  }
+  if (receipt.failoverAt) {
+    // Already queued once. A redelivery still drains, so a re-send that failed is retried; the
+    // guard stops a second enqueue, never the delivery.
+    log("failover_skipped", { messageId, loadId, reason: "already handled" });
+    const drained = await drainOutbox(loadId);
+    if (drained) log("outbox_drained", { loadId, effects: drained });
     return;
   }
   const load = await getLoad(loadId);
@@ -394,6 +402,8 @@ async function failover(messageId: string, receipt: Record<string, unknown>, eve
   log("failover", { loadId, messageId, from, purpose, action, queued: effect?.type ?? null });
   const drained = await drainOutbox(loadId);
   if (drained) log("outbox_drained", { loadId, effects: drained });
+      const drained = await drainOutbox(loadId);
+      if (drained) log("outbox_drained", { loadId, effects: drained });
 }
 
 export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {

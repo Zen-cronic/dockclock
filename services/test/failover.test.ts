@@ -153,6 +153,19 @@ describe("WhatsApp to RCS failover", () => {
     expect(timeline).toHaveLength(1);
   });
 
+  it("retries a queued RCS re-send when the failed status is redelivered", async () => {
+    sms.on(SendRcsMessageCommand).rejectsOnce(Object.assign(new Error("slow down"), { name: "ThrottlingException" })).resolves({ MessageId: "rcs-out-1" });
+    const first = await handler(whatsappFailed("out-1"));
+    expect(first.batchItemFailures).toHaveLength(1);
+    expect(Object.keys(load.outbox ?? {})).toHaveLength(1);
+    // SQS redelivers the same record: the failover is already recorded, but the outbox still drains.
+    const second = await handler(whatsappFailed("out-1"));
+    expect(second.batchItemFailures).toHaveLength(0);
+    expect(sms.commandCalls(SendRcsMessageCommand)).toHaveLength(2);
+    expect(load.outbox).toEqual({});
+    expect(timeline).toHaveLength(1);
+  });
+
   it("sends nothing more over RCS when the RCS re-send fails too, and tells dispatch instead", async () => {
     load.synthetic = false;
     process.env.DISPATCH_EMAIL = "dispatch@example.com";
