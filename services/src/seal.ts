@@ -99,7 +99,8 @@ export function toRecord(load: LoadItem): LoadRecord {
     released: pinEvent("released", load.released, load),
     bol: bolCapture(load.bol ?? null, load, facility.timeZone),
     status214: false,
-    notice: null,
+    // Only a notice SES accepted counts; its delivery time comes from the SES delivery event.
+    notice: load.notice?.sentAt && load.notice.messageId ? { sentAt: load.notice.sentAt, deliveredAt: load.notice.deliveredAt ?? null, messageId: load.notice.messageId } : null,
     shipperConfirmation: null,
   };
 }

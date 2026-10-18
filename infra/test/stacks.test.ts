@@ -67,22 +67,22 @@ describe("stacks", () => {
     emailT.resourceCountIs("AWS::CloudWatch::Alarm", 2);
   });
 
-  it("lets only the seal function sign, and only ingest, dispatch and the approval request send WhatsApp", () => {
+  it("lets only the seal function sign, and names every function that may message a driver", () => {
     const policies = Object.values(msgT.findResources("AWS::IAM::Policy")).map((p) => JSON.stringify(p));
     expect(policies.filter((p) => p.includes("kms:Sign"))).toHaveLength(1);
-    // Ingest replies in-window, dispatch sends the load template and the approval request messages
-    // the dispatcher; nothing else can send WhatsApp.
-    expect(policies.filter((p) => p.includes("social-messaging:SendWhatsAppMessage"))).toHaveLength(3);
-    expect(policies.filter((p) => p.includes("social-messaging:GetWhatsAppMessageMedia"))).toHaveLength(1);
-    // The same two functions may send RCS, and only through the configured agent.
+    // Ingest replies in-window, dispatch sends the load template, the approval request messages the
+    // dispatcher, the notice tells the driver it went out and the retake asks for a clearer photo.
+    expect(policies.filter((p) => p.includes("social-messaging:SendWhatsAppMessage"))).toHaveLength(5);
+    expect(policies.filter((p) => p.includes("social-messaging:GetWhatsAppMessageMedia"))).toHaveLength(2);
+    // The driver-facing functions may send RCS, and only through the configured agent.
     const rcs = policies.filter((p) => p.includes("sms-voice:SendRcsMessage"));
-    expect(rcs).toHaveLength(2);
+    expect(rcs).toHaveLength(4);
     for (const p of rcs) expect(p).toContain(`rcs-agent/${config.rcsAgentId}`);
   });
 
   it("seals, asks dispatch, lets the agent file and then checks the claim record", () => {
     const [definition] = Object.values(msgT.findResources("AWS::StepFunctions::StateMachine")).map((r) => JSON.stringify(r));
-    for (const state of ["Read bill of lading", "Seal evidence", "Verdict?", "Ask dispatch to approve", "Agent files the claim", "Check claim record", "Claim sent?", "Held by dispatch"]) {
+    for (const state of ["Schedule detention notice", "Photo readable?", "Ask for a clearer photo", "Await retake", "Read the retaken photo", "Read bill of lading", "Seal evidence", "Verdict?", "Ask dispatch to approve", "Agent files the claim", "Check claim record", "Claim sent?", "Held by dispatch"]) {
       expect(definition).toContain(state);
     }
     expect(definition).toContain("waitForTaskToken");
@@ -90,7 +90,8 @@ describe("stacks", () => {
 
   it("feeds RCS two-way traffic and delivery events into the same ingest queue", () => {
     msgT.hasResourceProperties("AWS::SNS::Topic", { TopicName: "dockclock-rcs-events" });
-    msgT.resourceCountIs("AWS::SNS::Subscription", 2);
+    // Two into the ingest queue, plus SES delivery events into the notice function.
+    msgT.resourceCountIs("AWS::SNS::Subscription", 3);
     msgT.hasResourceProperties("AWS::SMSVOICE::ConfigurationSet", {
       ConfigurationSetName: "dockclock-rcs",
       EventDestinations: [Match.objectLike({ Enabled: true, MatchingEventTypes: ["RCS_ALL"] })],

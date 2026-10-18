@@ -35,6 +35,22 @@ export interface LoadItem extends LoadState {
   sealedPackId?: string;
   outcome?: string;
   synthetic?: boolean;
+  askDispatcher?: boolean;
+  notice?: NoticeItem;
+  // Set when the workflow asked for a clearer photo: the message id of the unreadable one.
+  retakeOf?: string;
+  retakeRequestedAt?: string;
+}
+
+// The detention notice: scheduled after the Arrived pin, sent by SES before free time ends, and
+// marked delivered from the SES delivery event.
+export interface NoticeItem {
+  scheduledFor: string;
+  sentAt?: string;
+  messageId?: string;
+  deliveredAt?: string;
+  bouncedAt?: string;
+  skipped?: string;
 }
 
 // One record per key a driver is known by. The dispatched key's record is the driver's live load;

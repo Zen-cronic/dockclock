@@ -38,6 +38,10 @@ export const env = {
   // The dispatcher who approves claims on WhatsApp. Only taps from this number can approve.
   dispatcherPhone: () => normalizeE164(required("DISPATCHER_PHONE")) ?? "",
   fromEmail: () => required("FROM_EMAIL"),
+  claimsFromEmail: () => required("CLAIMS_FROM_EMAIL"),
+  counterpartyEmail: (role: "broker" | "shipper") => required(role === "broker" ? "COUNTERPARTY_EMAIL_BROKER" : "COUNTERPARTY_EMAIL_SHIPPER"),
+  scheduleGroup: () => required("NOTICE_SCHEDULE_GROUP"),
+  schedulerRoleArn: () => required("NOTICE_SCHEDULER_ROLE_ARN"),
   configurationSet: () => required("SES_CONFIGURATION_SET"),
   // RCS is optional: without an agent id, loads stay on WhatsApp and failures go to dispatch.
   rcs: (): RcsConfig | null =>

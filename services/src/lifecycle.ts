@@ -12,21 +12,13 @@ export type Phase =
   // Terminal: the workflow sealed the pack, or ended the load (timeout, superseded, seal failure).
   | "sealed"
   | "closed";
-export type Step = "arrived" | "released" | "bol";
-export type MessageKey =
-  | "tap_arrived_first"
-  | "dispatch_notified"
-  | "bol_received"
-  | "bol_partial"
-  | "bol_incomplete"
-  | "bol_times_unreadable"
-  | "flow_limit"
-  | "load_closed"
-  | "use_bol_button"
-  | "bol_photo_received";
+// "retake" waits for a second bill of lading after an unreadable first photo.
+export type Step = "arrived" | "released" | "bol" | "retake";
+
 
 export const MAX_FLOW_SENDS = 3;
-const MESSAGE_KEYS: readonly MessageKey[] = [
+// One list, and the type derives from it, so a new key cannot be missing from failover.
+const MESSAGE_KEYS = [
   "tap_arrived_first",
   "dispatch_notified",
   "bol_received",
@@ -37,7 +29,9 @@ const MESSAGE_KEYS: readonly MessageKey[] = [
   "load_closed",
   "use_bol_button",
   "bol_photo_received",
-];
+  "bol_retake",
+] as const;
+export type MessageKey = (typeof MESSAGE_KEYS)[number];
 const TERMINAL: readonly Phase[] = ["sealed", "closed"];
 
 export interface PinRecord {
@@ -224,8 +218,12 @@ export function applyEvent(state: LoadState, event: InboundEvent): Transition {
   return stay(state, "RECORDED");
 }
 
-export function stepSatisfied(state: Pick<LoadState, "arrived" | "released" | "bol">, step: Step): boolean {
+type StepView = Pick<LoadState, "arrived" | "released" | "bol"> & { retakeOf?: string };
+
+export function stepSatisfied(state: StepView, step: Step): boolean {
   switch (step) {
+    case "retake":
+      return state.bol !== null && state.bol.messageId !== state.retakeOf && state.bol.media !== "pending";
     case "arrived":
       return state.arrived !== null;
     case "released":
@@ -235,13 +233,14 @@ export function stepSatisfied(state: Pick<LoadState, "arrived" | "released" | "b
   }
 }
 
-export function stepAt(state: Pick<LoadState, "arrived" | "released" | "bol">, step: Step): string | undefined {
+export function stepAt(state: StepView, step: Step): string | undefined {
   switch (step) {
     case "arrived":
       return state.arrived?.serverAt;
     case "released":
       return state.released?.serverAt;
     case "bol":
+    case "retake":
       return state.bol?.serverAt;
   }
 }

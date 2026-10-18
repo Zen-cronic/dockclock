@@ -7,8 +7,11 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as scheduler from "aws-cdk-lib/aws-scheduler";
+import { LambdaSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
 import * as sns from "aws-cdk-lib/aws-sns";
 import { SqsSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
+import type { EmailStack } from "./email-stack.js";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
@@ -21,10 +24,12 @@ import { RCS_MEDIA_PREFIX, RcsChannel } from "./rcs.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const STATE_MACHINE_NAME = "dockclock-load-lifecycle";
+const NOTICE_SCHEDULE_GROUP = "dockclock-notices";
 
 export interface MessagingStackProps extends StackProps {
   config: DockClockConfig;
   core: CoreStack;
+  email: EmailStack;
 }
 
 // The driver loop: WhatsApp events arrive on the existing End User Messaging topic, land in an
@@ -123,7 +128,7 @@ export class MessagingStack extends Stack {
     dispatch.addToRolePolicy(new iam.PolicyStatement({ actions: ["states:StartExecution"], resources: [stateMachineArn] }));
 
     // Lifecycle: wait for the Arrived pin, the Released pin and the bill-of-lading Flow, then seal.
-    const waitFor = (step: "arrived" | "released" | "bol", timeout: sfn.Timeout) =>
+    const waitFor = (step: "arrived" | "released" | "bol" | "retake", timeout: sfn.Timeout) =>
       new tasks.LambdaInvoke(this, `Await ${step}`, {
         lambdaFunction: awaitStep,
         integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
@@ -173,7 +178,79 @@ export class MessagingStack extends Stack {
       taskTimeout: sfn.Timeout.duration(Duration.seconds(90)),
     });
     readBol.addCatch(sealPack, { errors: ["States.ALL"], resultPath: "$.bolReadError" });
-    readBol.next(sealPack);
+
+    // Detention notice: one EventBridge Scheduler job per load, created after the Arrived pin and
+    // fired before free time ends. SES delivery events then mark the notice delivered.
+    const scheduleGroup = new scheduler.CfnScheduleGroup(this, "NoticeSchedules", { name: NOTICE_SCHEDULE_GROUP });
+    const schedulerRole = new iam.Role(this, "NoticeSchedulerRole", {
+      assumedBy: new iam.ServicePrincipal("scheduler.amazonaws.com", { conditions: { StringEquals: { "aws:SourceAccount": config.account } } }),
+    });
+    const noticeFn = fn("Notice", "notice.ts", {
+      ...channelEnv,
+      CLAIMS_FROM_EMAIL: config.claimsFromEmail,
+      COUNTERPARTY_EMAIL_BROKER: config.counterpartyEmailBroker,
+      COUNTERPARTY_EMAIL_SHIPPER: config.counterpartyEmailShipper,
+      NOTICE_SCHEDULE_GROUP: NOTICE_SCHEDULE_GROUP,
+      NOTICE_SCHEDULER_ROLE_ARN: schedulerRole.roleArn,
+    });
+    noticeFn.grantInvoke(schedulerRole);
+    core.table.grantReadWriteData(noticeFn);
+    core.identitySecret.grantRead(noticeFn);
+    noticeFn.addToRolePolicy(sendWhatsApp);
+    if (rcs) noticeFn.addToRolePolicy(rcs.sendRcs);
+    noticeFn.addToRolePolicy(sesSend);
+    noticeFn.addToRolePolicy(
+      new iam.PolicyStatement({ actions: ["scheduler:CreateSchedule"], resources: [`arn:aws:scheduler:${config.region}:${config.account}:schedule/${NOTICE_SCHEDULE_GROUP}/*`] }),
+    );
+    noticeFn.addToRolePolicy(new iam.PolicyStatement({ actions: ["iam:PassRole"], resources: [schedulerRole.roleArn] }));
+    noticeFn.node.addDependency(scheduleGroup);
+    props.email.emailEvents.addSubscription(new LambdaSubscription(noticeFn));
+    const scheduleNotice = new tasks.LambdaInvoke(this, "Schedule detention notice", {
+      lambdaFunction: noticeFn,
+      payload: sfn.TaskInput.fromObject({ kind: "schedule", loadId: sfn.JsonPath.stringAt("$.loadId") }),
+      resultPath: sfn.JsonPath.DISCARD,
+    });
+
+    // Photo retake: asked once, when the reading says the photo cannot be read.
+    const retakeFn = fn("RequestRetake", "retake.ts", channelEnv);
+    core.table.grantReadWriteData(retakeFn);
+    core.identitySecret.grantRead(retakeFn);
+    core.mediaBucket.grantReadWrite(retakeFn);
+    retakeFn.addToRolePolicy(sendWhatsApp);
+    retakeFn.addToRolePolicy(new iam.PolicyStatement({ actions: ["social-messaging:GetWhatsAppMessageMedia"], resources: [phoneArn] }));
+    if (rcs) retakeFn.addToRolePolicy(rcs.sendRcs);
+    retakeFn.addToRolePolicy(sesSend);
+    const requestRetake = new tasks.LambdaInvoke(this, "Ask for a clearer photo", {
+      lambdaFunction: retakeFn,
+      payload: sfn.TaskInput.fromObject({ loadId: sfn.JsonPath.stringAt("$.loadId") }),
+      resultSelector: { "result.$": "$.Payload" },
+      resultPath: "$.retakeRequest",
+    });
+    const readRetaken = new tasks.LambdaInvoke(this, "Read the retaken photo", {
+      lambdaFunction: agentTools,
+      clientContext: Buffer.from(JSON.stringify({ custom: { bedrockAgentCoreToolName: "dockclock-tools___read_bill_of_lading" } })).toString("base64"),
+      payload: sfn.TaskInput.fromObject({ loadId: sfn.JsonPath.stringAt("$.loadId") }),
+      resultSelector: { "result.$": "$.Payload" },
+      resultPath: "$.bolReading",
+      taskTimeout: sfn.Timeout.duration(Duration.seconds(90)),
+    });
+    readRetaken.addCatch(sealPack, { errors: ["States.ALL"], resultPath: "$.bolReadError" });
+    readRetaken.next(sealPack);
+    const awaitRetake = waitFor("retake", sfn.Timeout.duration(Duration.hours(1)));
+    awaitRetake.addCatch(sealPack, { errors: ["States.ALL"], resultPath: "$.retakeTimeout" });
+    awaitRetake.next(readRetaken);
+    requestRetake.addCatch(sealPack, { errors: ["States.ALL"], resultPath: "$.retakeError" });
+    requestRetake.next(
+      new sfn.Choice(this, "Retake requested?")
+        .when(sfn.Condition.booleanEquals("$.retakeRequest.result.requested", true), awaitRetake)
+        .otherwise(sealPack),
+    );
+
+    readBol.next(
+      new sfn.Choice(this, "Photo readable?")
+        .when(sfn.Condition.and(sfn.Condition.isPresent("$.bolReading.result.legible"), sfn.Condition.booleanEquals("$.bolReading.result.legible", false)), requestRetake)
+        .otherwise(sealPack),
+    );
 
     const notifyFn = fn("NotifyDispatch", "notify.ts", channelEnv);
     core.table.grantReadData(notifyFn);
@@ -238,9 +315,13 @@ export class MessagingStack extends Stack {
     // and the clause engine routes the claim to a person.
     // The arrival wait is measured from the appointment (dispatch passes the seconds), so a load
     // booked days ahead is not handed to a person before the driver could arrive.
+    // The notice is scheduled right after arrival and never blocks the load if scheduling fails.
+    const awaitReleased = waitFor("released", sfn.Timeout.duration(Duration.days(3))).addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" });
+    scheduleNotice.addCatch(awaitReleased, { errors: ["States.ALL"], resultPath: "$.noticeError" });
     const definition = waitFor("arrived", sfn.Timeout.at("$.arrivalTimeoutSeconds"))
       .addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" })
-      .next(waitFor("released", sfn.Timeout.duration(Duration.days(3))).addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" }))
+      .next(scheduleNotice)
+      .next(awaitReleased)
       .next(waitFor("bol", sfn.Timeout.duration(Duration.hours(6))).addCatch(sealPack, { errors: ["States.Timeout"], resultPath: "$.bolTimeout" }))
       .next(readBol);
 
@@ -288,6 +369,7 @@ export class MessagingStack extends Stack {
 
     new CfnOutput(this, "StateMachineArn", { value: lifecycle.stateMachineArn });
     new CfnOutput(this, "DispatchFunction", { value: dispatch.functionName });
+    new CfnOutput(this, "NoticeFunction", { value: noticeFn.functionName });
     new CfnOutput(this, "IngestQueueUrl", { value: queue.queueUrl });
     new CfnOutput(this, "TableName", { value: core.table.tableName });
     new CfnOutput(this, "EvidenceBucket", { value: core.evidenceBucket.bucketName });

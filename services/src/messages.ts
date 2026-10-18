@@ -13,6 +13,8 @@ interface Copy {
   releaseFlowBody: (facility: string) => string;
   releaseFlowCta: string;
   replies: Record<MessageKey, string>;
+  // The RCS twin of the dockclock_notice_sent template, same wording.
+  noticeSent: (loadId: string, freeTimeEnds: string, counterparty: string) => string;
   stopped: string;
   resumed: string;
   rcs: RcsCopy;
@@ -51,7 +53,9 @@ export const COPY: Record<Language, Copy> = {
       load_closed: "That load is already closed. Please use the newest message from dispatch.",
       use_bol_button: "Please send the bill of lading with the Add BOL photo button so it is saved with this load.",
       bol_photo_received: "Got it. Your photo is saved with this load's evidence.",
+      bol_retake: "That photo is hard to read. Please take one more of the signed bill of lading: flat, in good light and in focus.",
     },
+    noticeSent: (loadId, ends, counterparty) => `Load ${loadId}: free time ends at ${ends}. We emailed ${counterparty} the detention notice your contract requires. Updates will arrive in this chat.`,
     stopped: "You will not get more load messages from DockClock. Reply START to turn them back on.",
     resumed: "Load messages are back on.",
     rcs: {
@@ -85,7 +89,9 @@ export const COPY: Record<Language, Copy> = {
       load_closed: "Esa carga ya está cerrada. Use el mensaje más reciente de despacho.",
       use_bol_button: "Envíe el BOL con el botón Agregar foto del BOL para guardarlo con esta carga.",
       bol_photo_received: "Listo. Su foto quedó guardada con la evidencia de esta carga.",
+      bol_retake: "Esa foto no se lee bien. Tome otra del BOL firmado: plano, con buena luz y enfocado.",
     },
+    noticeSent: (loadId, ends, counterparty) => `Carga ${loadId}: el tiempo libre termina a las ${ends}. Enviamos por correo a ${counterparty} el aviso de demora que exige su contrato. Las novedades llegarán a este chat.`,
     stopped: "Ya no recibirá mensajes de cargas de DockClock. Responda START para activarlos otra vez.",
     resumed: "Los mensajes de cargas están activos otra vez.",
     rcs: {
@@ -119,7 +125,9 @@ export const COPY: Record<Language, Copy> = {
       load_closed: "Ce chargement est déjà fermé. Utilisez le message le plus récent de la répartition.",
       use_bol_button: "Envoyez le connaissement avec le bouton Ajouter la photo pour l'enregistrer avec ce chargement.",
       bol_photo_received: "C'est noté. Votre photo est enregistrée avec la preuve de ce chargement.",
+      bol_retake: "Cette photo est difficile à lire. Prenez-en une autre du connaissement signé : à plat, bien éclairé et net.",
     },
+    noticeSent: (loadId, ends, counterparty) => `Chargement ${loadId} : le temps alloué se termine à ${ends}. Nous avons envoyé par courriel à ${counterparty} l'avis de temps d'attente exigé par votre contrat. Les mises à jour arriveront dans cette conversation.`,
     stopped: "Vous ne recevrez plus de messages de chargement de DockClock. Répondez START pour les réactiver.",
     resumed: "Les messages de chargement sont réactivés.",
     rcs: {

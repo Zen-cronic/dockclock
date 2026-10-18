@@ -8,8 +8,8 @@ import { MessagingStack } from "./messaging-stack.js";
 export function buildApp(config: DockClockConfig, app = new App()) {
   const env = { account: config.account, region: config.region };
   const core = new CoreStack(app, "DockClockCore", { env });
-  const messaging = new MessagingStack(app, "DockClockMessaging", { env, config, core });
   const email = new EmailStack(app, "DockClockEmail", { env });
+  const messaging = new MessagingStack(app, "DockClockMessaging", { env, config, core, email });
   const agent = new AgentStack(app, "DockClockAgent", { env, config, core });
   // The lifecycle calls the agent's functions by name, so the agent deploys first.
   messaging.addDependency(agent);
