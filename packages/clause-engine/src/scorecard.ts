@@ -114,7 +114,7 @@ export function headline(card: Scorecard): string {
   const valid = d.filedValid === d.filed ? `all ${d.filed} valid` : `${d.filedValid} of ${d.filed} valid`;
   return (
     `On ${card.loads} test loads the contracts owe ${usd(card.contractPayableUsd)} in detention. ` +
-    `DockClock claims ${usd(claimedOfOwed)} of it (${percent(claimedOfOwed, card.contractPayableUsd)}) and nothing a contract denies: ` +
+    `DockClock would claim ${usd(claimedOfOwed)} of it (${percent(claimedOfOwed, card.contractPayableUsd)}) and nothing a contract denies: ` +
     `${d.filed} claims, ${valid}, ${d.falseHolds} owed claims held back. ` +
     `The common "bill every stop over 2 hours" rule asks for ${usd(b.claimedUsd)}, and ${usd(b.uncollectibleUsd)} of that ` +
     `(${percent(b.uncollectibleUsd, b.claimedUsd)}) is denied by the contract, more than the clause pays, or unprovable.`

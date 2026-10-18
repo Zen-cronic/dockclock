@@ -2,7 +2,7 @@
 
 **Truck detention pay, claimed exactly as the contract owes it, with proof captured on the driver's WhatsApp.**
 
-> **On 24 test loads the contracts owe $1,245.00 in detention. DockClock claims $1,245.00 of it (100%) and nothing a contract denies: 9 claims, all 9 valid, 0 owed claims held back. The common "bill every stop over 2 hours" rule asks for $2,554.18, and $1,314.18 of that (51%) is denied by the contract, more than the clause pays, or unprovable.**
+> **On 24 test loads the contracts owe $1,245.00 in detention. DockClock would claim $1,245.00 of it (100%) and nothing a contract denies: 9 claims, all 9 valid, 0 owed claims held back. The common "bill every stop over 2 hours" rule asks for $2,554.18, and $1,314.18 of that (51%) is denied by the contract, more than the clause pays, or unprovable.**
 > Recompute it: `npm run scorecard` (fixtures frozen at sha256 `d45ae579…`).
 
 ## The problem, in one paragraph
@@ -36,17 +36,17 @@ Carriers also skip billing because they expect to be refused and don't want to d
 7. **The agent files the claim.** A Bedrock AgentCore agent reads the bill-of-lading photo before sealing, then, once dispatch approves, writes the claim email to the broker or shipper and sends it with Amazon SES, attaching the signed pack. It can only call DockClock's tools through an AgentCore Gateway, where Cedar policies allow the claim tool only with an approval and an amount under a cap. The tool then refuses unless the amount and pack digest equal the sealed values, so a prompt cannot change the money.
 
 ## What works today, and what is still being built
-We'll tell you before you find it. Every line below is traced to a test, a file or a live run in [`FACTS.md`](FACTS.md).
+We'll tell you before you find it. Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md). Load ids say what kind of run it was: `LIVE-` loads were driven from a real phone; `SMOKE-` loads replay synthetic driver messages through the deployed stack, so everything after the phone (workflow, agent, SES, KMS) is real.
 
 | Works today (proven) | Being built before the 2026-10-24 freeze |
 |---|---|
 | Steps 1–5 above, run live on a real phone over AWS End User Messaging Social (load `LIVE-mve0rrez`) | Replies to disputes |
-| **The whole money loop, automatic after sealing:** the dispatcher gets a WhatsApp approval template, taps **Approve claim**, and the AgentCore agent files the claim by SES with the signed pack; the workflow then reads the claim record itself before it reports success (load `SMOKE-mve8yfv3`: tap to email in 14 seconds) | A live phone run of the photo retake and of the judge try-it path (both built and tested) |
-| **The detention notice:** EventBridge Scheduler fires before free time ends, SES emails the broker or shipper, the delivery event is recorded, and the sealed pack carries the notice, so clauses that require notice can pay (load `SMOKE-mveb2qnf`: delivered 0.7 s after sending) | |
-| A **Bedrock AgentCore** claims agent (Harness + Gateway) bounded by Cedar policies and a code gate on the sealed amount and digest; it refuses without an approval and never files twice | |
-| Bill-of-lading reading: **26 of 26 fields correct** on 7 fictional test photos, and an honest "not legible" on a real blurry phone photo; the reading is part of the signed evidence, and an unreadable photo gets one request for a clearer one | |
-| **RCS** for drivers without WhatsApp and as failover when a WhatsApp send fails (live round trip on a real phone, load `LIVE-mve1ve6d`) | |
-| Duplicate, out-of-order and stale taps refused; STOP/START honoured; "Talk to dispatch" emails a person; a tampered pack fails verification; over 160 automated tests | |
+| **The whole money loop, automatic after sealing:** the dispatcher gets a WhatsApp approval template, taps **Approve claim**, and the AgentCore agent files the claim by SES with the signed pack; the workflow then reads the claim record itself before it reports success (load `SMOKE-mve8yfv3`: synthetic driver messages, a real approval template and tap on the operator's phone, and the claim emailed by SES to our test mailbox 14 seconds after the tap) | A live phone run of the photo retake and of the judge try-it path (both built and tested) |
+| **The detention notice:** EventBridge Scheduler fires before free time ends, SES emails the broker or shipper, the delivery event is recorded, and the sealed pack carries the notice, so clauses that require notice can pay (load `SMOKE-mveb2qnf`, synthetic driver messages: SES reported delivery to our test mailbox 0.7 s after sending) | |
+| A **Bedrock AgentCore** claims agent (Harness + Gateway) bounded by Cedar policies and a code gate on the sealed amount and digest; it refuses without an approval, and a second filing for the same load is refused (the claim is reserved before SES is called) | |
+| Bill-of-lading reading: **26 of 26 fields correct** on 7 fictional test photos, and an honest "not legible" on a real blurry phone photo; the reading is part of the signed evidence. An unreadable photo gets one request for a clearer one (tested; a live phone run is pending) | |
+| **RCS** for drivers without WhatsApp and as failover when a WhatsApp send fails (live on a real phone, load `LIVE-mve1ve6d`: dispatch card, Arrived, two location pins and a bill-of-lading photo over RCS, 2026-10-18 12:52–12:54 EDT; the WhatsApp-to-RCS failover is tested and run with synthetic events) | |
+| Duplicate, out-of-order and stale taps refused; STOP/START honoured; "Talk to dispatch" answers the driver and emails dispatch; a tampered pack fails verification; over 160 automated tests | |
 
 Today the scorecard measures the clause engine on 24 hand-labelled test loads. Its truth column was written by us from each clause's text, so it is a consistency check, not field data.
 
