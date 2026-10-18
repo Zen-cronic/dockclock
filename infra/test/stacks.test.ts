@@ -49,6 +49,8 @@ describe("stacks", () => {
     const machines = msgT.findResources("AWS::StepFunctions::StateMachine");
     const definition = JSON.stringify(Object.values(machines)[0]?.Properties?.DefinitionString);
     expect(definition).toContain("waitForTaskToken");
+    // The retake wait comes from the retake request (10 minutes on demo loads, an hour otherwise).
+    expect(definition).toContain('\\"TimeoutSecondsPath\\":\\"$.retakeRequest.result.waitSeconds\\"');
     expect(definition).toContain("Await arrived");
     expect(definition).toContain("Await released");
     expect(definition).toContain("Await bol");
@@ -87,6 +89,8 @@ describe("stacks", () => {
       expect(definition).toContain(state);
     }
     expect(definition).toContain("waitForTaskToken");
+    // The retake wait comes from the retake request (10 minutes on demo loads, an hour otherwise).
+    expect(definition).toContain('\\"TimeoutSecondsPath\\":\\"$.retakeRequest.result.waitSeconds\\"');
   });
 
   it("feeds RCS two-way traffic and delivery events into the same ingest queue", () => {

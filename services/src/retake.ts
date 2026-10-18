@@ -9,16 +9,21 @@ import { keys } from "./keys.js";
 // goes back to waiting for the bill of lading, and the driver gets the camera Flow again with a
 // short reason. The unreadable photo stays on the load until a new one replaces it, so a driver who
 // does not answer still seals with the original.
-export async function handler(input: { loadId: string }): Promise<{ requested: boolean }> {
+// How long to wait for the clearer photo: short on a judge demo load, an hour otherwise.
+export const RETAKE_WAIT_SECONDS = { demo: 600, standard: 3600 } as const;
+
+export async function handler(input: { loadId: string }): Promise<{ requested: boolean; waitSeconds: number }> {
   const load = await getLoad(input.loadId);
-  if (!load?.bol || load.phase !== "documented") return { requested: false };
+  const waitSeconds = load?.demo ? RETAKE_WAIT_SECONDS.demo : RETAKE_WAIT_SECONDS.standard;
+  if (!load?.bol || load.phase !== "documented") return { requested: false, waitSeconds };
   if ((load.flowSends ?? 0) >= MAX_FLOW_SENDS) {
     log("retake_skipped", { loadId: load.loadId, reason: "Flow re-send limit reached" });
-    return { requested: false };
+    return { requested: false, waitSeconds };
   }
   const now = new Date().toISOString();
+  const until = new Date(Date.now() + waitSeconds * 1000).toISOString();
   const entries: Array<[string, Effect]> = [
-    [`${now}#retake#1`, { type: "tell_driver", key: "bol_retake" }],
+    [`${now}#retake#1`, { type: "ask_retake", until }],
     [`${now}#retake#2`, { type: "send_release_flow" }],
   ];
   const names = Object.fromEntries(entries.map(([seq], i) => [`#k${i}`, seq]));
@@ -38,9 +43,9 @@ export async function handler(input: { loadId: string }): Promise<{ requested: b
     if ((error as Error).name !== "ConditionalCheckFailedException") throw error;
     // A retried step: the request is already queued; draining again finishes any send that failed.
     await drainOutbox(load.loadId);
-    return { requested: false };
+    return { requested: false, waitSeconds };
   }
   log("retake_requested", { loadId: load.loadId, unreadable: load.bol.messageId });
   await drainOutbox(load.loadId);
-  return { requested: true };
+  return { requested: true, waitSeconds };
 }

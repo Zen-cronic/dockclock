@@ -241,7 +241,8 @@ export class MessagingStack extends Stack {
     });
     readRetaken.addCatch(sealPack, { errors: ["States.ALL"], resultPath: "$.bolReadError" });
     readRetaken.next(sealPack);
-    const awaitRetake = waitFor("retake", sfn.Timeout.duration(Duration.hours(1)));
+    // The retake Lambda says how long to wait: 10 minutes on a judge demo load, an hour otherwise.
+    const awaitRetake = waitFor("retake", sfn.Timeout.at("$.retakeRequest.result.waitSeconds"));
     awaitRetake.addCatch(sealPack, { errors: ["States.ALL"], resultPath: "$.retakeTimeout" });
     awaitRetake.next(readRetaken);
     requestRetake.addCatch(sealPack, { errors: ["States.ALL"], resultPath: "$.retakeError" });

@@ -172,6 +172,9 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
     case "tell_driver":
       await tell(COPY[language].replies[effect.key], `tell_${effect.key}`);
       return;
+    case "ask_retake":
+      await tell(COPY[language].retakeAsk(clock(effect.until)), "ask_retake");
+      return;
     case "escalate":
       await notifyDispatch(load, effect.reason);
       return;

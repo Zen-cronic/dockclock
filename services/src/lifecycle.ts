@@ -29,7 +29,6 @@ const MESSAGE_KEYS = [
   "load_closed",
   "use_bol_button",
   "bol_photo_received",
-  "bol_retake",
 ] as const;
 export type MessageKey = (typeof MESSAGE_KEYS)[number];
 const TERMINAL: readonly Phase[] = ["sealed", "closed"];
@@ -97,6 +96,7 @@ export type Effect =
   | { type: "send_dispatch" }
   | { type: "download_media" }
   | { type: "tell_driver"; key: MessageKey }
+  | { type: "ask_retake"; until: string }
   | { type: "escalate"; reason: string }
   | { type: "resume"; step: Step };
 
