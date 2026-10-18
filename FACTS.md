@@ -35,11 +35,27 @@ Status key:
 | Pre-filled times left unchanged are not counted as independent proof | `packages/evidence/test/evidence.test.ts`, `services/test/seal.test.ts` | tested |
 | BSUID senders matched to the dispatched driver | `services/test/identity.test.ts`; live loads 2026-10-16/18 | tested + live |
 
+## The agent
+| Claim | Evidence | Status |
+|---|---|---|
+| Claims agent runs on Bedrock AgentCore Harness with Claude Sonnet 4.5; its tools come only through an AgentCore Gateway with a Cedar policy engine in ENFORCE mode | `infra/lib/agent-stack.ts`; deployed stack `DockClockAgent` (2026-10-18); `infra/test/stacks.test.ts` | live |
+| The agent reviewed a real load: read evidence, read the photo, reported it "not legible" instead of guessing | `npm run agent:run -- LIVE-mve0rrez review` (2026-10-18, 19 s, tools get_load_evidence + read_bill_of_lading) | live |
+| Bill-of-lading reading: 26 of 26 fields correct on 7 fictional rendered test photos (incl. 12-hour times, missing out time, unsigned, dim/angled, blurry) | `npm run bol:photos && npm run eval:bol` | live |
+| Without dispatch approval the agent does not file | `npm run agent:run -- SMOKE-mve2mb0j file_claim` before approval (2026-10-18) | live |
+| With approval it filed the claim by SES from claims@claims.kaungzinhein.com with the signed pack attached, copying the sealed amount ($90.98) and digest exactly | Same load after `npm run approve:load` (CLI test approval); email received 2026-10-18 17:00 UTC | live |
+| A claim is never sent twice | Second `file_claim` run stopped; tool reserves the claim before sending (`packages/agent/src/tools.ts`) | live + tested |
+| The claim tool refuses a different amount, a different digest, no approval, an unsealed or non-billable load | `packages/agent/test/agent.test.ts` | tested |
+
+## RCS
+| Claim | Evidence | Status |
+|---|---|---|
+| RCS driver loop and once-only failover from a failed WhatsApp send | `packages/rcs`, `services/src/rcs.ts`, `npm run smoke:rcs`; live round trip on load `LIVE-mve1ve6d` (2026-10-18) | live |
+
 ## Not built yet
 | Claim | Status |
 |---|---|
-| Bedrock AgentCore agent (Harness + Gateway) reads the BOL photo and drafts the claim | planned |
 | Detention notice by SES before free time ends | planned |
-| Dispatcher approval on WhatsApp → claim emailed to the broker → dispute replies | planned |
-| RCS for drivers without WhatsApp | in progress |
+| Dispatcher approval as a WhatsApp tap (today: CLI test approval) | planned |
+| Workflow wiring: review → approval → filing after sealing; photo retake when unreadable | planned |
+| Dispute replies | planned |
 | Judge self-service try-it path; architecture diagram; demo video | planned |

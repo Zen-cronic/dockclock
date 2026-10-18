@@ -32,16 +32,18 @@ Carriers also skip billing because they expect to be refused and don't want to d
    - the reason for the delay.
 4. **Sealed evidence.** Every photo is downloaded into S3 and hashed. The evidence pack is signed with an AWS KMS key and stored under S3 Object Lock, so anyone with the public key can check it later.
 5. **The contract decides, not the model.** A deterministic clause engine returns `BILLABLE`, `NOT_BILLABLE` (with the clause's reason) or `NEEDS_HUMAN`. Pre-filled times the driver left unchanged do not count as independent proof.
+6. **The agent files the claim.** A Bedrock AgentCore agent reads the bill-of-lading photo, then, once dispatch approves, writes the claim email to the broker or shipper and sends it with Amazon SES, attaching the signed pack. It can only call DockClock's tools through an AgentCore Gateway, where Cedar policies allow the claim tool only with an approval and an amount under a cap. The tool then refuses unless the amount and pack digest equal the sealed values, so a prompt cannot change the money.
 
 ## What works today, and what is still being built
 We'll tell you before you find it. Every line below is traced to a test, a file or a live run in [`FACTS.md`](FACTS.md).
 
 | Works today (proven) | Being built before the 2026-10-24 freeze |
 |---|---|
-| Steps 1–5 above, run live on a real phone over AWS End User Messaging Social (load `LIVE-mve0rrez`) | A **Bedrock AgentCore** agent (Harness + Gateway) that reads the bill-of-lading photo and drafts the claim, with the clause engine as its gate |
-| Duplicate, out-of-order and stale taps refused; STOP/START honoured; "Talk to dispatch" emails a person via Amazon SES | The **detention notice** emailed by SES before free time ends (several clauses require it) |
-| Signed pack verifies with the KMS public key; a tampered copy fails | **Dispatcher approval** on WhatsApp, then the **claim emailed to the broker** via SES with the signed pack, then replies to disputes |
-| Over 100 automated tests; the scorecard above, recomputed in CI | **RCS** for drivers without WhatsApp; a way for judges to try it themselves; the architecture diagram |
+| Steps 1–5 above, run live on a real phone over AWS End User Messaging Social (load `LIVE-mve0rrez`) | **Dispatcher approval** as a WhatsApp tap (today an approval is recorded from the command line) |
+| A **Bedrock AgentCore** claims agent (Harness + Gateway) reviews a load, reads the bill-of-lading photo with a Bedrock vision model, and files the claim by SES with the signed pack, bounded by Cedar policies and a code gate on the sealed amount | The **detention notice** emailed by SES before free time ends (several clauses require it) |
+| Bill-of-lading reading: **26 of 26 fields correct** on 7 fictional test photos, and an honest "not legible" on a real blurry phone photo | Workflow wiring so review, approval and filing run automatically after sealing; asking the driver for a clearer photo when it is unreadable |
+| **RCS** for drivers without WhatsApp and as failover when a WhatsApp send fails (live round trip on a real phone, load `LIVE-mve1ve6d`) | Replies to disputes; a way for judges to try it themselves; the architecture diagram |
+| Duplicate, out-of-order and stale taps refused; STOP/START honoured; "Talk to dispatch" emails a person; a tampered pack fails verification; over 100 automated tests | |
 
 Today the scorecard measures the clause engine on 24 hand-labelled test loads. Its truth column was written by us from each clause's text, so it is a consistency check, not field data.
 
