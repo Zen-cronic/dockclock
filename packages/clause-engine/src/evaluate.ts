@@ -98,10 +98,16 @@ export function evaluate(load: LoadEvidence, clause: ClauseSpec): Evaluation {
   }
 
   const reasons: ReasonCode[] = [];
+  // A daily cap limits each 24 hours of detention, not the whole stay.
   let billableMinutes = detentionMinutes;
-  if (clause.capHoursPerDay !== null && billableMinutes > clause.capHoursPerDay * 60) {
-    billableMinutes = clause.capHoursPerDay * 60;
-    reasons.push("CAP_APPLIED");
+  if (clause.capHoursPerDay !== null) {
+    const perDay = clause.capHoursPerDay * 60;
+    const fullDays = Math.floor(detentionMinutes / 1440);
+    const capped = fullDays * Math.min(1440, perDay) + Math.min(detentionMinutes - fullDays * 1440, perDay);
+    if (capped < detentionMinutes) {
+      billableMinutes = capped;
+      reasons.push("CAP_APPLIED");
+    }
   }
   let amountUsd = (billableMinutes / 60) * clause.ratePerHourUsd;
   if (clause.capUsdPerOccurrence !== null && amountUsd > clause.capUsdPerOccurrence) {

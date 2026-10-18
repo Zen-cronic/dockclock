@@ -71,3 +71,30 @@ describe("scorecard", () => {
     expect(card.baseline.deniableUnderContract).toBeGreaterThan(0);
   });
 });
+
+describe("daily cap", () => {
+  it("caps each 24 hours of detention separately", () => {
+    const clause = { ...clauseById("ridgeline-supply"), capHoursPerDay: 6, capUsdPerOccurrence: null, noticeLeadMinutes: null, requireOnTimeArrival: false };
+    const start = "2026-10-13T08:00:00.000Z";
+    const releasedAt = new Date(Date.parse(start) + (clause.freeTimeMinutes + 30 * 60) * 60_000).toISOString();
+    const load = {
+      loadId: "cap",
+      clauseId: clause.id,
+      facility: "x",
+      appointmentAt: start,
+      arrived: { at: start, insideGeofence: true },
+      released: { at: releasedAt, insideGeofence: true },
+      bol: { signed: true, checkIn: start, checkOut: releasedAt },
+      status214: true,
+      noticeSentAt: start,
+      shipperConfirmed: true,
+      evaluatedAt: releasedAt,
+    };
+    // 30 h of detention: 6 h on day one, 6 h of the remaining 6 h on day two.
+    const result = evaluate(load, clause);
+    expect(result.billableMinutes).toBe(12 * 60);
+    expect(result.amountUsd).toBe(12 * clause.ratePerHourUsd);
+    expect(result.reasons).toContain("CAP_APPLIED");
+  });
+});
+
