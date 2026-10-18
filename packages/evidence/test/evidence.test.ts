@@ -10,6 +10,7 @@ import {
   corroborate,
   facilityById,
   KmsSigner,
+  registerFacility,
   LocalSigner,
   packBytes,
   packDigest,
@@ -49,6 +50,14 @@ function record(overrides: Partial<LoadRecord> = {}): LoadRecord {
     ...overrides,
   };
 }
+
+describe("registerFacility", () => {
+  it("adds a runtime facility without letting it replace a built-in one", () => {
+    registerFacility({ id: "demo-test", name: "Demo", timeZone: "America/Toronto", polygon: [[0, 0], [0, 1], [1, 1]] });
+    expect(facilityById("demo-test").timeZone).toBe("America/Toronto");
+    expect(() => registerFacility({ ...facility, polygon: facility.polygon })).toThrow(/built in/);
+  });
+});
 
 describe("geofence", () => {
   it("accepts a pin inside the yard and measures one outside it", () => {

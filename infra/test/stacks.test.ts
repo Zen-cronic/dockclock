@@ -17,6 +17,7 @@ const config = {
   flowMode: "draft" as const,
   dispatchEmail: "dispatch@example.com",
   fromEmail: "dockclock@example.com",
+  demoFacility: "",
 };
 
 describe("stacks", () => {

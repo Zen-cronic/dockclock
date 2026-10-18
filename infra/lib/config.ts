@@ -14,6 +14,8 @@ export interface DockClockConfig {
   // Escalations go to dispatch by email. In the SES sandbox both must be verified identities.
   dispatchEmail: string;
   fromEmail: string;
+  // Optional private facility JSON ({ id, name, timeZone, polygon }) passed through to the Lambdas.
+  demoFacility: string;
 }
 
 function required(name: string): string {
@@ -37,5 +39,6 @@ export function configFromEnv(): DockClockConfig {
     flowMode: process.env.DOCKCLOCK_FLOW_MODE === "published" ? "published" : "draft",
     dispatchEmail: required("DOCKCLOCK_DISPATCH_EMAIL"),
     fromEmail: required("DOCKCLOCK_FROM_EMAIL"),
+    demoFacility: process.env.DOCKCLOCK_DEMO_FACILITY ?? "",
   };
 }

@@ -1,4 +1,9 @@
+import { registerFacility, type Facility } from "@dockclock/evidence";
 import { normalizeE164, type ChannelConfig } from "@dockclock/whatsapp";
+
+// A private demo yard arrives as JSON in DEMO_FACILITY (set from the operator's gitignored .env),
+// so its coordinates never enter the repository.
+if (process.env.DEMO_FACILITY) registerFacility(JSON.parse(process.env.DEMO_FACILITY) as Facility);
 
 function required(name: string): string {
   const value = process.env[name];

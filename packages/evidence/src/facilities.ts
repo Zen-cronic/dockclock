@@ -26,8 +26,18 @@ export const FACILITIES: readonly Facility[] = [
   },
 ];
 
+// Facilities supplied at runtime, such as a private demo yard whose polygon must not live in the
+// repository. Registered ids may not shadow the built-in fixtures.
+const registered = new Map<string, Facility>();
+
+export function registerFacility(facility: Facility): void {
+  if (FACILITIES.some((f) => f.id === facility.id)) throw new Error(`facility ${facility.id} is built in`);
+  if (facility.polygon.length < 3) throw new Error(`facility ${facility.id} needs a polygon of at least 3 points`);
+  registered.set(facility.id, facility);
+}
+
 export function facilityById(id: string): Facility {
-  const facility = FACILITIES.find((f) => f.id === id);
+  const facility = FACILITIES.find((f) => f.id === id) ?? registered.get(id);
   if (!facility) throw new Error(`unknown facility ${id}`);
   return facility;
 }

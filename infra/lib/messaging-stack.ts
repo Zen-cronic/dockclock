@@ -46,7 +46,12 @@ export class MessagingStack extends Stack {
         tracing: lambda.Tracing.ACTIVE,
         loggingFormat: lambda.LoggingFormat.JSON,
         logGroup: new logs.LogGroup(this, `${name}Logs`, { retention: logs.RetentionDays.TWO_WEEKS, removalPolicy: RemovalPolicy.DESTROY }),
-        environment: { TABLE_NAME: core.table.tableName, NODE_OPTIONS: "--enable-source-maps", ...environment },
+        environment: {
+          TABLE_NAME: core.table.tableName,
+          NODE_OPTIONS: "--enable-source-maps",
+          ...(config.demoFacility ? { DEMO_FACILITY: config.demoFacility } : {}),
+          ...environment,
+        },
         // Bundle workspace packages from source so a deploy can never ship a stale compiled dist/.
         bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true, externalModules: [], esbuildArgs: { "--conditions": "source" } },
       });
