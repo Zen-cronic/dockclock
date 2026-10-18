@@ -49,6 +49,16 @@ Status key:
 | A claim is never sent twice | Second `file_claim` run stopped; tool reserves the claim before sending (`packages/agent/src/tools.ts`) | live + tested |
 | The claim tool refuses a different amount, a different digest, no approval, an unsealed or non-billable load | `packages/agent/test/agent.test.ts` | tested |
 
+## Notice, retake and the judge path
+| Claim | Evidence | Status |
+|---|---|---|
+| After the Arrived pin, a one-time EventBridge Scheduler job is created to fire the clause's lead time plus 10 minutes before free time ends | Load `SMOKE-mveb2qnf` (2026-10-18): schedule `notice-SMOKE-mveb2qnf` created; `services/test/notice.test.ts` | live + tested |
+| The notice is emailed to the counterparty by SES, the SES delivery event is recorded, and the sealed pack carries the notice | Same load: sent 16:56:44 EDT, delivered 16:56:45 EDT (`npm run smoke:lifecycle` with `SMOKE_NOTICE=1`) | live |
+| No notice once the truck is released; never emailed twice | `services/test/notice.test.ts` | tested |
+| An unreadable photo gets one request for a clearer one; with no new photo within an hour the original seals | `services/src/retake.ts`, workflow states `Photo readable?` → `Ask for a clearer photo` → `Await retake`; `services/test/notice.test.ts` (retake step) | tested |
+| Texting DEMO starts a capped demo load in which the sender drives and approves; daily limits per number and overall | `services/src/demo.ts`; `services/test/demo.test.ts`, `services/test/approval.test.ts` | tested |
+| Drivers are told the contract's verdict and, after filing, the amount and pack digest | `services/src/outcome.ts`; `services/test/demo.test.ts` | tested |
+
 ## RCS
 | Claim | Evidence | Status |
 |---|---|---|
@@ -57,7 +67,6 @@ Status key:
 ## Not built yet
 | Claim | Status |
 |---|---|
-| Detention notice by SES before free time ends | planned |
-| Photo retake request when the bill of lading is unreadable | planned |
 | Dispute replies | planned |
-| Judge self-service try-it path; architecture diagram; demo video | planned |
+| Live phone runs of the photo retake and the judge path | planned |
+| Demo video | planned |

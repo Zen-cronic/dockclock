@@ -40,14 +40,29 @@ We'll tell you before you find it. Every line below is traced to a test, a file 
 
 | Works today (proven) | Being built before the 2026-10-24 freeze |
 |---|---|
-| Steps 1–5 above, run live on a real phone over AWS End User Messaging Social (load `LIVE-mve0rrez`) | The **detention notice** emailed by SES before free time ends (several clauses require it) |
-| **The whole money loop, automatic after sealing:** the dispatcher gets a WhatsApp approval template, taps **Approve claim**, and the AgentCore agent files the claim by SES with the signed pack; the workflow then reads the claim record itself before it reports success (load `SMOKE-mve8yfv3`: tap to email in 14 seconds) | Asking the driver for a clearer photo when the bill of lading is unreadable |
-| A **Bedrock AgentCore** claims agent (Harness + Gateway) bounded by Cedar policies and a code gate on the sealed amount and digest; it refuses without an approval and never files twice | Replies to disputes |
-| Bill-of-lading reading: **26 of 26 fields correct** on 7 fictional test photos, and an honest "not legible" on a real blurry phone photo; the reading is part of the signed evidence | A way for judges to try it themselves; the architecture diagram |
+| Steps 1–5 above, run live on a real phone over AWS End User Messaging Social (load `LIVE-mve0rrez`) | Replies to disputes |
+| **The whole money loop, automatic after sealing:** the dispatcher gets a WhatsApp approval template, taps **Approve claim**, and the AgentCore agent files the claim by SES with the signed pack; the workflow then reads the claim record itself before it reports success (load `SMOKE-mve8yfv3`: tap to email in 14 seconds) | A live phone run of the photo retake and of the judge try-it path (both built and tested) |
+| **The detention notice:** EventBridge Scheduler fires before free time ends, SES emails the broker or shipper, the delivery event is recorded, and the sealed pack carries the notice, so clauses that require notice can pay (load `SMOKE-mveb2qnf`: delivered 0.7 s after sending) | |
+| A **Bedrock AgentCore** claims agent (Harness + Gateway) bounded by Cedar policies and a code gate on the sealed amount and digest; it refuses without an approval and never files twice | |
+| Bill-of-lading reading: **26 of 26 fields correct** on 7 fictional test photos, and an honest "not legible" on a real blurry phone photo; the reading is part of the signed evidence, and an unreadable photo gets one request for a clearer one | |
 | **RCS** for drivers without WhatsApp and as failover when a WhatsApp send fails (live round trip on a real phone, load `LIVE-mve1ve6d`) | |
-| Duplicate, out-of-order and stale taps refused; STOP/START honoured; "Talk to dispatch" emails a person; a tampered pack fails verification; about 150 automated tests | |
+| Duplicate, out-of-order and stale taps refused; STOP/START honoured; "Talk to dispatch" emails a person; a tampered pack fails verification; over 160 automated tests | |
 
 Today the scorecard measures the clause engine on 24 hand-labelled test loads. Its truth column was written by us from each clause's text, so it is a consistency check, not field data.
+
+## Try it yourself (judges)
+Send **DEMO** on WhatsApp to the DockClock number given on the Devpost submission page (**DEMO ES** for Spanish, **DEMO FR** for Québécois French). You get a short demo load in which you are both the driver and the dispatcher:
+1. Tap **Arrived** and share your location. In the demo any location counts; the pin is still recorded with WhatsApp's server timestamp.
+2. Free time is 5 minutes. Wait longer than that; a detention notice goes out by email when free time is about to end, and you are told in the chat.
+3. Tap **Released**, share your location again, and photograph any paper with an in time and an out time written on it.
+4. The contract's verdict arrives in the chat. If it is billable, approve the claim with **Approve claim**. The AgentCore agent files it, and you are told the amount and the evidence pack's digest.
+
+The demo uses a fictional clause (5 minutes free, $60 an hour, $30 cap) that is not part of the scored set. Claim and notice emails go to our own test mailbox, never to you. Each number is limited to 5 demos a day.
+
+## Architecture
+![DockClock architecture](docs/architecture.png)
+
+What each AWS service does: [`docs/architecture.md`](docs/architecture.md).
 
 ## How we use AWS End User Messaging Social (WhatsApp)
 | WhatsApp feature | Its job in DockClock |
@@ -59,14 +74,15 @@ Today the scorecard measures the clause engine on 24 hand-labelled test loads. I
 | Delivery and read receipts | Recorded against each send, as proof that a message reached the driver |
 | Business-scoped user IDs (BSUID) | Drivers stay matched when WhatsApp reports a BSUID instead of a phone number |
 | Opt-in record and STOP/START | No message without a recorded opt-in; STOP stops every message |
+| Utility template `dockclock_notice_sent` | Tells the driver that the contract's detention notice was emailed and when free time ends |
 | Utility template with Approve / Hold buttons (`dockclock_dispatch_approval`) | The dispatcher's one-tap decision that releases the claim; it resumes the waiting Step Functions workflow |
 
-Per load this is **2 utility templates (driver dispatch, dispatcher approval) plus about 5 messages inside the free 24-hour window**, and 1 SES email for the claim (2 once the notice is built).
+Per load this is **3 utility templates (driver dispatch, notice sent, dispatcher approval) plus about 5 messages inside the free 24-hour window**, and 2 SES emails (the notice and the claim).
 
 ## Run it
 ```bash
 npm ci
-npm test            # about 150 tests
+npm test            # over 160 tests
 npm run scorecard   # recomputes the headline above
 ```
 Deploying to your own AWS account (CDK) needs an existing WhatsApp Business Account linked to AWS End User Messaging Social; see `.env.example`.
