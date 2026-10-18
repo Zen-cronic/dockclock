@@ -15,6 +15,8 @@ const config = {
   driverAllowlist: "",
   releaseFlowId: "1000",
   flowMode: "draft" as const,
+  dispatchEmail: "dispatch@example.com",
+  fromEmail: "dockclock@example.com",
 };
 
 describe("stacks", () => {
@@ -43,6 +45,9 @@ describe("stacks", () => {
     expect(definition).toContain("Await arrived");
     expect(definition).toContain("Await released");
     expect(definition).toContain("Await bol");
+    // The arrival timeout comes from the execution input, measured from the appointment.
+    expect(definition).toContain("TimeoutSecondsPath");
+    expect(definition).toContain("Seal failed");
     expect(definition).toContain("Seal evidence");
   });
 

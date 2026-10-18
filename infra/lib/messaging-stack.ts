@@ -14,6 +14,7 @@ import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import type { Construct } from "constructs";
 import type { DockClockConfig } from "./config.js";
+import { CONFIGURATION_SET_NAME } from "./email-stack.js";
 import type { CoreStack } from "./core-stack.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -63,6 +64,9 @@ export class MessagingStack extends Stack {
       MEDIA_BUCKET: core.mediaBucket.bucketName,
       RELEASE_FLOW_ID: config.releaseFlowId,
       FLOW_MODE: config.flowMode,
+      DISPATCH_EMAIL: config.dispatchEmail,
+      FROM_EMAIL: config.fromEmail,
+      SES_CONFIGURATION_SET: CONFIGURATION_SET_NAME,
     };
     const phoneArn = `arn:aws:social-messaging:${config.region}:${config.account}:phone-number-id/${config.originationPhoneId.replace(/^phone-number-id-/, "")}`;
     const sendWhatsApp = new iam.PolicyStatement({ actions: ["social-messaging:SendWhatsAppMessage"], resources: [phoneArn] });
@@ -75,6 +79,15 @@ export class MessagingStack extends Stack {
     ingest.addToRolePolicy(sendWhatsApp);
     ingest.addToRolePolicy(new iam.PolicyStatement({ actions: ["social-messaging:GetWhatsAppMessageMedia"], resources: [phoneArn] }));
     core.mediaBucket.grantReadWrite(ingest);
+    ingest.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ses:SendEmail"],
+        resources: [
+          `arn:aws:ses:${config.region}:${config.account}:identity/*`,
+          `arn:aws:ses:${config.region}:${config.account}:configuration-set/${CONFIGURATION_SET_NAME}`,
+        ],
+      }),
+    );
 
     const awaitStep = fn("AwaitStep", "await-step.ts", {});
     core.table.grantReadWriteData(awaitStep);
@@ -98,37 +111,50 @@ export class MessagingStack extends Stack {
     dispatch.addToRolePolicy(new iam.PolicyStatement({ actions: ["states:StartExecution"], resources: [stateMachineArn] }));
 
     // Lifecycle: wait for the Arrived pin, the Released pin and the bill-of-lading Flow, then seal.
-    const waitFor = (step: "arrived" | "released" | "bol", timeout: Duration) =>
+    const waitFor = (step: "arrived" | "released" | "bol", timeout: sfn.Timeout) =>
       new tasks.LambdaInvoke(this, `Await ${step}`, {
         lambdaFunction: awaitStep,
         integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
         payload: sfn.TaskInput.fromObject({ loadId: sfn.JsonPath.stringAt("$.loadId"), step, token: sfn.JsonPath.taskToken }),
         resultPath: `$.${step}`,
-        taskTimeout: sfn.Timeout.duration(timeout),
+        taskTimeout: timeout,
       });
-    const markTimedOut = new tasks.DynamoUpdateItem(this, "Mark timed out", {
-      table: core.table,
-      key: {
-        pk: tasks.DynamoAttributeValue.fromString(sfn.JsonPath.format("LOAD#{}", sfn.JsonPath.stringAt("$.loadId"))),
-        sk: tasks.DynamoAttributeValue.fromString("META"),
-      },
-      updateExpression: "SET outcome = :o",
-      expressionAttributeValues: { ":o": tasks.DynamoAttributeValue.fromString("TIMED_OUT_NEEDS_HUMAN") },
-      resultPath: sfn.JsonPath.DISCARD,
-    }).next(new sfn.Succeed(this, "Handed to a person"));
+    // Ending a load writes a terminal phase into it, so the driver loop refuses later input.
+    const closeLoad = (id: string, outcome: string) =>
+      new tasks.DynamoUpdateItem(this, id, {
+        table: core.table,
+        key: {
+          pk: tasks.DynamoAttributeValue.fromString(sfn.JsonPath.format("LOAD#{}", sfn.JsonPath.stringAt("$.loadId"))),
+          sk: tasks.DynamoAttributeValue.fromString("META"),
+        },
+        updateExpression: "SET phase = :c, outcome = :o",
+        conditionExpression: "phase <> :s",
+        expressionAttributeValues: {
+          ":c": tasks.DynamoAttributeValue.fromString("closed"),
+          ":o": tasks.DynamoAttributeValue.fromString(outcome),
+          ":s": tasks.DynamoAttributeValue.fromString("sealed"),
+        },
+        resultPath: sfn.JsonPath.DISCARD,
+      });
+    const markTimedOut = closeLoad("Mark timed out", "TIMED_OUT_NEEDS_HUMAN").next(new sfn.Succeed(this, "Handed to a person"));
+    const markSealFailed = closeLoad("Mark seal failed", "SEAL_FAILED").next(new sfn.Fail(this, "Seal failed", { error: "SealFailed", cause: "Seal evidence failed after retries" }));
     const sealPack = new tasks.LambdaInvoke(this, "Seal evidence", {
       lambdaFunction: seal,
       payload: sfn.TaskInput.fromObject({ loadId: sfn.JsonPath.stringAt("$.loadId") }),
       resultSelector: { "pack.$": "$.Payload" },
       resultPath: "$.seal",
     });
+    sealPack.addRetry({ errors: ["States.TaskFailed"], interval: Duration.seconds(10), maxAttempts: 3, backoffRate: 2 });
+    sealPack.addCatch(markSealFailed, { errors: ["States.ALL"], resultPath: "$.sealError" });
     sealPack.next(new sfn.Succeed(this, "Sealed"));
     // Missing paperwork never holds a load open: after six hours the pack is sealed without it,
     // and the clause engine routes the claim to a person.
-    const definition = waitFor("arrived", Duration.days(2))
+    // The arrival wait is measured from the appointment (dispatch passes the seconds), so a load
+    // booked days ahead is not handed to a person before the driver could arrive.
+    const definition = waitFor("arrived", sfn.Timeout.at("$.arrivalTimeoutSeconds"))
       .addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" })
-      .next(waitFor("released", Duration.days(3)).addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" }))
-      .next(waitFor("bol", Duration.hours(6)).addCatch(sealPack, { errors: ["States.Timeout"], resultPath: "$.bolTimeout" }))
+      .next(waitFor("released", sfn.Timeout.duration(Duration.days(3))).addCatch(markTimedOut, { errors: ["States.Timeout"], resultPath: "$.error" }))
+      .next(waitFor("bol", sfn.Timeout.duration(Duration.hours(6))).addCatch(sealPack, { errors: ["States.Timeout"], resultPath: "$.bolTimeout" }))
       .next(sealPack);
 
     const lifecycle = new sfn.StateMachine(this, "LoadLifecycle", {
@@ -157,6 +183,15 @@ export class MessagingStack extends Stack {
     new cloudwatch.Alarm(this, "IngestDeadLettersAlarm", {
       alarmDescription: "A WhatsApp event failed ingest five times and is parked in the dead-letter queue.",
       metric: deadLetters.metricApproximateNumberOfMessagesVisible({ period: Duration.minutes(1) }),
+      threshold: 0,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    new cloudwatch.Alarm(this, "LifecycleFailedAlarm", {
+      alarmDescription: "A load lifecycle execution failed (for example, sealing failed after retries).",
+      metric: lifecycle.metricFailed({ period: Duration.minutes(5) }),
       threshold: 0,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
       evaluationPeriods: 1,

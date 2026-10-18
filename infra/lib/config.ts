@@ -11,6 +11,9 @@ export interface DockClockConfig {
   driverAllowlist: string;
   releaseFlowId: string;
   flowMode: "draft" | "published";
+  // Escalations go to dispatch by email. In the SES sandbox both must be verified identities.
+  dispatchEmail: string;
+  fromEmail: string;
 }
 
 function required(name: string): string {
@@ -32,5 +35,7 @@ export function configFromEnv(): DockClockConfig {
     driverAllowlist: process.env.DOCKCLOCK_DRIVER_ALLOWLIST ?? "",
     releaseFlowId: required("DOCKCLOCK_RELEASE_FLOW_ID"),
     flowMode: process.env.DOCKCLOCK_FLOW_MODE === "published" ? "published" : "draft",
+    dispatchEmail: required("DOCKCLOCK_DISPATCH_EMAIL"),
+    fromEmail: required("DOCKCLOCK_FROM_EMAIL"),
   };
 }
