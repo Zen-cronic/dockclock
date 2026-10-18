@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 *.pem
+!docs/evidence/public-key.pem
 *.key
 node_modules/
 dist/
