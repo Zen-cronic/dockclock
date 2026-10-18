@@ -4,6 +4,8 @@ export interface FlowPhoto {
   metaSha256: string | null;
 }
 
+import { LOAD_ID_PATTERN, NONCE_PATTERN } from "./payload.js";
+
 export interface ReleaseFlowResponse {
   flowToken: string;
   photos: FlowPhoto[];
@@ -11,6 +13,7 @@ export interface ReleaseFlowResponse {
   outTime: string | null;
   delayReason: string | null;
   consignee: string | null;
+  receiverSigned: boolean;
   shareConsent: boolean;
 }
 
@@ -44,6 +47,7 @@ export function parseReleaseFlow(responseJson: string): ReleaseFlowResponse | nu
     outTime: text(data.out_time),
     delayReason: reason && (DELAY_REASONS as readonly string[]).includes(reason) ? reason : null,
     consignee: text(data.consignee),
+    receiverSigned: data.receiver_signed === true || data.receiver_signed === "true",
     shareConsent: data.share_consent === true || data.share_consent === "true",
   };
 }
@@ -54,6 +58,8 @@ export function encodeFlowToken(loadId: string, nonce: string): string {
 
 export function parseFlowToken(token: string): { loadId: string; nonce: string } | null {
   const parts = token.split(".");
-  if (parts.length !== 4 || parts[0] !== "dc1" || parts[1] !== "release" || !parts[2] || !parts[3]) return null;
-  return { loadId: parts[2], nonce: parts[3] };
+  const [prefix, kind, loadId, nonce] = parts;
+  if (parts.length !== 4 || prefix !== "dc1" || kind !== "release" || !loadId || !nonce) return null;
+  if (!LOAD_ID_PATTERN.test(loadId) || !NONCE_PATTERN.test(nonce)) return null;
+  return { loadId, nonce };
 }

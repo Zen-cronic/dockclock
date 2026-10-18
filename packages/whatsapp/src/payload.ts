@@ -7,6 +7,9 @@ export interface ButtonPayload {
 }
 
 const ACTIONS = new Set<ButtonAction>(["arrived", "released", "approve", "hold", "dispatch"]);
+// Load ids and nonces must survive being embedded in "."-separated payloads and execution names.
+export const LOAD_ID_PATTERN = /^[A-Za-z0-9-]{1,40}$/;
+export const NONCE_PATTERN = /^[A-Za-z0-9]{6,32}$/;
 const PREFIX = "dc1";
 
 // Every button DockClock sends carries the load it belongs to and a nonce, so a tap is bound to
@@ -20,6 +23,6 @@ export function parseButtonPayload(raw: string): ButtonPayload | null {
   if (parts.length !== 4 || parts[0] !== PREFIX) return null;
   const [, action, loadId, nonce] = parts;
   if (!action || !loadId || !nonce || !ACTIONS.has(action as ButtonAction)) return null;
-  if (!/^[A-Za-z0-9-]{1,40}$/.test(loadId) || !/^[A-Za-z0-9]{6,32}$/.test(nonce)) return null;
+  if (!LOAD_ID_PATTERN.test(loadId) || !NONCE_PATTERN.test(nonce)) return null;
   return { action: action as ButtonAction, loadId, nonce };
 }

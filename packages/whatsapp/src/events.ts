@@ -1,4 +1,5 @@
 import type { ChannelConfig, RawMessage, WebhookEntry } from "./decode.js";
+import { normalizeE164 } from "./phone.js";
 
 // BSUID first. During Meta's rollout a message can carry both the business-scoped user id and the
 // phone number; both are set by Meta, so the phone can bind a BSUID to a driver a fleet dispatched
@@ -41,8 +42,7 @@ function isoFromUnixSeconds(value: string | undefined): string | null {
 }
 
 function senderOf(message: RawMessage): Sender | null {
-  const digits = String(message.from ?? "").replace(/^\+/, "");
-  const e164 = /^\d{7,15}$/.test(digits) ? `+${digits}` : null;
+  const e164 = message.from ? normalizeE164(`+${String(message.from).replace(/^\+/, "")}`) : null;
   if (typeof message.from_user_id === "string" && message.from_user_id.length > 0) {
     return { kind: "bsuid", id: message.from_user_id, e164 };
   }

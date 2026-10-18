@@ -113,6 +113,7 @@ describe("release flow", () => {
       outTime: "17:18",
       delayReason: "dock_not_ready",
       consignee: "R. Alvarez",
+      receiverSigned: false,
       shareConsent: true,
     });
     expect(parseFlowToken("dc1.release.4471.abc123")).toEqual({ loadId: "4471", nonce: "abc123" });
@@ -127,5 +128,21 @@ describe("release flow", () => {
     expect(parseReleaseFlow(JSON.stringify({ flow_token: "t", delay_reason: "aliens" }))?.delayReason).toBeNull();
     expect(parseReleaseFlow(JSON.stringify({ in_time: "1" }))).toBeNull();
     expect(parseReleaseFlow("not json")).toBeNull();
+  });
+});
+
+import { normalizeE164 } from "../src/index.js";
+
+describe("normalizeE164", () => {
+  it("gives every spelling of one number the same form", () => {
+    for (const v of ["+1 416-555-0100", "14165550100", "4165550100", "+14165550100", " (416) 555-0100 "]) expect(normalizeE164(v), v).toBe("+14165550100");
+    expect(normalizeE164("+5215512345678")).toBe("+525512345678");
+    expect(normalizeE164("+525512345678")).toBe("+525512345678");
+    for (const v of ["", "123", "+0123456789", null]) expect(normalizeE164(v)).toBeNull();
+  });
+
+  it("rejects flow tokens that buttons would reject", () => {
+    expect(parseFlowToken("dc1.release.PO_4471.abc123")).toBeNull();
+    expect(parseFlowToken("dc1.release.4471.x")).toBeNull();
   });
 });

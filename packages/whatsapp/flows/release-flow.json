@@ -66,6 +66,7 @@
             ]
           },
           { "type": "TextInput", "name": "consignee", "label": "Name of the person who signed", "input-type": "text", "required": true },
+          { "type": "OptIn", "name": "receiver_signed", "label": "The receiver signed this bill of lading.", "required": false },
           { "type": "OptIn", "name": "share_consent", "label": "Share these photos and times with the broker on this load only.", "required": true },
           {
             "type": "Footer",
@@ -78,6 +79,7 @@
                 "out_time": "${form.out_time}",
                 "delay_reason": "${form.delay_reason}",
                 "consignee": "${form.consignee}",
+                "receiver_signed": "${form.receiver_signed}",
                 "share_consent": "${form.share_consent}"
               }
             }
