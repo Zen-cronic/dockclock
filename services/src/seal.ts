@@ -25,16 +25,31 @@ const s3 = new S3Client({});
 const RETENTION_DAYS = 30;
 
 function pinEvent(kind: PinEvent["kind"], pin: PinRecord | null, load: LoadItem): PinEvent | null {
-  return pin && { kind, channel: load.channel, messageId: pin.messageId, serverAt: pin.serverAt, location: [pin.lon, pin.lat] };
+  return pin && { kind, channel: pin.channel ?? load.channel, messageId: pin.messageId, serverAt: pin.serverAt, location: [pin.lon, pin.lat] };
 }
 
 // Paperwork times are wall-clock at the facility; each is pinned to the day of the matching pin.
 // A time is "edited" only if it differs from the value the Flow pre-filled from that pin.
 function bolCapture(bol: BolRecord | null, load: LoadItem, timeZone: string): BolCapture | null {
   if (!bol) return null;
+  if (bol.channel === "rcs") {
+    // A photo reply: nothing the driver typed or ticked, and no way to know it came from the camera.
+    return {
+      channel: "rcs",
+      messageId: bol.messageId,
+      serverAt: bol.serverAt,
+      cameraOnly: false,
+      pageSha256s: bol.photos.map((p) => p.sha256 ?? null),
+      timesEdited: { in: false, out: false },
+      signed: false,
+      checkIn: null,
+      checkOut: null,
+      confirmedByDriver: false,
+    };
+  }
   const prefilled = (pinAt: string | undefined) => (pinAt ? isoToLocalClock(pinAt, timeZone) : null);
   return {
-    channel: load.channel,
+    channel: bol.channel ?? load.channel,
     messageId: bol.messageId,
     serverAt: bol.serverAt,
     cameraOnly: true,

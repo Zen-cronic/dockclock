@@ -15,6 +15,17 @@ interface Copy {
   replies: Record<MessageKey, string>;
   stopped: string;
   resumed: string;
+  rcs: RcsCopy;
+}
+
+// RCS has no templates and no Flows: the dispatch is a rich card, the bill of lading a photo reply.
+interface RcsCopy {
+  arrived: string;
+  shareLocation: string;
+  dispatchTitle: (loadId: string) => string;
+  dispatch: (facility: string, appointment: string) => string;
+  checkedIn: (facility: string, time: string) => string;
+  bolRequest: (facility: string) => string;
 }
 
 // Free-form driver messages, sent inside the 24-hour window the dispatch template opens. Template
@@ -39,9 +50,20 @@ export const COPY: Record<Language, Copy> = {
       flow_limit: "We could not save your paperwork. Dispatch has been told and will follow up.",
       load_closed: "That load is already closed. Please use the newest message from dispatch.",
       use_bol_button: "Please send the bill of lading with the Add BOL photo button so it is saved with this load.",
+      bol_photo_received: "Got it. Your photo is saved with this load's evidence.",
     },
     stopped: "You will not get more load messages from DockClock. Reply START to turn them back on.",
     resumed: "Load messages are back on.",
+    rcs: {
+      arrived: "Arrived",
+      shareLocation: "Share location",
+      dispatchTitle: (loadId) => `Load ${loadId}`,
+      dispatch: (facility, appointment) =>
+        `Booked: ${facility}, appointment ${appointment}. When you are parked at the dock, tap Arrived and we will start the detention clock. Reply STOP to stop load messages.`,
+      checkedIn: (facility, time) => `Checked in at ${facility} at ${time} (server time). Tap Released when you are unloaded and leaving the door.`,
+      bolRequest: (facility) =>
+        `Clock stopped at ${facility}. Reply with a photo of the signed bill of lading. It is saved with this load's evidence and shared with the broker on this load only.`,
+    },
   },
   es_MX: {
     locale: "es-MX",
@@ -62,9 +84,20 @@ export const COPY: Record<Language, Copy> = {
       flow_limit: "No pudimos guardar sus documentos. Avisamos a despacho y le darán seguimiento.",
       load_closed: "Esa carga ya está cerrada. Use el mensaje más reciente de despacho.",
       use_bol_button: "Envíe el BOL con el botón Agregar foto del BOL para guardarlo con esta carga.",
+      bol_photo_received: "Listo. Su foto quedó guardada con la evidencia de esta carga.",
     },
     stopped: "Ya no recibirá mensajes de cargas de DockClock. Responda START para activarlos otra vez.",
     resumed: "Los mensajes de cargas están activos otra vez.",
+    rcs: {
+      arrived: "Llegué",
+      shareLocation: "Compartir ubicación",
+      dispatchTitle: (loadId) => `Carga ${loadId}`,
+      dispatch: (facility, appointment) =>
+        `Confirmada: ${facility}, cita ${appointment}. Cuando esté estacionado en el andén, toque Llegué y empezaremos a contar el tiempo de espera. Responda STOP para dejar de recibir estos mensajes.`,
+      checkedIn: (facility, time) => `Registro en ${facility} a las ${time} (hora del servidor). Toque Liberado cuando termine la descarga y salga del andén.`,
+      bolRequest: (facility) =>
+        `Reloj detenido en ${facility}. Responda con una foto del BOL firmado. Se guarda con la evidencia de esta carga y se comparte solo con el bróker de esta carga.`,
+    },
   },
   fr_CA: {
     locale: "fr-CA",
@@ -85,8 +118,23 @@ export const COPY: Record<Language, Copy> = {
       flow_limit: "Nous n'avons pas pu enregistrer vos documents. La répartition a été avisée et fera le suivi.",
       load_closed: "Ce chargement est déjà fermé. Utilisez le message le plus récent de la répartition.",
       use_bol_button: "Envoyez le connaissement avec le bouton Ajouter la photo pour l'enregistrer avec ce chargement.",
+      bol_photo_received: "C'est noté. Votre photo est enregistrée avec la preuve de ce chargement.",
     },
     stopped: "Vous ne recevrez plus de messages de chargement de DockClock. Répondez START pour les réactiver.",
     resumed: "Les messages de chargement sont réactivés.",
+    rcs: {
+      arrived: "Arrivé",
+      shareLocation: "Partager ma position",
+      dispatchTitle: (loadId) => `Chargement ${loadId}`,
+      dispatch: (facility, appointment) =>
+        `Confirmé : ${facility}, rendez-vous ${appointment}. Une fois stationné au quai, appuyez sur Arrivé et nous lancerons le chrono d'attente. Répondez STOP pour ne plus recevoir ces messages.`,
+      checkedIn: (facility, time) => `Arrivée enregistrée à ${facility} à ${time} (heure du serveur). Appuyez sur Libéré une fois déchargé et sorti du quai.`,
+      bolRequest: (facility) =>
+        `Chrono arrêté à ${facility}. Répondez avec une photo du connaissement signé. Elle est enregistrée avec la preuve de ce chargement et partagée seulement avec le courtier de ce chargement.`,
+    },
   },
 };
+
+export function formatAppointment(iso: string, timeZone: string, language: Language): string {
+  return new Intl.DateTimeFormat(COPY[language].locale, { timeZone, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+}

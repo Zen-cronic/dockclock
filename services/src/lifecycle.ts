@@ -1,4 +1,4 @@
-import { parseClock } from "@dockclock/evidence";
+import { parseClock, type Channel } from "@dockclock/evidence";
 import type { InboundEvent } from "@dockclock/whatsapp";
 import { parseButtonPayload, parseFlowToken, parseReleaseFlow } from "@dockclock/whatsapp";
 
@@ -22,12 +22,26 @@ export type MessageKey =
   | "bol_times_unreadable"
   | "flow_limit"
   | "load_closed"
-  | "use_bol_button";
+  | "use_bol_button"
+  | "bol_photo_received";
 
 export const MAX_FLOW_SENDS = 3;
+const MESSAGE_KEYS: readonly MessageKey[] = [
+  "tap_arrived_first",
+  "dispatch_notified",
+  "bol_received",
+  "bol_partial",
+  "bol_incomplete",
+  "bol_times_unreadable",
+  "flow_limit",
+  "load_closed",
+  "use_bol_button",
+  "bol_photo_received",
+];
 const TERMINAL: readonly Phase[] = ["sealed", "closed"];
 
 export interface PinRecord {
+  channel?: Channel;
   serverAt: string;
   messageId: string;
   lat: number;
@@ -43,6 +57,8 @@ export interface BolPhoto {
 }
 
 export interface BolRecord {
+  // "rcs" means a photo reply: no driver-entered times, no signed box, camera use unknown.
+  channel?: Channel;
   serverAt: string;
   messageId: string;
   photos: BolPhoto[];
@@ -83,6 +99,8 @@ export type Effect =
   | { type: "request_location"; step: "arrived" | "released" }
   | { type: "offer_release" }
   | { type: "send_release_flow" }
+  // Only queued by a failover: re-sends the dispatch prompt over the load's current channel.
+  | { type: "send_dispatch" }
   | { type: "download_media" }
   | { type: "tell_driver"; key: MessageKey }
   | { type: "escalate"; reason: string }
@@ -147,7 +165,7 @@ export function applyEvent(state: LoadState, event: InboundEvent): Transition {
   }
 
   if (body.type === "location") {
-    const pin: PinRecord = { serverAt: event.serverAt, messageId: event.wamid, lat: body.lat, lon: body.lon };
+    const pin: PinRecord = { channel: event.channel ?? "whatsapp", serverAt: event.serverAt, messageId: event.wamid, lat: body.lat, lon: body.lon };
     if (state.phase === "awaiting_arrival_pin") {
       return next({ phase: "at_dock", arrived: pin }, [{ type: "resume", step: "arrived" }, { type: "offer_release" }]);
     }
@@ -167,6 +185,7 @@ export function applyEvent(state: LoadState, event: InboundEvent): Transition {
     if (response.photos.length === 0 || !response.shareConsent) return resendFlow("bol_incomplete");
     if (!parseClock(response.inTime) || !parseClock(response.outTime)) return resendFlow("bol_times_unreadable");
     const bol: BolRecord = {
+      channel: "whatsapp",
       serverAt: event.serverAt,
       messageId: event.wamid,
       photos: response.photos.map((p) => ({ mediaId: p.mediaId, mimeType: p.mimeType, metaSha256: p.metaSha256 })),
@@ -182,7 +201,25 @@ export function applyEvent(state: LoadState, event: InboundEvent): Transition {
     return next({ phase: "documented", bol }, [{ type: "download_media" }, { type: "resume", step: "bol" }]);
   }
 
-  if (body.type === "image" && state.phase === "awaiting_bol") return stay(state, "RECORDED", [{ type: "tell_driver", key: "use_bol_button" }]);
+  if (body.type === "image" && state.phase === "awaiting_bol") {
+    if (event.channel !== "rcs") return stay(state, "RECORDED", [{ type: "tell_driver", key: "use_bol_button" }]);
+    // RCS has no Flow, so the photo reply is the bill of lading. Sending it after a prompt that says
+    // it is shared with the broker is the consent; times and the signed box stay unknown.
+    const bol: BolRecord = {
+      channel: "rcs",
+      serverAt: event.serverAt,
+      messageId: event.wamid,
+      photos: [{ mediaId: body.mediaId, mimeType: body.mimeType, metaSha256: null, ...(body.s3Key ? { s3Key: body.s3Key } : {}) }],
+      inTime: null,
+      outTime: null,
+      delayReason: null,
+      consignee: null,
+      receiverSigned: false,
+      shareConsent: true,
+      media: "pending",
+    };
+    return next({ phase: "documented", bol }, [{ type: "download_media" }, { type: "resume", step: "bol" }]);
+  }
 
   return stay(state, "RECORDED");
 }
@@ -207,4 +244,23 @@ export function stepAt(state: Pick<LoadState, "arrived" | "released" | "bol">, s
     case "bol":
       return state.bol?.serverAt;
   }
+}
+
+// What to re-send over RCS when a WhatsApp message failed, named by the purpose its send recorded.
+// A prompt the load has moved past is not re-sent (null), so a late failure cannot rewind the driver.
+export function failoverEffect(purpose: string, phase: Phase): Effect | null {
+  if (isTerminal(phase)) return null;
+  if (purpose.startsWith("tell_")) {
+    const key = purpose.slice("tell_".length) as MessageKey;
+    return MESSAGE_KEYS.includes(key) ? { type: "tell_driver", key } : null;
+  }
+  const prompts: Record<string, [Effect, Phase]> = {
+    dispatch_template: [{ type: "send_dispatch" }, "dispatched"],
+    location_arrived: [{ type: "request_location", step: "arrived" }, "awaiting_arrival_pin"],
+    offer_release: [{ type: "offer_release" }, "at_dock"],
+    location_released: [{ type: "request_location", step: "released" }, "awaiting_release_pin"],
+    release_flow: [{ type: "send_release_flow" }, "awaiting_bol"],
+  };
+  const prompt = prompts[purpose];
+  return prompt && prompt[1] === phase ? prompt[0] : null;
 }

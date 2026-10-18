@@ -1,7 +1,9 @@
 import { TransactionCanceledException } from "@aws-sdk/client-dynamodb";
 import { TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import type { RcsMessageContent } from "@aws-sdk/client-pinpoint-sms-voice-v2";
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
 import { facilityById, isoToLocalClock } from "@dockclock/evidence";
+import { decodeRcsEvent, isFromTopic, type RcsEvent, type RcsStatusEvent } from "@dockclock/rcs";
 import {
   decodeEvent,
   extractEvents,
@@ -12,11 +14,12 @@ import {
   type InboundEvent,
   type StatusEvent,
 } from "@dockclock/whatsapp";
-import { applyEvent, type Effect } from "./lifecycle.js";
-import { COPY } from "./messages.js";
+import { applyEvent, failoverEffect, isTerminal, type Effect } from "./lifecycle.js";
+import { COPY, formatAppointment, type Language } from "./messages.js";
 import { bindPrimary, ddb, getDriver, getLoad, ownsLoad, resolveActiveLoad, setOptOut, toState, type Address, type LoadItem, type OutboxEntry } from "./store.js";
 import { driverKeys } from "./identity.js";
-import { locationRequest, releaseButtons, releaseFlowMessage, send, textMessage, type Target } from "./sender.js";
+import { locationRequest, releaseButtons, releaseFlowMessage, send, sendDispatchPrompt, sendRcs, textMessage, type Body, type Target } from "./sender.js";
+import { rcsBolRequest, rcsLocationRequest, rcsReleaseOffer, rcsText } from "./rcs.js";
 import { notifyDispatch } from "./escalate.js";
 import { finishBol } from "./media.js";
 import { reconcile } from "./tokens.js";
@@ -128,30 +131,43 @@ function targetOf(load: LoadItem): Target {
 
 async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
   const facility = facilityById(load.facilityId);
-  const language = load.language ?? "en_US";
+  const language: Language = load.language ?? "en_US";
   const clock = (iso: string | undefined) => (iso ? isoToLocalClock(iso, facility.timeZone) : "");
   const target = targetOf(load);
+  // Every prompt goes out on the load's current channel; a failover switches it to RCS.
+  const deliver = (purpose: string, whatsapp: () => Body, rcs: () => RcsMessageContent) =>
+    load.channel === "rcs" ? sendRcs(target, rcs(), purpose, load.loadId) : send(target, whatsapp(), purpose, load.loadId);
+  const tell = (text: string, purpose: string) => deliver(purpose, () => textMessage(text), () => rcsText(text));
   switch (effect.type) {
     case "request_location":
-      await send(target, locationRequest(language, effect.step), `location_${effect.step}`, load.loadId);
+      await deliver(`location_${effect.step}`, () => locationRequest(language, effect.step), () => rcsLocationRequest(language, effect.step));
       return;
-    case "offer_release":
-      await send(target, releaseButtons(language, load.loadId, load.nonce, facility.name, clock(load.arrived?.serverAt)), "offer_release", load.loadId);
-      return;
-    case "send_release_flow":
-      await send(
-        target,
-        releaseFlowMessage(language, load.loadId, load.nonce, facility.name, {
-          loadLabel: `${load.loadId} · ${facility.name}`,
-          arrivedHint: clock(load.arrived?.serverAt),
-          releasedHint: clock(load.released?.serverAt),
-        }),
-        "release_flow",
-        load.loadId,
+    case "offer_release": {
+      const at = clock(load.arrived?.serverAt);
+      await deliver(
+        "offer_release",
+        () => releaseButtons(language, load.loadId, load.nonce, facility.name, at),
+        () => rcsReleaseOffer(language, load.loadId, load.nonce, facility.name, at),
       );
       return;
+    }
+    case "send_release_flow":
+      await deliver(
+        "release_flow",
+        () =>
+          releaseFlowMessage(language, load.loadId, load.nonce, facility.name, {
+            loadLabel: `${load.loadId} · ${facility.name}`,
+            arrivedHint: clock(load.arrived?.serverAt),
+            releasedHint: clock(load.released?.serverAt),
+          }),
+        () => rcsBolRequest(language, facility.name),
+      );
+      return;
+    case "send_dispatch":
+      await sendDispatchPrompt(target, load.channel, language, load.loadId, load.nonce, facility.name, formatAppointment(load.appointmentAt, facility.timeZone, language));
+      return;
     case "tell_driver":
-      await send(target, textMessage(COPY[language].replies[effect.key]), `tell_${effect.key}`, load.loadId);
+      await tell(COPY[language].replies[effect.key], `tell_${effect.key}`);
       return;
     case "escalate":
       await notifyDispatch(load, effect.reason);
@@ -159,7 +175,9 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
     case "download_media": {
       const bol = await finishBol(load.loadId);
       const partial = bol?.media === "unavailable";
-      await send(target, textMessage(COPY[language].replies[partial ? "bol_partial" : "bol_received"]), partial ? "tell_bol_partial" : "tell_bol_received", load.loadId);
+      // An RCS photo carries no times, so the driver is told only what was actually saved.
+      const key = partial ? "bol_partial" : bol?.channel === "rcs" ? "bol_photo_received" : "bol_received";
+      await tell(COPY[language].replies[key], `tell_${key}`);
       if (partial) await notifyDispatch(load, "some bill-of-lading pages could not be downloaded");
       return;
     }
@@ -214,6 +232,12 @@ async function handleOptOut(event: InboundEvent, candidateKeys: string[]): Promi
   const records = await Promise.all(candidateKeys.map((k) => getDriver(k)));
   const allKeys = [...new Set([...candidateKeys, ...records.flatMap((r) => (r?.boundFrom ? [r.boundFrom] : []))])];
   await setOptOut(allKeys, stop);
+  // On RCS, End User Messaging manages STOP and START itself (the agent's opt-out list and keyword
+  // replies), so DockClock records the choice but sends no reply of its own.
+  if (event.channel === "rcs") {
+    log(stop ? "driver_opted_out" : "driver_opted_in", { keys: allKeys.length, channel: "rcs" });
+    return true;
+  }
   const language = records.find((r) => r?.language)?.language ?? "en_US";
   const primary = candidateKeys[0] ?? "";
   await send({ address: replyAddress(event), driverKey: primary }, textMessage(stop ? COPY[language].stopped : COPY[language].resumed), stop ? "opt_out" : "opt_in", "-", {
@@ -256,28 +280,134 @@ async function onInbound(event: InboundEvent): Promise<void> {
 
 // Delivery receipts for messages we sent, keyed by End User Messaging's message id so they join
 // the send record. Each state keeps its first timestamp; order of arrival does not matter.
-async function onStatus(event: StatusEvent): Promise<void> {
+async function onStatus(event: StatusEvent | RcsStatusEvent): Promise<void> {
   const id = event.eumMessageId ?? event.wamid;
   const failed = event.state === "failed";
-  await ddb.send(
+  const sets = ["#s = if_not_exists(#s, :at)", "wamid = :w"];
+  const values: Record<string, unknown> = { ":at": event.serverAt, ":w": event.wamid };
+  if (failed) {
+    sets.push("errorCode = :e");
+    values[":e"] = event.errorCode;
+  }
+  if ("channel" in event) {
+    // RCS receipts name their load from the send's Context, in case they beat our send record.
+    sets.push("channel = if_not_exists(channel, :c)");
+    values[":c"] = event.channel;
+    const add = (expression: string, name: string, value: string | null) => {
+      if (!value) return;
+      sets.push(expression);
+      values[name] = value;
+    };
+    add("loadId = if_not_exists(loadId, :l)", ":l", event.loadId);
+    add("purpose = if_not_exists(purpose, :p)", ":p", event.purpose);
+    if (failed) add("failureDescription = :d", ":d", event.description?.slice(0, 300) ?? null);
+  }
+  const out = await ddb.send(
     new UpdateCommand({
       TableName: env.table(),
       Key: keys.receipt(id),
-      UpdateExpression: `SET #s = if_not_exists(#s, :at), wamid = :w${failed ? ", errorCode = :e" : ""}`,
+      UpdateExpression: `SET ${sets.join(", ")}`,
       ExpressionAttributeNames: { "#s": `${event.state}At` },
-      ExpressionAttributeValues: { ":at": event.serverAt, ":w": event.wamid, ...(failed ? { ":e": event.errorCode } : {}) },
+      ExpressionAttributeValues: values,
+      ReturnValues: "ALL_NEW",
     }),
   );
-  log("receipt_recorded", { messageId: id, state: event.state, errorCode: event.errorCode });
+  log("receipt_recorded", { messageId: id, state: event.state, errorCode: event.errorCode, channel: "channel" in event ? event.channel : "whatsapp" });
+  if (failed) await failover(id, out.Attributes ?? {}, event);
+}
+
+// A failed WhatsApp message is re-sent once over RCS and the load stays on RCS from then on; a
+// failed RCS message (or a driver RCS cannot reach) goes to dispatch. The conditional write on the
+// receipt makes this once per failed message, however many failure events arrive, and the re-send
+// rides the load's outbox, so it is retried like any other effect until it has gone out.
+async function failover(messageId: string, receipt: Record<string, unknown>, event: StatusEvent): Promise<void> {
+  const loadId = typeof receipt.loadId === "string" ? receipt.loadId : null;
+  const purpose = typeof receipt.purpose === "string" ? receipt.purpose : "";
+  if (!loadId || loadId === "-" || receipt.failoverAt) {
+    log("failover_skipped", { messageId, reason: !loadId || loadId === "-" ? "not a load message" : "already handled" });
+    return;
+  }
+  const load = await getLoad(loadId);
+  if (!load || isTerminal(load.phase)) {
+    log("failover_skipped", { messageId, loadId, reason: load ? "load closed" : "load missing" });
+    return;
+  }
+  const from = receipt.channel === "rcs" ? "rcs" : "whatsapp";
+  const toRcs = from === "whatsapp" && env.rcs() !== null && load.address.kind === "phone";
+  const effect: Effect | null = toRcs
+    ? failoverEffect(purpose, load.phase)
+    : { type: "escalate", reason: from === "rcs" ? `RCS delivery failed after WhatsApp (${purpose})` : `WhatsApp delivery failed and RCS cannot reach this driver (${purpose})` };
+  const action = toRcs ? (effect ? "RESENT_OVER_RCS" : "SWITCHED_TO_RCS") : "ESCALATED_UNREACHABLE";
+  const now = new Date().toISOString();
+  const seq = `${event.serverAt}#failover#${messageId}`;
+  const sets = [...(toRcs ? ["channel = :rcs"] : []), "failedOverAt = if_not_exists(failedOverAt, :now)", ...(effect ? ["outbox.#k = :o"] : [])];
+  try {
+    await ddb.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: env.table(),
+              Key: keys.receipt(messageId),
+              UpdateExpression: "SET failoverAt = :now, failoverAction = :a",
+              ConditionExpression: "attribute_not_exists(failoverAt)",
+              ExpressionAttributeValues: { ":now": now, ":a": action },
+            },
+          },
+          {
+            Update: {
+              TableName: env.table(),
+              Key: keys.load(loadId),
+              UpdateExpression: `SET ${sets.join(", ")}`,
+              ConditionExpression: "attribute_exists(pk)",
+              ...(effect ? { ExpressionAttributeNames: { "#k": seq } } : {}),
+              ExpressionAttributeValues: { ":now": now, ...(toRcs ? { ":rcs": "rcs" } : {}), ...(effect ? { ":o": { seq, effect } satisfies OutboxEntry } : {}) },
+            },
+          },
+          {
+            Put: {
+              TableName: env.table(),
+              Item: {
+                ...keys.event(loadId, event.serverAt, `failover.${messageId}`),
+                type: "failover",
+                outcome: action,
+                phaseBefore: load.phase,
+                phaseAfter: load.phase,
+                channel: toRcs ? "rcs" : load.channel,
+                serverAt: event.serverAt,
+                messageId,
+                detail: { failedMessageId: messageId, from, purpose, errorCode: event.errorCode, queued: effect?.type ?? null },
+              },
+            },
+          },
+        ],
+      }),
+    );
+  } catch (error) {
+    if (error instanceof TransactionCanceledException && error.CancellationReasons?.[0]?.Code === "ConditionalCheckFailed") {
+      log("failover_skipped", { messageId, loadId, reason: "already handled" });
+      return;
+    }
+    throw error;
+  }
+  log("failover", { loadId, messageId, from, purpose, action, queued: effect?.type ?? null });
+  const drained = await drainOutbox(loadId);
+  if (drained) log("outbox_drained", { loadId, effects: drained });
 }
 
 export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
   const config = env.channel();
+  const rcs = env.rcs();
   const batchItemFailures: SQSBatchResponse["batchItemFailures"] = [];
+  // Both topics feed this queue; the topic ARN picks the decoder, and each decoder checks its own.
+  const eventsOf = (body: string): Array<InboundEvent | StatusEvent | RcsEvent> => {
+    if (rcs && isFromTopic(body, rcs.topicArn)) return decodeRcsEvent(body, rcs);
+    const { entry, eumMessageId } = decodeEvent(body, config);
+    return extractEvents(entry, config, eumMessageId);
+  };
   for (const record of event.Records) {
     try {
-      const { entry, eumMessageId } = decodeEvent(record.body, config);
-      for (const channelEvent of extractEvents(entry, config, eumMessageId)) {
+      for (const channelEvent of eventsOf(record.body)) {
         if (channelEvent.kind === "inbound") await onInbound(channelEvent);
         else await onStatus(channelEvent);
       }

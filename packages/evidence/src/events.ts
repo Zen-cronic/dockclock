@@ -114,7 +114,9 @@ export function corroborate(record: LoadRecord): Corroboration {
   }
   const bol = record.bol;
   if (bol) {
-    signals.push({ name: "bol_camera_only", ok: bol.cameraOnly, detail: bol.cameraOnly ? "captured in camera-only Flow" : "uploaded from gallery" });
+    const rcs = bol.channel === "rcs";
+    const source = bol.cameraOnly ? "captured in camera-only Flow" : rcs ? "RCS photo reply; camera or gallery unknown" : "uploaded from gallery";
+    signals.push({ name: "bol_camera_only", ok: bol.cameraOnly, detail: source });
     const stored = bol.pageSha256s.filter((h): h is string => h !== null);
     signals.push({
       name: "bol_media_hashed",
@@ -124,7 +126,11 @@ export function corroborate(record: LoadRecord): Corroboration {
           ? "no photo submitted"
           : `${stored.length} of ${bol.pageSha256s.length} pages stored and hashed`,
     });
-    signals.push({ name: "bol_confirmed_by_driver", ok: bol.confirmedByDriver, detail: "driver confirmed or corrected extracted times" });
+    signals.push({
+      name: "bol_confirmed_by_driver",
+      ok: bol.confirmedByDriver,
+      detail: bol.confirmedByDriver ? "driver confirmed or corrected extracted times" : rcs ? "RCS has no form, so no driver-entered times or signed box" : "driver did not confirm times",
+    });
     const pairs: Array<[string, string | null, PinEvent | null, boolean]> = [
       ["bol_in_matches_arrived_pin", bol.checkIn, record.arrived, bol.timesEdited.in],
       ["bol_out_matches_released_pin", bol.checkOut, record.released, bol.timesEdited.out],

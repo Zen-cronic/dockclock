@@ -37,6 +37,24 @@ async function storeAndHash(loadId: string, photo: BolPhoto): Promise<BolPhoto |
   return { ...photo, s3Key, sha256: createHash("sha256").update(bytes).digest("hex") };
 }
 
+// RCS photos are already in our bucket (End User Messaging stored them); they are hashed from that
+// copy. A photo the service could not store has no key and is unavailable.
+async function hashStored(loadId: string, photo: BolPhoto): Promise<BolPhoto | null> {
+  if (!photo.s3Key) {
+    log("media_unavailable", { loadId, mediaId: photo.mediaId, error: "RCS media was not stored" });
+    return null;
+  }
+  try {
+    const object = await s3.send(new GetObjectCommand({ Bucket: env.mediaBucket(), Key: photo.s3Key }));
+    const bytes = await object.Body!.transformToByteArray();
+    return { ...photo, sha256: createHash("sha256").update(bytes).digest("hex") };
+  } catch (error) {
+    if ((error as Error).name !== "NoSuchKey") throw error;
+    log("media_unavailable", { loadId, mediaId: photo.mediaId, error: "NoSuchKey" });
+    return null;
+  }
+}
+
 // Finishes the bill-of-lading capture: every photo stored in S3 and hashed from our own copy.
 // Idempotent, so both the first delivery and any redelivery of the Flow reply can call it.
 export async function finishBol(loadId: string): Promise<BolRecord | null> {
@@ -50,7 +68,7 @@ export async function finishBol(loadId: string): Promise<BolRecord | null> {
       photos.push(photo);
       continue;
     }
-    const stored = await storeAndHash(loadId, photo);
+    const stored = bol.channel === "rcs" ? await hashStored(loadId, photo) : await storeAndHash(loadId, photo);
     if (stored) photos.push(stored);
     else {
       photos.push(photo);

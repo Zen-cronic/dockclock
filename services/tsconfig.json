@@ -2,5 +2,5 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": { "rootDir": "src", "outDir": "dist" },
   "include": ["src"],
-  "references": [{ "path": "../packages/clause-engine" }, { "path": "../packages/evidence" }, { "path": "../packages/whatsapp" }]
+  "references": [{ "path": "../packages/clause-engine" }, { "path": "../packages/evidence" }, { "path": "../packages/whatsapp" }, { "path": "../packages/rcs" }]
 }

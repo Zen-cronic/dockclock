@@ -7,8 +7,8 @@ import { LOAD_ID_PATTERN } from "@dockclock/whatsapp";
 import { isTerminal } from "./lifecycle.js";
 import { ddb, getDriver, getLoad, type Address } from "./store.js";
 import { driverKey } from "./identity.js";
-import { COPY, LANGUAGES, type Language } from "./messages.js";
-import { canonical, dispatchTemplate, isOptedOut, send } from "./sender.js";
+import { formatAppointment, LANGUAGES, type Language } from "./messages.js";
+import { canonical, isOptedOut, sendDispatchPrompt } from "./sender.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
 
@@ -53,10 +53,6 @@ export class DispatchRejected extends Error {
   }
 }
 
-function formatAppointment(iso: string, timeZone: string, language: Language): string {
-  return new Intl.DateTimeFormat(COPY[language].locale, { timeZone, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
-}
-
 // Every input is checked before anything is stored, so a rejected dispatch leaves nothing behind.
 export function validate(input: DispatchInput): { language: Language; address: Address; appointment: string } {
   if (!LOAD_ID_PATTERN.test(input.loadId)) throw new DispatchRejected("loadId must be 1-40 letters, digits or dashes");
@@ -74,6 +70,9 @@ export function validate(input: DispatchInput): { language: Language; address: A
   } catch {
     throw new DispatchRejected("address.e164 is not a valid phone number");
   }
+  if (input.channel !== "whatsapp" && input.channel !== "rcs") throw new DispatchRejected("channel must be whatsapp or rcs");
+  if (input.channel === "rcs" && address.kind !== "phone") throw new DispatchRejected("an RCS driver needs a phone number");
+  if (input.channel === "rcs" && !env.rcs()) throw new DispatchRejected("RCS is not configured for this deployment");
   return { language, address, appointment: formatAppointment(input.appointmentAt, facility.timeZone, language) };
 }
 
@@ -117,9 +116,9 @@ async function supersede(previousLoadId: string, byLoadId: string): Promise<stri
   return previousLoadId;
 }
 
-async function sendTemplate(loadId: string, target: { address: Address; driverKey: string }, language: Language, nonce: string, facility: string, appointment: string) {
+async function sendTemplate(loadId: string, target: { address: Address; driverKey: string }, channel: Channel, language: Language, nonce: string, facility: string, appointment: string) {
   try {
-    const id = await send(target, dispatchTemplate(language, loadId, nonce, facility, appointment), "dispatch_template", loadId);
+    const id = await sendDispatchPrompt(target, channel, language, loadId, nonce, facility, appointment);
     await ddb.send(
       new UpdateCommand({ TableName: env.table(), Key: keys.load(loadId), UpdateExpression: "SET dispatchMessageId = :m REMOVE dispatchError", ExpressionAttributeValues: { ":m": id } }),
     );
@@ -132,7 +131,7 @@ async function sendTemplate(loadId: string, target: { address: Address; driverKe
 }
 
 // Creates the load, binds the driver to it, starts its lifecycle workflow and sends the dispatch
-// template whose Arrived button opens the driver's 24-hour window. A failed template send is
+// template whose Arrived button opens the driver's 24-hour window (on RCS, the dispatch card). A failed template send is
 // reported, not thrown: the load stays open and `resend: true` retries it.
 export async function handler(input: DispatchInput): Promise<DispatchOutput> {
   const { language, address, appointment } = validate(input);
@@ -145,7 +144,7 @@ export async function handler(input: DispatchInput): Promise<DispatchOutput> {
     const load = await getLoad(input.loadId);
     if (!load || isTerminal(load.phase) || load.phase !== "dispatched") throw new DispatchRejected("resend needs an open load that has not started");
     const executionArn = load.executionArn ?? (await startWorkflow(load.loadId, load.appointmentAt));
-    const sent = await sendTemplate(load.loadId, { address: load.address, driverKey: load.driverKey }, load.language, load.nonce, facility.name, appointment);
+    const sent = await sendTemplate(load.loadId, { address: load.address, driverKey: load.driverKey }, load.channel, load.language, load.nonce, facility.name, appointment);
     log("load_redispatched", { loadId: load.loadId, dispatchError: sent.dispatchError });
     return { loadId: load.loadId, executionArn, ...sent, superseded: null };
   }
@@ -195,7 +194,7 @@ export async function handler(input: DispatchInput): Promise<DispatchOutput> {
   );
   const superseded = existing ? await supersede(existing.loadId, input.loadId) : null;
   const executionArn = await startWorkflow(input.loadId, input.appointmentAt);
-  const sent = await sendTemplate(input.loadId, target, language, nonce, facility.name, appointment);
+  const sent = await sendTemplate(input.loadId, target, input.channel, language, nonce, facility.name, appointment);
   log("load_dispatched", { loadId: input.loadId, clauseId: input.clauseId, facilityId: input.facilityId, channel: input.channel, language, superseded, dispatchError: sent.dispatchError });
   return { loadId: input.loadId, executionArn, ...sent, superseded };
 }

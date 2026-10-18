@@ -1,4 +1,5 @@
 import { registerFacility, type Facility } from "@dockclock/evidence";
+import type { RcsConfig } from "@dockclock/rcs";
 import { normalizeE164, type ChannelConfig } from "@dockclock/whatsapp";
 
 // A private demo yard arrives as JSON in DEMO_FACILITY (set from the operator's gitignored .env),
@@ -36,6 +37,12 @@ export const env = {
   dispatchEmail: () => required("DISPATCH_EMAIL"),
   fromEmail: () => required("FROM_EMAIL"),
   configurationSet: () => required("SES_CONFIGURATION_SET"),
+  // RCS is optional: without an agent id, loads stay on WhatsApp and failures go to dispatch.
+  rcs: (): RcsConfig | null =>
+    process.env.RCS_AGENT_ID && process.env.RCS_TOPIC_ARN
+      ? { agentId: process.env.RCS_AGENT_ID, topicArn: process.env.RCS_TOPIC_ARN, mediaBucket: required("MEDIA_BUCKET") }
+      : null,
+  rcsConfigurationSet: () => process.env.RCS_CONFIGURATION_SET ?? "",
   channel: (): ChannelConfig => ({
     account: required("ACCOUNT_ID"),
     topicArn: required("TOPIC_ARN"),
