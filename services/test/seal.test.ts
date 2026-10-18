@@ -86,4 +86,24 @@ describe("seal", () => {
     expect(kms.commandCalls(SignCommand)).toHaveLength(0);
     for (const m of [dynamo, s3, kms]) m.restore();
   });
+
+  it("records an RCS photo reply as weaker evidence: no times, no signature, camera unknown", () => {
+    const pinRcs = { channel: "rcs" as const };
+    const record = toRecord({
+      ...base,
+      channel: "rcs",
+      arrived: { ...base.arrived!, channel: "whatsapp" },
+      released: { ...base.released!, ...pinRcs },
+      bol: bol({ channel: "rcs", inTime: null, outTime: null, delayReason: null, consignee: null }),
+    });
+    // A load that failed over keeps the channel each pin actually came in on.
+    expect(record.arrived?.channel).toBe("whatsapp");
+    expect(record.released?.channel).toBe("rcs");
+    expect(record.bol).toMatchObject({ channel: "rcs", cameraOnly: false, signed: false, checkIn: null, checkOut: null, confirmedByDriver: false });
+    const corroboration = corroborate(record);
+    expect(corroboration.confidence).toBe("low");
+    expect(corroboration.signals.find((s) => s.name === "bol_camera_only")?.detail).toContain("camera or gallery unknown");
+    const result = evaluate(toLoadEvidence(record, "2026-10-13T18:00:00.000Z"), clauseById("lakeshore-foods"));
+    expect(result.verdict).not.toBe("BILLABLE");
+  });
 });
