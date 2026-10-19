@@ -54,15 +54,15 @@ Today the scorecard measures the clause engine on 24 hand-labelled test loads. I
 Send **DEMO** on WhatsApp to the DockClock number given on the Devpost submission page (**DEMO ES** for Spanish, **DEMO FR** for Québécois French). It takes about 10 minutes, most of it the real wait. You are both the driver and the dispatcher:
 1. Tap **Arrived** and share your location. In the demo any location counts; the pin is still recorded with WhatsApp's server timestamp.
 2. Free time is 5 minutes. Wait longer than that. Shortly after you arrive a detention notice is emailed, and the chat tells you.
-3. Tap **Released**, share your location again, write the two times on a piece of paper and photograph it in the form. Keep the times the form suggests.
+3. Tap **Released**, share your location again, write on a piece of paper the arrival and release times the chat and the form show (US Eastern time in the demo), and photograph it in the form. Keep the times the form suggests.
 4. The contract's verdict arrives in the chat. If it is billable, tap **Approve claim**. The AgentCore agent files it, and the chat tells you the amount and the evidence pack's digest.
 
 **Change one thing** (send DEMO again to start over):
 - Tap Released before 5 minutes: the chat explains "the wait stayed within free time". Nothing is claimed, and nothing is "repaired".
 - In the form, change the out time by more than 15 minutes: the typed time no longer matches your pin, so the load is held for a person instead of claimed.
-- Send a blurred photo: you are asked once for a clearer one; in the demo the first photo is used if none comes.
+- Send a blurred photo: you are asked once for a clearer one; if none comes within 10 minutes, the first photo is used.
 
-**What is real and what is not.** The clause is fictional (5 minutes free, $60 an hour, $30 cap, notice required before free time ends) and is not part of the scored set. The demo yard accepts any location, so the demo does not test the geofence. Claim and notice emails go to our own test mailbox, never to you. The KMS signature proves the recorded messages, times and photo hash have not changed since sealing; it cannot prove where your phone really was. Each number gets 5 demos a day, reset at 00:00 UTC. Your pins and photo are kept as signed evidence for 30 days.
+**What is real and what is not.** The clause is fictional (5 minutes free, $60 an hour, $30 cap, notice required before free time ends) and is not part of the scored set. The demo yard accepts any location, so the demo does not test the geofence. Claim and notice emails go to our own test mailbox, never to you. The KMS signature proves the recorded messages, times and photo hash have not changed since sealing; it cannot prove where your phone really was. Each number gets 5 demos a day, reset at 00:00 UTC. We store your pins and photo with the demo load, as we would for a carrier; the signed pack records the times and the photo's hash, not your location.
 
 ## Check the evidence yourself
 `npm run verify:pack -- docs/evidence/SMOKE-mve8yfv3.pack.json` checks a real sealed pack against the published KMS public key with no AWS account, and shows a tampered copy failing. See [`docs/evidence/`](docs/evidence/README.md).
