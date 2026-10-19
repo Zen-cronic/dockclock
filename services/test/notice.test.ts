@@ -157,3 +157,13 @@ describe("photo retake step", () => {
     expect(stepSatisfied({ arrived: null, released: null, bol: bol("wamid.second", "stored"), retakeOf: "wamid.first" }, "retake")).toBe(true);
   });
 });
+
+describe("dispatch escalation contact line", () => {
+  it("gives the number and never suggests the channel that is failing", async () => {
+    const { contactLine } = await import("../src/escalate.js");
+    const phone = { address: { kind: "phone" as const, e164: "+15550100001" }, channel: "whatsapp" as const };
+    expect(contactLine(phone, "driver tapped Talk to dispatch")).toBe("Driver: +15550100001, on WhatsApp. Message them there or call them.");
+    expect(contactLine(phone, "WhatsApp delivery failed and RCS cannot reach this driver (offer_release)")).toBe("Driver: +15550100001. Messages are not getting through on WhatsApp; call them.");
+    expect(contactLine({ address: { kind: "bsuid", id: "US.1" }, channel: "whatsapp" }, "RCS delivery failed")).toContain("no phone number on file");
+  });
+});
