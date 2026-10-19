@@ -51,7 +51,7 @@ We'll tell you before you find it. Every line below is traced to a test, a file 
 Today the scorecard measures the clause engine on 24 hand-labelled test loads. Its truth column was written by us from each clause's text, so it is a consistency check, not field data.
 
 ## Try it yourself (judges)
-Send **DEMO** on WhatsApp to the DockClock number given on the Devpost submission page (**DEMO ES** for Spanish, **DEMO FR** for Québécois French). It takes about 10 minutes, most of it the real wait. You are both the driver and the dispatcher:
+Send **DEMO** on WhatsApp to the DockClock number given on the Devpost submission page (**DEMO ES** for Spanish, **DEMO FR** for Québécois French). It takes about 10 minutes, most of it the real wait (10 more if a photo has to be retaken). You are both the driver and the dispatcher:
 1. Tap **Arrived** and share your location. In the demo any location counts; the pin is still recorded with WhatsApp's server timestamp.
 2. Free time is 5 minutes. Wait longer than that. Shortly after you arrive a detention notice is emailed, and the chat tells you.
 3. Tap **Released**, share your location again, write on a piece of paper the arrival and release times the chat and the form show (US Eastern time in the demo), and photograph it in the form. Keep the times the form suggests.

@@ -17,6 +17,9 @@ export type Step = "arrived" | "released" | "bol" | "retake";
 
 
 export const MAX_FLOW_SENDS = 3;
+// How long to wait for a clearer bill-of-lading photo: short on a judge demo load, an hour otherwise.
+// Kept here, in a module with no service imports, because the demo intro quotes it.
+export const RETAKE_WAIT_SECONDS = { demo: 600, standard: 3600 } as const;
 // One list, and the type derives from it, so a new key cannot be missing from failover.
 const MESSAGE_KEYS = [
   "tap_arrived_first",

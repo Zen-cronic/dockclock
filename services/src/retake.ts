@@ -1,5 +1,5 @@
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { MAX_FLOW_SENDS, type Effect } from "./lifecycle.js";
+import { MAX_FLOW_SENDS, RETAKE_WAIT_SECONDS, type Effect } from "./lifecycle.js";
 import { drainOutbox } from "./ingest.js";
 import { ddb, getLoad, type LoadItem, type OutboxEntry } from "./store.js";
 import { env, log } from "./config.js";
@@ -17,8 +17,7 @@ async function resumeExisting(load: LoadItem): Promise<{ requested: boolean; wai
   return { requested: true, waitSeconds: Math.max(60, left) };
 }
 
-// How long to wait for the clearer photo: short on a judge demo load, an hour otherwise.
-export const RETAKE_WAIT_SECONDS = { demo: 600, standard: 3600 } as const;
+export { RETAKE_WAIT_SECONDS };
 
 export async function handler(input: { loadId: string }): Promise<{ requested: boolean; waitSeconds: number }> {
   const load = await getLoad(input.loadId);
