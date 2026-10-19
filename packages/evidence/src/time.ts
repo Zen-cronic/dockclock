@@ -63,6 +63,13 @@ export function localClockToIso(clock: string | null, nearIso: string, timeZone:
   return new Date(best).toISOString();
 }
 
+// The zone's short name at that instant (EDT, CST), so a clock time shown to someone who may be
+// elsewhere says which zone it is in.
+export function zoneAbbreviation(iso: string, timeZone: string): string {
+  const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "short" }).formatToParts(new Date(iso)).find((p) => p.type === "timeZoneName");
+  return part?.value ?? timeZone;
+}
+
 export function isoToLocalClock(iso: string, timeZone: string): string {
   const p = zoneParts(new Date(iso), timeZone);
   return `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;

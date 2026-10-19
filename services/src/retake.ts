@@ -23,7 +23,7 @@ export async function handler(input: { loadId: string }): Promise<{ requested: b
   const now = new Date().toISOString();
   const until = new Date(Date.now() + waitSeconds * 1000).toISOString();
   const entries: Array<[string, Effect]> = [
-    [`${now}#retake#1`, { type: "ask_retake", until }],
+    [`${now}#retake#1`, { type: "ask_retake" }],
     [`${now}#retake#2`, { type: "send_release_flow" }],
   ];
   const names = Object.fromEntries(entries.map(([seq], i) => [`#k${i}`, seq]));
@@ -33,10 +33,10 @@ export async function handler(input: { loadId: string }): Promise<{ requested: b
       new UpdateCommand({
         TableName: env.table(),
         Key: keys.load(load.loadId),
-        UpdateExpression: `SET phase = :w, retakeOf = :m, retakeRequestedAt = :t, flowSends = if_not_exists(flowSends, :zero) + :one, version = version + :one, ${entries.map((_, i) => `outbox.#k${i} = :o${i}`).join(", ")}`,
+        UpdateExpression: `SET phase = :w, retakeOf = :m, retakeRequestedAt = :t, retakeUntil = :u, flowSends = if_not_exists(flowSends, :zero) + :one, version = version + :one, ${entries.map((_, i) => `outbox.#k${i} = :o${i}`).join(", ")}`,
         ConditionExpression: "phase = :d AND attribute_not_exists(retakeOf)",
         ExpressionAttributeNames: names,
-        ExpressionAttributeValues: { ":w": "awaiting_bol", ":d": "documented", ":m": load.bol.messageId, ":t": now, ":zero": 0, ":one": 1, ...values },
+        ExpressionAttributeValues: { ":w": "awaiting_bol", ":d": "documented", ":m": load.bol.messageId, ":t": now, ":u": until, ":zero": 0, ":one": 1, ...values },
       }),
     );
   } catch (error) {

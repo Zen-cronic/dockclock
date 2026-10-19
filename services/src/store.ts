@@ -42,6 +42,8 @@ export interface LoadItem extends LoadState {
   // Set when the workflow asked for a clearer photo: the message id of the unreadable one.
   retakeOf?: string;
   retakeRequestedAt?: string;
+  // When the first photo is used if no clearer one arrives.
+  retakeUntil?: string;
 }
 
 // The detention notice: scheduled after the Arrived pin, sent by SES before free time ends, and

@@ -96,7 +96,7 @@ export type Effect =
   | { type: "send_dispatch" }
   | { type: "download_media" }
   | { type: "tell_driver"; key: MessageKey }
-  | { type: "ask_retake"; until: string }
+  | { type: "ask_retake" }
   | { type: "escalate"; reason: string }
   | { type: "resume"; step: Step };
 
@@ -259,6 +259,8 @@ export function failoverEffect(purpose: string, phase: Phase): Effect | null {
     offer_release: [{ type: "offer_release" }, "at_dock"],
     location_released: [{ type: "request_location", step: "released" }, "awaiting_release_pin"],
     release_flow: [{ type: "send_release_flow" }, "awaiting_bol"],
+    // The retake deadline lives on the load, so a re-send over RCS can still state it.
+    ask_retake: [{ type: "ask_retake" }, "awaiting_bol"],
   };
   const prompt = prompts[purpose];
   return prompt && prompt[1] === phase ? prompt[0] : null;

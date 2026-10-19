@@ -2,7 +2,7 @@ import { TransactionCanceledException } from "@aws-sdk/client-dynamodb";
 import { TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { RcsMessageContent } from "@aws-sdk/client-pinpoint-sms-voice-v2";
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
-import { facilityById, isoToLocalClock } from "@dockclock/evidence";
+import { facilityById, isoToLocalClock, zoneAbbreviation } from "@dockclock/evidence";
 import { decodeRcsEvent, isFromTopic, type RcsEvent, type RcsStatusEvent } from "@dockclock/rcs";
 import {
   decodeEvent,
@@ -169,12 +169,29 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
     case "send_dispatch":
       await sendDispatchPrompt(target, load.channel, language, load.loadId, load.nonce, facility.name, formatAppointment(load.appointmentAt, facility.timeZone, language));
       return;
-    case "tell_driver":
-      await tell(COPY[language].replies[effect.key], `tell_${effect.key}`);
+    case "tell_driver": {
+      // An entry queued by an older build may name a key this build no longer has: drop it rather
+      // than block the effects queued behind it.
+      const text = COPY[language].replies[effect.key] as string | undefined;
+      if (!text) {
+        log("effect_dropped", { loadId: load.loadId, effect: `tell_${String(effect.key)}`, reason: "unknown message key" });
+        return;
+      }
+      await tell(text, `tell_${effect.key}`);
       return;
-    case "ask_retake":
-      await tell(COPY[language].retakeAsk(clock(effect.until)), "ask_retake");
+    }
+    case "ask_retake": {
+      // A replay after the deadline, or after the load moved on, would tell the driver a time that
+      // has passed: send nothing.
+      const left = load.retakeUntil ? Date.parse(load.retakeUntil) - Date.now() : 0;
+      if (left <= 0 || load.phase !== "awaiting_bol") {
+        log("effect_dropped", { loadId: load.loadId, effect: "ask_retake", reason: left <= 0 ? "retake deadline passed" : `phase ${load.phase}` });
+        return;
+      }
+      const until = load.retakeUntil!;
+      await tell(COPY[language].retakeAsk(Math.ceil(left / 60_000), clock(until), zoneAbbreviation(until, facility.timeZone), load.demo === true), "ask_retake");
       return;
+    }
     case "escalate":
       await notifyDispatch(load, effect.reason);
       return;

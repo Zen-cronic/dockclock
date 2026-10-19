@@ -15,8 +15,9 @@ interface Copy {
   replies: Record<MessageKey, string>;
   // The RCS twin of the dockclock_notice_sent template, same wording.
   noticeSent: (loadId: string, freeTimeEnds: string, counterparty: string) => string;
-  // The one retake request, with the time the first photo is used if no clearer one arrives.
-  retakeAsk: (fallbackAt: string) => string;
+  // The one retake request: minutes left and a zone-labelled clock time after which the first photo
+  // is used. A demo load asks for "the paper" (judges photograph any paper); others for the signed BOL.
+  retakeAsk: (minutes: number, at: string, zone: string, demo: boolean) => string;
   stopped: string;
   resumed: string;
   rcs: RcsCopy;
@@ -56,7 +57,8 @@ export const COPY: Record<Language, Copy> = {
       use_bol_button: "Please send the bill of lading with the Add BOL photo button so it is saved with this load.",
       bol_photo_received: "Got it. Your photo is saved with this load's evidence.",
     },
-    retakeAsk: (at) => `That photo is hard to read. Please take one more of the bill of lading: flat, in good light and in focus. If none arrives by ${at}, we use the first photo.`,
+    retakeAsk: (minutes, at, zone, demo) =>
+      `That photo is hard to read. Please take one more of ${demo ? "the paper" : "the signed bill of lading"}: flat, in good light and in focus. If none arrives within ${minutes} minutes (by ${at} ${zone}), we use the first photo.`,
     noticeSent: (loadId, ends, counterparty) => `Load ${loadId}: free time ends at ${ends}. We emailed ${counterparty} the detention notice your contract requires. Updates will arrive in this chat.`,
     stopped: "You will not get more load messages from DockClock. Reply START to turn them back on.",
     resumed: "Load messages are back on.",
@@ -92,7 +94,8 @@ export const COPY: Record<Language, Copy> = {
       use_bol_button: "Envíe el BOL con el botón Agregar foto del BOL para guardarlo con esta carga.",
       bol_photo_received: "Listo. Su foto quedó guardada con la evidencia de esta carga.",
     },
-    retakeAsk: (at) => `Esa foto no se lee bien. Tome otra del BOL: plano, con buena luz y enfocado. Si no llega antes de las ${at}, usamos la primera foto.`,
+    retakeAsk: (minutes, at, zone, demo) =>
+      `Esa foto no se lee bien. Tome otra ${demo ? "del papel" : "del BOL firmado"}: plano, con buena luz y enfocado. Si no llega en ${minutes} minutos (antes de las ${at} ${zone}), usamos la primera foto.`,
     noticeSent: (loadId, ends, counterparty) => `Carga ${loadId}: el tiempo libre termina a las ${ends}. Enviamos por correo a ${counterparty} el aviso de demora que exige su contrato. Las novedades llegarán a este chat.`,
     stopped: "Ya no recibirá mensajes de cargas de DockClock. Responda START para activarlos otra vez.",
     resumed: "Los mensajes de cargas están activos otra vez.",
@@ -128,7 +131,8 @@ export const COPY: Record<Language, Copy> = {
       use_bol_button: "Envoyez le connaissement avec le bouton Ajouter la photo pour l'enregistrer avec ce chargement.",
       bol_photo_received: "C'est noté. Votre photo est enregistrée avec la preuve de ce chargement.",
     },
-    retakeAsk: (at) => `Cette photo est difficile à lire. Prenez-en une autre du connaissement : à plat, bien éclairé et net. Si aucune n'arrive avant ${at}, nous utilisons la première photo.`,
+    retakeAsk: (minutes, at, zone, demo) =>
+      `Cette photo est difficile à lire. Prenez-en une autre ${demo ? "du papier" : "du connaissement signé"} : à plat, bien éclairé et net. Si aucune n'arrive d'ici ${minutes} minutes (avant ${at} ${zone}), nous utilisons la première photo.`,
     noticeSent: (loadId, ends, counterparty) => `Chargement ${loadId} : le temps alloué se termine à ${ends}. Nous avons envoyé par courriel à ${counterparty} l'avis de temps d'attente exigé par votre contrat. Les mises à jour arriveront dans cette conversation.`,
     stopped: "Vous ne recevrez plus de messages de chargement de DockClock. Répondez START pour les réactiver.",
     resumed: "Les messages de chargement sont réactivés.",
