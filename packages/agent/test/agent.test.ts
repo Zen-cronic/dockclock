@@ -53,6 +53,14 @@ describe("claim email", () => {
     expect(mime).not.toMatch(/^Reply-To:/m);
   });
 
+  it("attaches the evidence key's public half when given", () => {
+    const pem = "-----BEGIN PUBLIC KEY-----\nAAAA\n-----END PUBLIC KEY-----\n";
+    const mime = buildClaimMime({ from: "c@example.com", to: "b@example.com", subject: "Claim", body, packFileName: "p.json", packJson: "{}", publicKeyPem: pem, footer: "f" }, "b1");
+    expect(mime).toContain('filename="dockclock-public-key.pem"');
+    const parts = mime.split("--b1");
+    expect(Buffer.from(parts[3]!.split("\r\n\r\n")[1]!.replace(/\r\n/g, ""), "base64").toString()).toBe(pem);
+  });
+
   it("sends replies to the carrier's dispatch desk", () => {
     const mime = buildClaimMime({ from: "claims@example.com", to: "broker@example.com", replyTo: "dispatch@example.com", subject: "Claim", body, packFileName: "p.json", packJson: "{}", footer: "f" }, "b1");
     expect(mime).toMatch(/^Reply-To: dispatch@example\.com\r$/m);

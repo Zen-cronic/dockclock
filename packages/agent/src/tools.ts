@@ -4,14 +4,28 @@ import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context } from "aws-lambda";
 import { clauseById } from "@dockclock/clause-engine";
-import { facilityById, isoToLocalClock, normalizeClock, registerFacility, type Facility } from "@dockclock/evidence";
+import { facilityById, isoToLocalClock, KmsSigner, normalizeClock, registerFacility, sha256Hex, type Facility } from "@dockclock/evidence";
 import { readBol, type BolReading } from "./bol-reader.js";
-import { buildClaimMime, checkClaim, formatUsd, toCents, type ClaimRequest } from "./claim.js";
+import { buildClaimMime, checkClaim, formatUsd, PUBLIC_KEY_FILE, toCents, type ClaimRequest } from "./claim.js";
 
 if (process.env.DEMO_FACILITY) registerFacility(JSON.parse(process.env.DEMO_FACILITY) as Facility);
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), { marshallOptions: { removeUndefinedValues: true } });
 const s3 = new S3Client({});
+const publicKeys = new Map<string, Promise<{ pem: string; spkiSha256: string }>>();
+
+// The evidence key's public half, fetched once per key and attached to every claim email.
+function publicKeyOf(keyId: string): Promise<{ pem: string; spkiSha256: string }> {
+  let key = publicKeys.get(keyId);
+  if (!key) {
+    key = new KmsSigner(keyId).publicKeyDer().then((der) => ({
+      pem: `-----BEGIN PUBLIC KEY-----\n${der.toString("base64").replace(/.{1,64}/g, "$&\n")}-----END PUBLIC KEY-----\n`,
+      spkiSha256: sha256Hex(der),
+    }));
+    publicKeys.set(keyId, key);
+  }
+  return key;
+}
 const ses = new SESv2Client({ maxAttempts: 3 });
 
 function env(name: string): string {
@@ -190,14 +204,15 @@ async function sendDetentionClaim(input: ClaimRequest) {
   }
   const packFile = await s3.send(new GetObjectCommand({ Bucket: env("EVIDENCE_BUCKET"), Key: pack.s3Key }));
   const packJson = await packFile.Body!.transformToString();
+  const publicKey = await publicKeyOf(pack.keyId);
   const footer = [
     "--",
     `Evidence pack ${load.sealedPackId} (sha256 ${pack.digest}) is attached.`,
-    `It is signed with AWS KMS key ${pack.keyId} (ECDSA P-256). The public key and an offline verifier are published with DockClock (docs/evidence, npm run verify:pack).`,
+    `It is signed with AWS KMS key ${pack.keyId} (ECDSA P-256). The public key is attached as ${PUBLIC_KEY_FILE} (SPKI sha256 ${publicKey.spkiSha256}); any ECDSA P-256 verifier, including DockClock's npm run verify:pack, checks the pack against it.`,
     `Contract amount: ${formatUsd(evaluation.amountUsd)}, computed by the clause engine, not by the agent.`,
     "Sent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
   ].join("\n");
-  const raw = buildClaimMime({ from: env("CLAIMS_FROM_EMAIL"), to, replyTo: process.env.REPLY_TO_EMAIL, subject: input.subject, body: input.body, packFileName: `${load.sealedPackId}.json`, packJson, footer });
+  const raw = buildClaimMime({ from: env("CLAIMS_FROM_EMAIL"), to, replyTo: env("REPLY_TO_EMAIL"), subject: input.subject, body: input.body, packFileName: `${load.sealedPackId}.json`, packJson, publicKeyPem: publicKey.pem, footer });
   let sesMessageId: string | undefined;
   try {
     const out = await ses.send(

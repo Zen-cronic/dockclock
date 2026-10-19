@@ -60,8 +60,12 @@ export interface ClaimEmailParts {
   body: string;
   packFileName: string;
   packJson: string;
+  // The signing key's public half, so the recipient can check the pack without any other source.
+  publicKeyPem?: string | undefined;
   footer: string;
 }
+
+export const PUBLIC_KEY_FILE = "dockclock-public-key.pem";
 
 function encodeHeader(value: string): string {
   return /^[\x20-\x7e]*$/.test(value) ? value : `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
@@ -89,6 +93,16 @@ export function buildClaimMime(parts: ClaimEmailParts, boundary = `dockclock-${D
     "Content-Transfer-Encoding: base64",
     "",
     wrap(Buffer.from(parts.packJson, "utf8").toString("base64")),
+    ...(parts.publicKeyPem
+      ? [
+          `--${boundary}`,
+          `Content-Type: application/x-pem-file; name="${PUBLIC_KEY_FILE}"`,
+          `Content-Disposition: attachment; filename="${PUBLIC_KEY_FILE}"`,
+          "Content-Transfer-Encoding: base64",
+          "",
+          wrap(Buffer.from(parts.publicKeyPem, "utf8").toString("base64")),
+        ]
+      : []),
     `--${boundary}--`,
     "",
   ].join("\r\n");
