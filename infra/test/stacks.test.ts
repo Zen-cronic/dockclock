@@ -55,7 +55,7 @@ describe("stacks", () => {
     expect(definition).toContain("Await released");
     expect(definition).toContain("Await bol");
     // The arrival timeout comes from the execution input, measured from the appointment.
-    expect(definition).toContain("TimeoutSecondsPath");
+    expect(definition).toContain('\\"TimeoutSecondsPath\\":\\"$.arrivalTimeoutSeconds\\"');
     expect(definition).toContain("Seal failed");
     expect(definition).toContain("Seal evidence");
   });
