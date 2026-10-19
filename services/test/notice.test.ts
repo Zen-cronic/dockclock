@@ -162,8 +162,10 @@ describe("dispatch escalation contact line", () => {
   it("gives the number and never suggests the channel that is failing", async () => {
     const { contactLine } = await import("../src/escalate.js");
     const phone = { address: { kind: "phone" as const, e164: "+15550100001" }, channel: "whatsapp" as const };
-    expect(contactLine(phone, "driver tapped Talk to dispatch")).toBe("Driver: +15550100001, on WhatsApp. Message them there or call them.");
-    expect(contactLine(phone, "WhatsApp delivery failed and RCS cannot reach this driver (offer_release)")).toBe("Driver: +15550100001. Messages are not getting through on WhatsApp; call them.");
-    expect(contactLine({ address: { kind: "bsuid", id: "US.1" }, channel: "whatsapp" }, "RCS delivery failed")).toContain("no phone number on file");
+    expect(contactLine(phone, false)).toBe("Driver: +15550100001, on WhatsApp. Message them there or call them.");
+    expect(contactLine(phone, true)).toBe("Driver: +15550100001. Messages are not getting through on WhatsApp; call them.");
+    const bsuid = { address: { kind: "bsuid" as const, id: "US.1" }, channel: "whatsapp" as const };
+    expect(contactLine(bsuid, true)).toBe("Driver: no phone number on file (WhatsApp shared only a business-scoped id), and messages are not getting through. Use the number in your driver records.");
+    expect(contactLine(bsuid, false)).not.toContain("Message them on WhatsApp");
   });
 });

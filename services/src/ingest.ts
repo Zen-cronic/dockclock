@@ -193,7 +193,7 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
       return;
     }
     case "escalate":
-      await notifyDispatch(load, effect.reason);
+      await notifyDispatch(load, effect.reason, { unreachable: effect.unreachable === true });
       return;
     case "download_media": {
       const bol = await finishBol(load.loadId);
@@ -375,7 +375,7 @@ async function failover(messageId: string, receipt: Record<string, unknown>, eve
   const toRcs = from === "whatsapp" && env.rcs() !== null && load.address.kind === "phone";
   const effect: Effect | null = toRcs
     ? failoverEffect(purpose, load.phase)
-    : { type: "escalate", reason: from === "rcs" ? `RCS delivery failed after WhatsApp (${purpose})` : `WhatsApp delivery failed and RCS cannot reach this driver (${purpose})` };
+    : { type: "escalate", unreachable: true, reason: from === "rcs" ? `RCS delivery failed (${purpose})` : `WhatsApp delivery failed and RCS cannot reach this driver (${purpose})` };
   const action = toRcs ? (effect ? "RESENT_OVER_RCS" : "SWITCHED_TO_RCS") : "ESCALATED_UNREACHABLE";
   const now = new Date().toISOString();
   const seq = `${event.serverAt}#failover#${messageId}`;

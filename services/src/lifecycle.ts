@@ -97,7 +97,8 @@ export type Effect =
   | { type: "download_media" }
   | { type: "tell_driver"; key: MessageKey }
   | { type: "ask_retake" }
-  | { type: "escalate"; reason: string }
+  // unreachable: messages to the driver are failing, so dispatch must not be pointed back at them.
+  | { type: "escalate"; reason: string; unreachable?: boolean }
   | { type: "resume"; step: Step };
 
 export interface Transition {
