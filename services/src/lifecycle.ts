@@ -245,6 +245,24 @@ export function stepAt(state: StepView, step: Step): string | undefined {
   }
 }
 
+// The phase a driver prompt belongs to. A queued prompt replayed after the load has left that phase
+// (or closed) is out of date and is dropped rather than sent.
+export function promptPhase(effect: Effect): Phase | null {
+  switch (effect.type) {
+    case "send_dispatch":
+      return "dispatched";
+    case "request_location":
+      return effect.step === "arrived" ? "awaiting_arrival_pin" : "awaiting_release_pin";
+    case "offer_release":
+      return "at_dock";
+    case "send_release_flow":
+    case "ask_retake":
+      return "awaiting_bol";
+    default:
+      return null;
+  }
+}
+
 // What to re-send over RCS when a WhatsApp message failed, named by the purpose its send recorded.
 // A prompt the load has moved past is not re-sent (null), so a late failure cannot rewind the driver.
 export function failoverEffect(purpose: string, phase: Phase): Effect | null {

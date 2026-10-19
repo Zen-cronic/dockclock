@@ -14,7 +14,7 @@ import {
   type InboundEvent,
   type StatusEvent,
 } from "@dockclock/whatsapp";
-import { applyEvent, failoverEffect, isTerminal, type Effect } from "./lifecycle.js";
+import { applyEvent, failoverEffect, isTerminal, promptPhase, type Effect } from "./lifecycle.js";
 import { COPY, formatAppointment, type Language } from "./messages.js";
 import { bindPrimary, ddb, getDriver, getLoad, ownsLoad, resolveActiveLoad, setOptOut, toState, type LoadItem, type OutboxEntry } from "./store.js";
 import { driverKeys, replyAddress } from "./identity.js";
@@ -216,7 +216,9 @@ export async function drainOutbox(loadId: string): Promise<number> {
   const entries = Object.entries(load?.outbox ?? {}).sort(([, a], [, b]) => a.seq.localeCompare(b.seq));
   if (!load || entries.length === 0) return 0;
   for (const [key, entry] of entries) {
-    await runEffect(load, entry.effect);
+    const phase = promptPhase(entry.effect);
+    if (phase && phase !== load.phase) log("effect_dropped", { loadId, effect: entry.effect.type, reason: `load is ${load.phase}, prompt was for ${phase}` });
+    else await runEffect(load, entry.effect);
     await ddb.send(
       new UpdateCommand({
         TableName: env.table(),

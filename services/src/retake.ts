@@ -1,7 +1,7 @@
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { MAX_FLOW_SENDS, type Effect } from "./lifecycle.js";
 import { drainOutbox } from "./ingest.js";
-import { ddb, getLoad, type OutboxEntry } from "./store.js";
+import { ddb, getLoad, type LoadItem, type OutboxEntry } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
 
@@ -9,12 +9,23 @@ import { keys } from "./keys.js";
 // goes back to waiting for the bill of lading, and the driver gets the camera Flow again with a
 // short reason. The unreadable photo stays on the load until a new one replaces it, so a driver who
 // does not answer still seals with the original.
+// The wait the workflow needs for a request already made: what is left of it, at least a minute.
+async function resumeExisting(load: LoadItem): Promise<{ requested: boolean; waitSeconds: number }> {
+  await drainOutbox(load.loadId);
+  const left = load.retakeUntil ? Math.ceil((Date.parse(load.retakeUntil) - Date.now()) / 1000) : 0;
+  log("retake_resumed", { loadId: load.loadId, secondsLeft: left });
+  return { requested: true, waitSeconds: Math.max(60, left) };
+}
+
 // How long to wait for the clearer photo: short on a judge demo load, an hour otherwise.
 export const RETAKE_WAIT_SECONDS = { demo: 600, standard: 3600 } as const;
 
 export async function handler(input: { loadId: string }): Promise<{ requested: boolean; waitSeconds: number }> {
   const load = await getLoad(input.loadId);
   const waitSeconds = load?.demo ? RETAKE_WAIT_SECONDS.demo : RETAKE_WAIT_SECONDS.standard;
+  // A retried step whose first run already asked: report the request it made, with the time left,
+  // so the workflow still waits instead of sealing at once.
+  if (load?.retakeOf) return resumeExisting(load);
   if (!load?.bol || load.phase !== "documented") return { requested: false, waitSeconds };
   if ((load.flowSends ?? 0) >= MAX_FLOW_SENDS) {
     log("retake_skipped", { loadId: load.loadId, reason: "Flow re-send limit reached" });
@@ -41,8 +52,9 @@ export async function handler(input: { loadId: string }): Promise<{ requested: b
     );
   } catch (error) {
     if ((error as Error).name !== "ConditionalCheckFailedException") throw error;
-    // A retried step: the request is already queued; draining again finishes any send that failed.
-    await drainOutbox(load.loadId);
+    // A concurrent run asked first: answer as that run did.
+    const now = await getLoad(load.loadId);
+    if (now?.retakeOf) return resumeExisting(now);
     return { requested: false, waitSeconds };
   }
   log("retake_requested", { loadId: load.loadId, unreadable: load.bol.messageId });

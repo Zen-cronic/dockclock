@@ -77,8 +77,12 @@ describe("ingest outbox", () => {
   it("replays a send that failed on the first delivery instead of stranding the load", async () => {
     const pin = sqsEvent({ type: "location", location: { latitude: 39.8995, longitude: -82.938 } }, "wamid.pin");
 
-    // First delivery: the transaction commits, then the Released-button send throws.
-    dynamo.on(TransactWriteCommand).resolves({});
+    // First delivery: the transaction commits, then the Released-button send throws. From then on the
+    // stored load is the committed one: at the dock, with the Released offer owed.
+    dynamo.on(TransactWriteCommand).callsFake(async () => {
+      dynamo.on(GetCommand, { Key: { pk: "LOAD#4471", sk: "META" } }).resolves({ Item: { ...load, phase: "at_dock", arrived: { serverAt: "2026-10-17T18:01:03.000Z", messageId: "wamid.pin" } } });
+      return {};
+    });
     messaging.on(SendWhatsAppMessageCommand).rejects(Object.assign(new Error("throttled"), { name: "ThrottlingException" }));
     const first = await handler(pin);
     expect(first.batchItemFailures).toHaveLength(1);
