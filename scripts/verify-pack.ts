@@ -6,13 +6,33 @@ import { createPublicKey } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { packBytes, sha256Hex, verifyPack, type SignedPack } from "@dockclock/evidence";
 
-const [file] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
-const keyFlag = process.argv.indexOf("--key");
-const keyFile = keyFlag > 0 ? process.argv[keyFlag + 1]! : "docs/evidence/public-key.pem";
-if (!file) {
-  console.error("usage: npm run verify:pack -- <pack.json> [--key <public-key.pem>]");
-  process.exit(2);
+// Accepts the pack path anywhere, and the key as --key <file> or --key=<file>. Anything else, or a
+// --key with no value, is an error rather than a silent fallback to the bundled key.
+function parseArgs(args: string[]): { file: string; keyFile: string } {
+  const usage = (why: string): never => {
+    console.error(`${why}\nusage: npm run verify:pack -- <pack.json> [--key <public-key.pem>]`);
+    process.exit(2);
+  };
+  let file: string | undefined;
+  let keyFile: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg === "--key") {
+      keyFile = args[++i] ?? usage("--key needs a file");
+    } else if (arg.startsWith("--key=")) {
+      keyFile = arg.slice("--key=".length) || usage("--key needs a file");
+    } else if (arg.startsWith("--")) {
+      usage(`unknown option ${arg}`);
+    } else if (file) {
+      usage(`unexpected argument ${arg}`);
+    } else {
+      file = arg;
+    }
+  }
+  return { file: file ?? usage("no pack file given"), keyFile: keyFile ?? "docs/evidence/public-key.pem" };
 }
+
+const { file, keyFile } = parseArgs(process.argv.slice(2));
 
 const signed = JSON.parse(readFileSync(file, "utf8")) as SignedPack;
 const publicKeyDer = createPublicKey(readFileSync(keyFile, "utf8")).export({ format: "der", type: "spki" });

@@ -24,5 +24,5 @@
     "approval": "a real tap on the operator's phone, 2026-10-18 15:58:03 EDT",
     "claimEmail": "sent by SES to our test mailbox, 2026-10-18 15:58:17 EDT, with this pack attached"
   },
-  "whatTheSignatureProves": "The recorded messages, times, photo hashes and verdict have not changed since sealing. It does not prove where a phone physically was or what a photo shows."
+  "whatTheSignatureProves": "The recorded message ids, server times, corroboration signals, clause and verdict have not changed since sealing. This pack holds no photo hash: its photo was not stored (pageSha256s is [null], bol_media_hashed is false, confidence low), because the driver messages were synthetic. A pack from a real phone carries the photo's sha256. No signature proves where a phone physically was or what a photo shows."
 }
