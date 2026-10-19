@@ -109,6 +109,9 @@ describe("detention notice", () => {
     expect(subject).toBe("Detention notice: load 4471 at Lakeshore DC, Columbus OH");
     expect(text).toContain("Atlas Brokerage (fictional broker)");
     expect(text).toContain("$50.00 per hour");
+    // Dated in full, so an evening check-in does not read as the next UTC day.
+    expect(text).toContain("checked in at 2026-10-17 13:40 EDT");
+    expect(text).toContain("ends at 2026-10-17 16:00 EDT");
   });
 
   it("creates one schedule that invokes this function and deletes itself", async () => {

@@ -58,7 +58,7 @@ export const COPY: Record<Language, Copy> = {
       bol_photo_received: "Got it. Your photo is saved with this load's evidence.",
     },
     retakeAsk: (minutes, at, zone, demo) =>
-      `That photo is hard to read. Please take one more of ${demo ? "the paper" : "the signed bill of lading"}: flat, in good light and in focus. If none arrives within ${minutes} minutes (by ${at} ${zone}), we use the first photo.`,
+      `That photo is hard to read. Please take one more of ${demo ? "the paper" : "the signed bill of lading"}: flat, in good light and in focus. If none arrives within ${minutes} ${minutes === 1 ? "minute" : "minutes"} (by ${at} ${zone}), we use the first photo.`,
     noticeSent: (loadId, ends, counterparty) => `Load ${loadId}: free time ends at ${ends}. We emailed ${counterparty} the detention notice your contract requires. Updates will arrive in this chat.`,
     stopped: "You will not get more load messages from DockClock. Reply START to turn them back on.",
     resumed: "Load messages are back on.",
@@ -95,7 +95,7 @@ export const COPY: Record<Language, Copy> = {
       bol_photo_received: "Listo. Su foto quedó guardada con la evidencia de esta carga.",
     },
     retakeAsk: (minutes, at, zone, demo) =>
-      `Esa foto no se lee bien. Tome otra ${demo ? "del papel" : "del BOL firmado"}: plano, con buena luz y enfocado. Si no llega en ${minutes} minutos (antes de las ${at} ${zone}), usamos la primera foto.`,
+      `Esa foto no se lee bien. Tome otra ${demo ? "del papel" : "del BOL firmado"}: plano, con buena luz y enfocado. Si no llega en ${minutes} ${minutes === 1 ? "minuto" : "minutos"} (antes de las ${at} ${zone}), usamos la primera foto.`,
     noticeSent: (loadId, ends, counterparty) => `Carga ${loadId}: el tiempo libre termina a las ${ends}. Enviamos por correo a ${counterparty} el aviso de demora que exige su contrato. Las novedades llegarán a este chat.`,
     stopped: "Ya no recibirá mensajes de cargas de DockClock. Responda START para activarlos otra vez.",
     resumed: "Los mensajes de cargas están activos otra vez.",
@@ -132,7 +132,7 @@ export const COPY: Record<Language, Copy> = {
       bol_photo_received: "C'est noté. Votre photo est enregistrée avec la preuve de ce chargement.",
     },
     retakeAsk: (minutes, at, zone, demo) =>
-      `Cette photo est difficile à lire. Prenez-en une autre ${demo ? "du papier" : "du connaissement signé"} : à plat, bien éclairé et net. Si aucune n'arrive d'ici ${minutes} minutes (avant ${at} ${zone}), nous utilisons la première photo.`,
+      `Cette photo est difficile à lire. Prenez-en une autre ${demo ? "du papier" : "du connaissement signé"} : à plat, bien éclairé et net. Si aucune n'arrive d'ici ${minutes} ${minutes === 1 ? "minute" : "minutes"} (avant ${at} ${zone}), nous utilisons la première photo.`,
     noticeSent: (loadId, ends, counterparty) => `Chargement ${loadId} : le temps alloué se termine à ${ends}. Nous avons envoyé par courriel à ${counterparty} l'avis de temps d'attente exigé par votre contrat. Les mises à jour arriveront dans cette conversation.`,
     stopped: "Vous ne recevrez plus de messages de chargement de DockClock. Répondez START pour les réactiver.",
     resumed: "Les messages de chargement sont réactivés.",

@@ -63,6 +63,9 @@ describe("photo retake request", () => {
     expect(COPY.en_US.retakeAsk(10, "21:10", "EDT", true)).toContain("If none arrives within 10 minutes (by 21:10 EDT), we use the first photo.");
     expect(COPY.es_MX.retakeAsk(10, "21:10", "EDT", true)).toContain("10 minutos (antes de las 21:10 EDT)");
     expect(COPY.fr_CA.retakeAsk(10, "21:10", "EDT", true)).toContain("10 minutes (avant 21:10 EDT)");
+    expect(COPY.en_US.retakeAsk(1, "21:10", "EDT", true)).toContain("within 1 minute (by");
+    expect(COPY.es_MX.retakeAsk(1, "21:10", "EDT", true)).toContain("en 1 minuto (antes");
+    expect(COPY.fr_CA.retakeAsk(1, "21:10", "EDT", true)).toContain("d'ici 1 minute (avant");
   });
 
   it("is re-sent over RCS when the WhatsApp ask fails, while the load still waits", () => {

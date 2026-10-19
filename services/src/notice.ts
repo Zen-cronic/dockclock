@@ -3,7 +3,7 @@ import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context, SNSEvent } from "aws-lambda";
 import { clauseById, detentionStartsAt } from "@dockclock/clause-engine";
-import { facilityById, isoToLocalClock } from "@dockclock/evidence";
+import { facilityById, isoToLocalClock, isoToLocalDateTime, zoneAbbreviation } from "@dockclock/evidence";
 import { ddb, getLoad, type LoadItem } from "./store.js";
 import { send, sendRcs, type Body } from "./sender.js";
 import { rcsText } from "./rcs.js";
@@ -33,7 +33,9 @@ export function noticeTime(load: Pick<LoadItem, "clauseId" | "appointmentAt">, a
 export function noticeEmail(load: LoadItem, detentionStartAt: string): { subject: string; text: string } {
   const clause = clauseById(load.clauseId);
   const facility = facilityById(load.facilityId);
-  const at = (iso: string) => `${isoToLocalClock(iso, facility.timeZone)} (${facility.timeZone})`;
+  // A full local date, time and zone: the notice is evidence, and after 20:00 Eastern the UTC date
+  // has already turned.
+  const at = (iso: string) => isoToLocalDateTime(iso, facility.timeZone);
   const subject = `Detention notice: load ${load.loadId} at ${facility.name}`;
   const text = [
     `To ${clause.counterparty},`,
@@ -147,7 +149,7 @@ async function sendNotice(loadId: string): Promise<{ sent: boolean }> {
 
   const facility = facilityById(load.facilityId);
   const language: Language = load.language ?? "en_US";
-  const ends = isoToLocalClock(detentionStartAt, facility.timeZone);
+  const ends = `${isoToLocalClock(detentionStartAt, facility.timeZone)} ${zoneAbbreviation(detentionStartAt, facility.timeZone)}`;
   const target = { address: load.address, driverKey: load.driverKey };
   if (load.channel === "rcs") await sendRcs(target, rcsText(COPY[language].noticeSent(load.loadId, ends, clause.counterparty)), "notice_sent", loadId);
   else await send(target, noticeSentTemplate(language, load.loadId, ends, clause.counterparty), "notice_sent", loadId);
