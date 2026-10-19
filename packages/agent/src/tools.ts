@@ -4,7 +4,7 @@ import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context } from "aws-lambda";
 import { clauseById } from "@dockclock/clause-engine";
-import { facilityById, isoToLocalClock, KmsSigner, normalizeClock, registerFacility, sha256Hex, type Facility } from "@dockclock/evidence";
+import { facilityById, isoToLocalClock, isoToLocalDateTime, KmsSigner, normalizeClock, registerFacility, sha256Hex, type Facility } from "@dockclock/evidence";
 import { readBol, type BolReading } from "./bol-reader.js";
 import { buildClaimMime, checkClaim, formatUsd, PUBLIC_KEY_FILE, toCents, type ClaimRequest } from "./claim.js";
 
@@ -93,7 +93,8 @@ async function getLoadEvidence(input: { loadId: string }) {
   if (!load) return { error: `no load ${input.loadId}` };
   const clause = clauseById(load.clauseId);
   const facility = facilityById(load.facilityId);
-  const local = (iso: string | undefined | null) => (iso ? `${isoToLocalClock(iso, facility.timeZone)} (${iso})` : null);
+  // Local date, time and zone at the facility, then the UTC instant it came from.
+  const local = (iso: string | undefined | null) => (iso ? `${isoToLocalDateTime(iso, facility.timeZone)} (UTC ${iso})` : null);
   const pack = load.sealedPackId ? await item<PackItem>(input.loadId, `PACK#${load.sealedPackId}`) : null;
   const evaluation = pack ? (await signedPack(pack)).pack.evaluation : null;
   const approval = await item<{ approvalId: string; approvedAt: string; approver: string }>(input.loadId, "APPROVAL");

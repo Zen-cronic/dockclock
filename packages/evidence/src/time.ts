@@ -70,6 +70,14 @@ export function zoneAbbreviation(iso: string, timeZone: string): string {
   return part?.value ?? timeZone;
 }
 
+// A complete local date and time with its zone ("2026-10-18 20:59 EDT"), so nobody has to pair a
+// local clock time with a UTC date (which differ after 20:00 Eastern).
+export function isoToLocalDateTime(iso: string, timeZone: string): string {
+  const p = zoneParts(new Date(iso), timeZone);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${p.year}-${two(p.month)}-${two(p.day)} ${two(p.hour)}:${two(p.minute)} ${zoneAbbreviation(iso, timeZone)}`;
+}
+
 export function isoToLocalClock(iso: string, timeZone: string): string {
   const p = zoneParts(new Date(iso), timeZone);
   return `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;

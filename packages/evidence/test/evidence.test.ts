@@ -177,3 +177,11 @@ describe("photo reading", () => {
     expect(corroborate(contradicted).signals.find((s) => s.name === "bol_photo_signature_matches")?.ok).toBe(false);
   });
 });
+
+describe("local date and time", () => {
+  it("keeps the facility's own date after 20:00 Eastern, when the UTC date has already turned", async () => {
+    const { isoToLocalDateTime } = await import("../src/index.js");
+    expect(isoToLocalDateTime("2026-10-19T00:58:12.000Z", "America/New_York")).toBe("2026-10-18 20:58 EDT");
+    expect(isoToLocalDateTime("2026-12-19T00:58:12.000Z", "America/Chicago")).toBe("2026-12-18 18:58 CST");
+  });
+});
