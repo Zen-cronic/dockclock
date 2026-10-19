@@ -1,3 +1,4 @@
+import { createPublicKey } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
@@ -14,14 +15,16 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), { marshallOption
 const s3 = new S3Client({});
 const publicKeys = new Map<string, Promise<{ pem: string; spkiSha256: string }>>();
 
-// The evidence key's public half, fetched once per key and attached to every claim email.
-function publicKeyOf(keyId: string): Promise<{ pem: string; spkiSha256: string }> {
+// The evidence key's public half, fetched once per key and attached to every claim email. A failed
+// fetch is forgotten, so one transient KMS error does not break every later claim in this container.
+export function publicKeyOf(keyId: string, fetchDer: (keyId: string) => Promise<Buffer> = (id) => new KmsSigner(id).publicKeyDer()): Promise<{ pem: string; spkiSha256: string }> {
   let key = publicKeys.get(keyId);
   if (!key) {
-    key = new KmsSigner(keyId).publicKeyDer().then((der) => ({
-      pem: `-----BEGIN PUBLIC KEY-----\n${der.toString("base64").replace(/.{1,64}/g, "$&\n")}-----END PUBLIC KEY-----\n`,
+    key = fetchDer(keyId).then((der) => ({
+      pem: createPublicKey({ key: der, format: "der", type: "spki" }).export({ format: "pem", type: "spki" }).toString(),
       spkiSha256: sha256Hex(der),
     }));
+    key.catch(() => publicKeys.delete(keyId));
     publicKeys.set(keyId, key);
   }
   return key;
@@ -74,9 +77,15 @@ async function item<T>(loadId: string, sk: string): Promise<T | null> {
   return (out.Item as T | undefined) ?? null;
 }
 
-async function signedPack(pack: PackItem): Promise<SignedPackFile> {
+// The sealed pack file: its exact text (attached to the claim as is) and its parsed form.
+async function packFile(pack: PackItem): Promise<{ json: string; signed: SignedPackFile }> {
   const object = await s3.send(new GetObjectCommand({ Bucket: env("EVIDENCE_BUCKET"), Key: pack.s3Key }));
-  return JSON.parse(await object.Body!.transformToString()) as SignedPackFile;
+  const json = await object.Body!.transformToString();
+  return { json, signed: JSON.parse(json) as SignedPackFile };
+}
+
+async function signedPack(pack: PackItem): Promise<SignedPackFile> {
+  return (await packFile(pack)).signed;
 }
 
 function minutesBetween(clockA: string | null, clockB: string | null): number | null {
@@ -173,9 +182,9 @@ async function sendDetentionClaim(input: ClaimRequest) {
   const load = await item<LoadMeta>(input.loadId, "META");
   if (!load) return { refused: `no load ${input.loadId}` };
   const pack = load.sealedPackId ? await item<PackItem>(input.loadId, `PACK#${load.sealedPackId}`) : null;
-  const evaluation = pack ? (await signedPack(pack)).pack.evaluation : null;
-  const approval = await item<{ approvalId: string }>(input.loadId, "APPROVAL");
-  const prior = await item<{ sentAt?: string }>(input.loadId, "CLAIM");
+  const file = pack ? await packFile(pack) : null;
+  const evaluation = file?.signed.pack.evaluation ?? null;
+  const [approval, prior] = await Promise.all([item<{ approvalId: string }>(input.loadId, "APPROVAL"), item<{ sentAt?: string }>(input.loadId, "CLAIM")]);
   const decision = checkClaim(input, {
     loadId: load.loadId,
     phase: load.phase,
@@ -186,10 +195,23 @@ async function sendDetentionClaim(input: ClaimRequest) {
     approvalId: approval?.approvalId ?? null,
     alreadySentAt: prior?.sentAt ?? null,
   });
-  if (!decision.ok || !pack || !evaluation) return { refused: decision.ok ? "no sealed pack" : decision.reason };
+  if (!decision.ok || !pack || !file || !evaluation) return { refused: decision.ok ? "no sealed pack" : decision.reason };
 
+  // Everything the email needs is resolved before the claim is reserved: between the reservation and
+  // the SES call nothing may throw, or the reservation would block every retry.
   const clause = clauseById(load.clauseId);
   const to = recipientFor(clause.role);
+  const publicKey = await publicKeyOf(pack.keyId);
+  const footer = [
+    "--",
+    `Evidence pack ${load.sealedPackId} (sha256 ${pack.digest}) is attached.`,
+    `It is signed with AWS KMS key ${pack.keyId}: ECDSA P-256 (signatureBase64, DER) over the SHA-256 of the file's "pack" field written as canonical JSON (object keys sorted at every level, no spaces), not over the file's own bytes.`,
+    `The public key is attached as ${PUBLIC_KEY_FILE} (SPKI sha256 ${publicKey.spkiSha256}). DockClock's verifier, npm run verify:pack, applies exactly this rule.`,
+    `Contract amount: ${formatUsd(evaluation.amountUsd)}, computed by the clause engine, not by the agent.`,
+    "Sent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
+  ].join("\n");
+  const raw = buildClaimMime({ from: env("CLAIMS_FROM_EMAIL"), to, replyTo: env("REPLY_TO_EMAIL"), subject: input.subject, body: input.body, packFileName: `${load.sealedPackId}.json`, packJson: file.json, publicKeyPem: publicKey.pem, footer });
+  const configurationSet = env("SES_CONFIGURATION_SET");
   // Reserve the claim before sending, so a retried tool call can never email the broker twice.
   try {
     await ddb.send(
@@ -203,23 +225,12 @@ async function sendDetentionClaim(input: ClaimRequest) {
     if ((error as Error).name === "ConditionalCheckFailedException") return { refused: "a claim for this load is already being sent or was sent" };
     throw error;
   }
-  const packFile = await s3.send(new GetObjectCommand({ Bucket: env("EVIDENCE_BUCKET"), Key: pack.s3Key }));
-  const packJson = await packFile.Body!.transformToString();
-  const publicKey = await publicKeyOf(pack.keyId);
-  const footer = [
-    "--",
-    `Evidence pack ${load.sealedPackId} (sha256 ${pack.digest}) is attached.`,
-    `It is signed with AWS KMS key ${pack.keyId} (ECDSA P-256). The public key is attached as ${PUBLIC_KEY_FILE} (SPKI sha256 ${publicKey.spkiSha256}); any ECDSA P-256 verifier, including DockClock's npm run verify:pack, checks the pack against it.`,
-    `Contract amount: ${formatUsd(evaluation.amountUsd)}, computed by the clause engine, not by the agent.`,
-    "Sent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
-  ].join("\n");
-  const raw = buildClaimMime({ from: env("CLAIMS_FROM_EMAIL"), to, replyTo: env("REPLY_TO_EMAIL"), subject: input.subject, body: input.body, packFileName: `${load.sealedPackId}.json`, packJson, publicKeyPem: publicKey.pem, footer });
   let sesMessageId: string | undefined;
   try {
     const out = await ses.send(
       new SendEmailCommand({
         Content: { Raw: { Data: Buffer.from(raw, "utf8") } },
-        ConfigurationSetName: env("SES_CONFIGURATION_SET"),
+        ConfigurationSetName: configurationSet,
         EmailTags: [{ Name: "purpose", Value: "detention_claim" }],
       }),
     );
