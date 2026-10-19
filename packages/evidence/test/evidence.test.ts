@@ -185,3 +185,20 @@ describe("local date and time", () => {
     expect(isoToLocalDateTime("2026-12-19T00:58:12.000Z", "America/Chicago")).toBe("2026-12-18 18:58 CST");
   });
 });
+
+describe("what a pack holds", () => {
+  // The README and the demo intro promise the signed pack records times and photo hashes, not where
+  // the driver was. This checks the pack the code builds, not a frozen file.
+  it("carries no coordinates, even though the pins it is built from have them", () => {
+    const load = record();
+    expect(load.arrived?.location).toBeDefined();
+    const evaluation = evaluate(toLoadEvidence(load, "2026-10-13T18:00:00.000Z"), clauseById("lakeshore-foods"));
+    const pack = buildPack(load, corroborate(load), evaluation, "2026-10-13T18:00:00.000Z");
+    const text = JSON.stringify(pack);
+    expect(text).not.toMatch(/"(location|lat|lon|latitude|longitude)"/);
+    expect(text).not.toMatch(/\[\s*-?\d{1,3}\.\d{3,}\s*,\s*-?\d{1,2}\.\d{3,}\s*\]/);
+    const [lon, lat] = load.arrived!.location as unknown as [number, number];
+    expect(text).not.toContain(String(lon));
+    expect(text).not.toContain(String(lat));
+  });
+});
