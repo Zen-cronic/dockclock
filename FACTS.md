@@ -55,7 +55,7 @@ Status key:
 ## Notice, retake and the judge path
 | Claim | Evidence | Status |
 |---|---|---|
-| After the Arrived pin, a one-time EventBridge Scheduler job is created to fire the clause's lead time plus 10 minutes before free time ends | Load `SMOKE-mveb2qnf` (2026-10-18): schedule `notice-SMOKE-mveb2qnf` created; `services/test/notice.test.ts` | live (integration) + tested |
+| After the Arrived pin, a one-time EventBridge Scheduler job is created to fire the clause's lead time plus 10 minutes before free time ends, or one minute after scheduling when that moment has already passed (as on the 5-minute judge demo, where the notice goes out about 4 minutes before free time ends) | Load `SMOKE-mveb2qnf` (2026-10-18): schedule `notice-SMOKE-mveb2qnf` created; `services/test/notice.test.ts` | live (integration) + tested |
 | The notice is emailed to the counterparty by SES, the SES delivery event is recorded, and the sealed pack carries the notice | Same load: sent 16:56:44 EDT, delivered 16:56:45 EDT (`npm run smoke:lifecycle` with `SMOKE_NOTICE=1`); delivered means SES's delivery event for our test mailbox | live (integration) |
 | No notice once the truck is released; never emailed twice | `services/test/notice.test.ts` | tested |
 | An unreadable photo gets one request for a clearer one, naming the minutes left and a zone-labelled time; with no new photo within 10 minutes on a demo load (an hour otherwise) the original seals; a replay after the deadline sends nothing | `services/src/retake.ts`, workflow states `Photo readable?` → `Ask for a clearer photo` → `Await retake`; `services/test/retake.test.ts`, `services/test/notice.test.ts` (retake step), `infra/test/stacks.test.ts` | tested |
