@@ -126,12 +126,10 @@ function band(): string {
       ${endLabel}
     </div>
     <div class="player">
-      <div class="row">
-        <span class="speed">${playing ? "Playing, 1 record / 1.5 s" : Number.isFinite(state.step) ? `Record ${state.step + 1} of ${snap.timeline.length}` : "Whole load shown"}<br>Recorded times, ${zone()}</span>
-        <button class="roundbtn" data-act="play" aria-label="${playing ? "Pause the replay" : "Play the replay"}">${playing ? `<svg viewBox="0 0 14 14"><rect x="2" y="1" width="3.5" height="12" fill="currentColor"/><rect x="8.5" y="1" width="3.5" height="12" fill="currentColor"/></svg>` : `<svg viewBox="0 0 14 14"><path d="M3 1 L13 7 L3 13 Z" fill="currentColor"/></svg>`}</button>
-      </div>
+      <div class="row"><button class="btn solid playbtn" data-act="play">${playing ? `<svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="1" width="3.5" height="12" fill="currentColor"/><rect x="8.5" y="1" width="3.5" height="12" fill="currentColor"/></svg>Pause` : `<svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1 L13 7 L3 13 Z" fill="currentColor"/></svg>Play the replay`}</button></div>
       <label class="vh" for="scrub">Replay position</label>
       <input id="scrub" type="range" min="0" max="${snap.timeline.length - 1}" step="1" value="${Number.isFinite(state.step) ? state.step : snap.timeline.length - 1}">
+      <span class="speed">${Number.isFinite(state.step) ? `Record ${state.step + 1} of ${snap.timeline.length}` : "About 25 s"} · times in ${zone()}</span>
     </div>
   </section>`;
 }
@@ -187,17 +185,29 @@ function phone(): string {
 function timeline(): string {
   const limit = visibleUntil();
   const current = Number.isFinite(state.step) ? state.step : -1;
-  const rows = snap.timeline.map((e, i) => {
+  let lastGroup = "";
+  const rows: string[] = [];
+  snap.timeline.forEach((e, i) => {
+    const group = e.provenance === "synthetic_input" ? "Driver messages (replayed test messages)" : "The workflow, the dispatcher and the AI agent";
+    const route = e.services.join(" → ");
+    if (group !== lastGroup) {
+      const routes = [...new Set(snap.timeline.filter((x) => (x.provenance === "synthetic_input") === (e.provenance === "synthetic_input")).map((x) => x.services.join(" → ")))];
+      rows.push(`<li class="grp"><span>${h(group)}</span>${routes.length === 1 ? `<span class="chip svc">${h(routes[0] ?? "")}</span>` : ""}</li>`);
+      lastGroup = group;
+    }
+    const sharedRoute = [...new Set(snap.timeline.filter((x) => (x.provenance === "synthetic_input") === (e.provenance === "synthetic_input")).map((x) => x.services.join(" → ")))].length === 1;
     const future = Date.parse(e.at) > limit;
-    const test = e.provenance === "synthetic_input" ? `<span class="chip test">test message</span>` : "";
     const outcome = e.tone === "refused" && e.outcome ? `<span class="chip outcome">${h(e.outcome)}</span>` : "";
-    return `<li><button class="row ${future ? "future" : ""}" data-ev="${i}" ${i === current ? 'aria-current="step"' : ""}>
+    const svc = !sharedRoute && route ? `<span class="chip svc">${h(route)}</span>` : "";
+    const chips = outcome || svc ? `<span class="chips">${outcome}${svc}</span>` : "";
+    rows.push(`<li><button class="row ${future ? "future" : ""}" data-ev="${i}" ${i === current ? 'aria-current="step"' : ""}>
       <span class="ts">${at(e.at)}</span><span class="dot ${e.tone}" aria-hidden="true"></span>
-      <span><span class="t">${h(e.title)}</span>${e.detail ? `<span class="d" style="display:block">${h(e.detail)}</span>` : ""}<span class="chips">${outcome}${test}${e.services.length ? `<span class="chip svc">${h(e.services.join(" → "))}</span>` : ""}</span></span>
-    </button></li>`;
+      <span><span class="t">${h(e.title)}</span>${e.detail ? `<span class="d" style="display:block">${h(e.detail)}</span>` : ""}${chips}</span>
+    </button></li>`);
   });
-  return `<div><div class="colh"><span class="label">Everything that happened</span><span class="aside">${snap.timeline.length} records · times ${zone()} · click any row for the record</span></div>
-    <div class="panel"><ol class="tl">${rows.join("")}</ol></div></div>`;
+  const legend = `<span class="legend"><i class="dot money"></i>money <i class="dot agent"></i>AI agent <i class="dot ok"></i>approved <i class="dot refused"></i>refused</span>`;
+  return `<div><div class="colh"><span class="label">Everything that happened</span><span class="aside">times ${zone()} · click a row for its record</span></div>
+    <div class="panel"><div class="tlhead">${legend}</div><ol class="tl">${rows.join("")}</ol></div></div>`;
 }
 
 // Verdict, mailbox, agent
@@ -206,13 +216,11 @@ function verdictCard(): string {
   const v = snap.verdict;
   const c = snap.clause;
   const stamp = v.verdict === "BILLABLE" ? "OWED" : v.verdict === "NOT_BILLABLE" ? "NOT OWED" : "NEEDS A PERSON";
-  const cls = v.verdict === "BILLABLE" ? "" : v.verdict === "NOT_BILLABLE" ? "red" : "amber";
   const anchor = c.freeTimeAnchor === "appointment" ? "from the appointment (or arrival, if later)" : "from arrival";
   const billMin = snap.clock.billableMinutes;
   return `<div class="panel verdict">
-    <div class="colh" style="margin-bottom:12px"><span class="label">The contract decides</span><span class="aside">plain code, no AI</span></div>
-    <div class="top2"><span class="stamp ${cls}">${stamp}</span><span class="amount">${usd(v.amountUsd)}</span></div>
-    <dl class="terms">
+    <div class="colh" style="margin-bottom:4px"><span class="label">${stamp === "OWED" ? "Why it is owed" : "Why it is not owed"}</span><span class="aside">decided by plain code, no AI</span></div>
+    <dl class="terms" style="border-top:0;margin-top:6px;padding-top:0">
       <dt>Owed by</dt><dd>${h(snap.load.counterparty.name)}</dd>
       <dt>Free time</dt><dd>${duration(c.freeTimeMinutes)} ${anchor}</dd>
       <dt>Rate</dt><dd>${usd(c.ratePerHourUsd)} an hour${c.capUsdPerOccurrence !== null ? `, up to ${usd(c.capUsdPerOccurrence)}` : ""}</dd>
@@ -268,20 +276,42 @@ function hero(): string {
     <div>
       <div class="eyebrow"><span class="badge replay">Replay</span><span>A recorded load · ${h(dateLong(snap.load.appointmentAt, tz()))} · ${h(snap.load.facility.name)}</span></div>
       <h1>The contract owed <span class="owed">${usd(v.amountUsd)}</span>. DockClock proved it, signed it and emailed the claim.</h1>
-      <p class="lede">A truck waited ${wait} at a loading dock, ${duration(c.billableMinutes)} past the free time its contract allows. Below is every record that turned that wait into a claim, and you can try to break the signature yourself.</p>
-      <p class="define"><b>Detention</b> is the pay a shipper owes a trucking company for keeping its truck waiting past the contract's free time. A <b>bill of lading</b> is the shipping paper the receiver signs, with the in and out times.</p>
-      <div class="actions">
-      <button class="btn solid" data-act="play"><svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1 L13 7 L3 13 Z" fill="currentColor"/></svg>Play the replay <span class="k">~25 s</span></button>
-      <button class="btn" data-tab="verify">Try to break the signature</button>
-      </div>
+      <p class="lede">A truck waited ${wait} at a loading dock, ${duration(c.billableMinutes)} past the free time in its contract. Below is every record that turned that wait into a claim.</p>
+      <p class="define"><b>Detention</b>: pay a shipper owes for keeping a truck past the contract's free time. <b>Bill of lading</b>: the shipping paper the receiver signs, with in and out times.</p>
     </div>
+    <aside class="slip" aria-label="The claim">
+      <div class="sliphd"><span class="label">The claim</span><span class="small">${claim?.sentAt ? `emailed ${at(claim.sentAt)} ${zone()}` : "not filed"}</span></div>
+      <div class="slipmain"><span class="stamp land">${v.verdict === "BILLABLE" ? "OWED" : v.verdict === "NOT_BILLABLE" ? "NOT OWED" : "NEEDS A PERSON"}</span><span class="amount">${usd(v.amountUsd)}</span></div>
+      <dl class="sliprows">
+        <dt>Owed by</dt><dd>${h(snap.load.counterparty.name)}</dd>
+        <dt>Approved</dt><dd>${claim?.secondsAfterApproval != null ? `Dispatcher tapped Approve; the AI agent emailed it ${Math.round(claim.secondsAfterApproval)} s later` : "Waiting for dispatch"}</dd>
+        <dt>Signature</dt><dd id="slipsig" aria-live="polite"><span class="small">checking in your browser…</span></dd>
+      </dl>
+      <button class="btn solid wide" data-tab="verify">Try to break the signature →</button>
+    </aside>
   </section>
   <div class="proofs">
     <div class="proof"><span class="tick" aria-hidden="true">1</span><div><b>Proved</b><span>Arrival and release locations stamped by WhatsApp's servers. The signed bill of lading times are within 2 minutes of them.</span></div></div>
-    <div class="proof signed"><span class="tick" aria-hidden="true">2</span><div><b>Signed</b><span>The evidence was sealed with an AWS KMS signature and locked in S3 for 30 days. Fingerprint <span class="mono">${h(signedDigest)}…</span></span></div></div>
-    <div class="proof filed"><span class="tick" aria-hidden="true">3</span><div><b>Filed</b><span>The dispatcher tapped Approve on WhatsApp. ${claim?.secondsAfterApproval != null ? `${Math.round(claim.secondsAfterApproval)} seconds later` : "Then"} an AI agent emailed the claim, with the pack attached.</span></div></div>
-  </div>
-  <p class="runline"><span class="badge ghost">What was real</span><span>${h(snap.run.summary)}</span> <button class="linkish" data-act="run">Details</button></p>`;
+    <div class="proof"><span class="tick" aria-hidden="true">2</span><div><b>Signed</b><span>Sealed with an AWS KMS signature and locked in S3 for 30 days. Fingerprint <span class="mono">${h(signedDigest)}…</span></span></div></div>
+    <div class="proof"><span class="tick" aria-hidden="true">3</span><div><b>Filed</b><span>Approved with one WhatsApp tap. An AI agent wrote and sent the email; code fixed the amount.</span></div></div>
+    <p class="runline"><b>What was real:</b> ${h(snap.run.summary.replace(/^Test run: /, ""))} <button class="linkish" data-act="run">Details</button></p>
+  </div>`;
+}
+
+async function slipSignature(): Promise<void> {
+  const el = document.getElementById("slipsig");
+  if (!el) return;
+  try {
+    if (!state.publicKeyPem) {
+      const res = await fetch(snap.pack.publicKeyPath);
+      if (!res.ok) throw new Error(String(res.status));
+      state.publicKeyPem = await res.text();
+    }
+    const { valid } = await verifyPack(snap.pack.pack, snap.pack.signatureBase64, state.publicKeyPem);
+    el.innerHTML = valid ? `<span class="ok">✓ valid</span> checked in your browser just now` : `<span class="no">✕ does not match</span>`;
+  } catch {
+    el.innerHTML = `<span class="small">could not check here; see tab 2</span>`;
+  }
 }
 
 function replayTab(): string {
@@ -336,8 +366,8 @@ function packRows(p: PackShape): string {
       ${row("facility", p.facility?.name ?? "", orig.facility?.name ?? "")}
       ${row("contract clause", p.clauseId ?? "", orig.clauseId ?? "")}
       ${row("appointment", t(p.appointmentAt), t(orig.appointmentAt))}
-      ${row("arrived (WhatsApp server time)", t(p.events?.arrived?.serverAt), t(orig.events?.arrived?.serverAt))}
-      ${row("released (WhatsApp server time)", t(p.events?.released?.serverAt), t(orig.events?.released?.serverAt))}
+      ${row("arrived · server time", t(p.events?.arrived?.serverAt), t(orig.events?.arrived?.serverAt))}
+      ${row("released · server time", t(p.events?.released?.serverAt), t(orig.events?.released?.serverAt))}
       ${row("bill of lading", p.events?.bol ? `camera-only ${p.events.bol.cameraOnly ? "yes" : "no"}, times corrected by driver` : "none", orig.events?.bol ? `camera-only ${orig.events.bol.cameraOnly ? "yes" : "no"}, times corrected by driver` : "none")}
       ${row("photo fingerprint", (p.events?.bol?.pageSha256s ?? []).filter(Boolean).length ? "stored" : "no photo stored", (orig.events?.bol?.pageSha256s ?? []).filter(Boolean).length ? "stored" : "no photo stored")}
       ${row("detention notice", p.events?.notice ? "sent" : "none (not required)", orig.events?.notice ? "sent" : "none (not required)")}
@@ -372,7 +402,7 @@ function verifyTab(): string {
       <div class="panel verify">
         <div class="colh" style="margin-bottom:10px"><span class="label">Check it yourself</span><span class="aside">runs in your browser</span></div>
         <ol class="steps">
-          <li>Take the pack on the left and the published public key <code>public-key.pem</code>.</li>
+          <li>Take the evidence pack shown here and the published public key <code>public-key.pem</code>.</li>
           <li>Rebuild the exact bytes that were signed (the pack's JSON, keys in order).</li>
           <li>Check the AWS KMS signature with your browser's built-in cryptography. No DockClock server is asked.</li>
         </ol>
@@ -560,6 +590,7 @@ function render(): void {
   const chat = document.getElementById("chat");
   if (chat) chat.scrollTop = chat.scrollHeight;
   if (state.tab === "verify") void runVerify();
+  if (state.tab === "replay") void slipSignature();
 }
 
 // Partial re-render during playback keeps the page from jumping.
@@ -625,7 +656,7 @@ function intro(): void {
   const total = 2200;
   const frame = (now: number) => {
     const t = Math.min(1, (now - start) / total);
-    const eased = 1 - Math.pow(1 - t, 3);
+    const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     state.cursor = new Date(a + (b - a) * eased).toISOString();
     const bandEl = app.querySelector(".band");
     if (bandEl && !state.playing) bandEl.outerHTML = band();
@@ -635,7 +666,7 @@ function intro(): void {
       if (!state.playing) {
         const el = app.querySelector(".band");
         if (el) el.outerHTML = band();
-        const stamp = app.querySelector(".verdict .stamp");
+        const stamp = app.querySelector(".slip .stamp");
         stamp?.classList.add("land");
       }
     }
