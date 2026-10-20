@@ -100,7 +100,22 @@ export const PURPOSE_WORDS: Record<string, string> = {
   dispatch_approval: "the claim to dispatch for approval",
   approval_reply: "the approval confirmation",
   demo_intro: "the demo introduction",
+  location_arrived: "a request for the arrival location",
+  location_released: "a request for the release location",
+  offer_release: "the check-in confirmation with Released",
+  ask_retake: "a request for a clearer photo",
+  outcome_verdict: "the contract's verdict to the driver",
+  outcome_filed: "word that the claim was filed",
+  opt_out: "the STOP confirmation",
+  opt_in: "the START confirmation",
 };
+
+// Plain words for a send purpose; replies to the driver (tell_<key>) read as one kind.
+export function purposeWords(purpose: string): string {
+  if (PURPOSE_WORDS[purpose]) return PURPOSE_WORDS[purpose]!;
+  if (purpose.startsWith("tell_")) return "a reply to the driver";
+  return purpose.replace(/_/g, " ");
+}
 
 export function verdictWords(verdict: string): string {
   return verdict === "BILLABLE" ? "billable" : verdict === "NOT_BILLABLE" ? "not billable" : "needs a person";

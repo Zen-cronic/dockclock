@@ -6,7 +6,7 @@ import { clauseById, detentionStartsAt } from "@dockclock/clause-engine";
 import { canonicalJson, checkGeofence, facilityById, type SignedPack } from "@dockclock/evidence";
 import { parseMime, scrub, scrubText } from "@dockclock/sanitize";
 import { type Language } from "../../services/src/messages.js";
-import { addressOnly, agentRunsOf, isSynthetic, buttonAction, checkEngineInput, engineInputOf, clauseInfo, INBOUND_SERVICES, inboundTitle, obj, PURPOSE_WORDS, runKindOf, sha256, str, tapTitle, toCents, verdictWords, type Item } from "../../services/api/describe.js";
+import { addressOnly, agentRunsOf, isSynthetic, buttonAction, checkEngineInput, engineInputOf, clauseInfo, INBOUND_SERVICES, inboundTitle, obj, purposeWords, runKindOf, sha256, str, tapTitle, toCents, verdictWords, type Item } from "../../services/api/describe.js";
 import type {
   ApprovalInfo,
   ChatMessage,
@@ -146,7 +146,7 @@ export function buildSnapshot(src: SnapshotSources): ReplaySnapshot {
       message,
       event: {
         at,
-        title: `DockClock sent ${PURPOSE_WORDS[purpose] ?? purpose.replace(/_/g, " ")}`,
+        title: `DockClock sent ${purposeWords(purpose)}`,
         services: s.channel === "rcs" ? ["Lambda", "EUM RCS"] : ["Lambda", "EUM Social"],
         tone: purpose === "dispatch_approval" ? "money" : "neutral",
         record: obj(scrub({ sk: `SEND#${at}`, channel: s.channel, purpose, audience: s.audience, message: m, receipts })),

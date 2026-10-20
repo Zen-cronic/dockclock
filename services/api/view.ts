@@ -43,7 +43,7 @@ import {
   INBOUND_SERVICES,
   inboundTitle,
   obj,
-  PURPOSE_WORDS,
+  purposeWords,
   runKindOf,
   sha256,
   str,
@@ -368,7 +368,7 @@ function conversation(p: Parts, photos: PhotoInfo[], receipts: Record<string, It
       message,
       event: {
         at,
-        title: `${notSent ? "DockClock composed" : "DockClock sent"} ${PURPOSE_WORDS[purpose] ?? purpose.replace(/_/g, " ")}${notSent ? " (not sent: test number)" : ""}`,
+        title: `${notSent ? "DockClock composed" : "DockClock sent"} ${purposeWords(purpose)}${notSent ? " (not sent)" : ""}`,
         services: channel === "rcs" ? ["Lambda", "EUM RCS"] : ["Lambda", "EUM Social"],
         channel,
         tone: purpose === "dispatch_approval" ? "money" : status === "failed" ? "refused" : "neutral",
