@@ -1,0 +1,8 @@
+{
+ "schema": "dockclock.api/1",
+ "error": {
+  "status": 404,
+  "code": "not_found",
+  "message": "photo 1 of load SMOKE-mvh34j51 not found in the demo workspace"
+ }
+}

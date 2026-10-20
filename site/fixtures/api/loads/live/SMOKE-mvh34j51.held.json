@@ -1,0 +1,1205 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T19:37:43.090Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "summary": {
+   "loadId": "SMOKE-mvh34j51",
+   "runKind": "integration",
+   "runLabel": "Test run",
+   "createdAt": "2026-10-20T19:37:17.935Z",
+   "lastActivityAt": "2026-10-20T19:37:43.090Z",
+   "facility": {
+    "id": "lakeshore-columbus",
+    "name": "Lakeshore DC, Columbus OH",
+    "timeZone": "America/New_York"
+   },
+   "counterparty": {
+    "name": "Lakeshore Foods (fictional shipper)",
+    "role": "shipper"
+   },
+   "channel": "whatsapp",
+   "channels": [
+    "whatsapp"
+   ],
+   "language": "en_US",
+   "phase": "sealed",
+   "status": "held",
+   "live": false,
+   "verdict": "BILLABLE",
+   "amountUsd": 90.99,
+   "claimSentAt": null,
+   "arrivedAt": "2026-10-20T15:30:17.000Z",
+   "releasedAt": "2026-10-20T19:08:17.000Z",
+   "failover": false,
+   "photos": 1
+  },
+  "run": {
+   "kind": "integration",
+   "summary": "Test run: the driver's messages were replayed test messages. The workflow, the AI agent, the signature and the emails are real.",
+   "notes": [
+    "Driver messages: synthetic, replayed through the deployed stack by the integration test (load id prefix SMOKE-). Their times are set earlier than the run.",
+    "Messages to the driver were composed but not sent: the driver is a test number."
+   ]
+  },
+  "clause": {
+   "id": "lakeshore-foods",
+   "freeTimeMinutes": 120,
+   "freeTimeAnchor": "appointment",
+   "requireOnTimeArrival": true,
+   "ratePerHourUsd": 60,
+   "capUsdPerOccurrence": 360,
+   "noticeLeadMinutes": null,
+   "acceptedRecords": [
+    "status_214",
+    "signed_bol_times"
+   ],
+   "claimWindowHours": 168,
+   "shipperConfirmationRequired": false,
+   "basis": "Modelled on published shipper terms. Values those terms do not state are DockClock assumptions."
+  },
+  "clock": {
+   "asOf": "2026-10-20T19:37:43.090Z",
+   "arrivedAt": "2026-10-20T15:30:17.000Z",
+   "releasedAt": "2026-10-20T19:08:17.000Z",
+   "clockStartAt": "2026-10-20T15:37:17.797Z",
+   "freeTimeEndsAt": "2026-10-20T17:37:17.797Z",
+   "detentionMinutes": 90.98671666666667,
+   "billableMinutes": 90.98671666666667,
+   "amountUsd": 90.99,
+   "driverTimes": "synthetic_input"
+  },
+  "workflow": [
+   {
+    "key": "dispatched",
+    "label": "Load dispatched to the driver",
+    "state": "done",
+    "at": "2026-10-20T19:37:17.935Z",
+    "services": [
+     "Lambda",
+     "Step Functions",
+     "EUM Social"
+    ]
+   },
+   {
+    "key": "arrived",
+    "label": "Arrival confirmed by a location pin",
+    "state": "done",
+    "at": "2026-10-20T15:30:17.000Z",
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "notice",
+    "label": "Detention notice emailed before free time ends",
+    "state": "done",
+    "at": "2026-10-20T19:37:29.021Z",
+    "services": [
+     "EventBridge Scheduler",
+     "Lambda",
+     "SES"
+    ]
+   },
+   {
+    "key": "released",
+    "label": "Release confirmed by a location pin",
+    "state": "done",
+    "at": "2026-10-20T19:08:17.000Z",
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "paperwork",
+    "label": "Bill of lading received",
+    "state": "done",
+    "at": "2026-10-20T19:12:17.000Z",
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "photo_read",
+    "label": "Photo read by the agent's tool",
+    "state": "skipped",
+    "at": null,
+    "services": [
+     "Step Functions",
+     "Lambda"
+    ],
+    "detail": "No readable photo was stored."
+   },
+   {
+    "key": "sealed",
+    "label": "Contract decided: billable; evidence sealed and signed",
+    "state": "done",
+    "at": "2026-10-20T19:37:42.320Z",
+    "services": [
+     "Lambda",
+     "KMS",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "approval",
+    "label": "Dispatch approved the claim",
+    "state": "skipped",
+    "at": null,
+    "services": [
+     "Step Functions",
+     "EUM Social",
+     "Lambda"
+    ],
+    "detail": "Test load: dispatch is not paged; a test approval can be recorded from the command line."
+   },
+   {
+    "key": "claim",
+    "label": "AI agent filed the claim by email",
+    "state": "skipped",
+    "at": null,
+    "services": [
+     "Bedrock AgentCore",
+     "AgentCore Gateway",
+     "SES"
+    ]
+   }
+  ],
+  "messages": [
+   {
+    "id": "m1",
+    "at": "2026-10-20T15:27:17.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_button_reply",
+    "status": "received",
+    "outcome": "REJECTED_OUT_OF_ORDER",
+    "provenance": "synthetic_input",
+    "purpose": "tap_released",
+    "body": "Tapped Released",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Released",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m2",
+    "at": "2026-10-20T15:29:17.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_button_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "tap_arrived",
+    "body": "Tapped Arrived",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Arrived",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m3",
+    "at": "2026-10-20T15:30:17.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_location",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "location",
+    "body": "Location shared",
+    "location": {
+     "insideGeofence": true,
+     "note": "Inside the facility area. Coordinates are not shown."
+    }
+   },
+   {
+    "id": "m4",
+    "at": "2026-10-20T16:17:17.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_button_reply",
+    "status": "received",
+    "outcome": "IGNORED_DUPLICATE_TAP",
+    "provenance": "synthetic_input",
+    "purpose": "tap_arrived",
+    "body": "Tapped Arrived",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Arrived",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m5",
+    "at": "2026-10-20T19:06:17.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_button_reply",
+    "status": "received",
+    "outcome": "REJECTED_STALE_BUTTON",
+    "provenance": "synthetic_input",
+    "purpose": "tap_released",
+    "body": "Tapped Released",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Released",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m6",
+    "at": "2026-10-20T19:07:17.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_button_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "tap_released",
+    "body": "Tapped Released",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Released",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m7",
+    "at": "2026-10-20T19:08:17.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_location",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "location",
+    "body": "Location shared",
+    "location": {
+     "insideGeofence": true,
+     "note": "Inside the facility area. Coordinates are not shown."
+    }
+   },
+   {
+    "id": "m8",
+    "at": "2026-10-20T19:12:17.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_flow_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "flow_reply",
+    "body": "Bill of lading form",
+    "flowReply": {
+     "inTime": "11:32",
+     "outTime": "15:06",
+     "receiverSigned": true,
+     "delayReason": "dock_not_ready"
+    },
+    "photoId": "p1"
+   },
+   {
+    "id": "m9",
+    "at": "2026-10-20T19:37:18.040Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "dispatch_template",
+    "kind": "wa_template",
+    "body": "Load SMOKE-mvh34j51 is booked: Lakeshore DC, Columbus OH, appointment Oct 20, 11:37 AM. When you are parked at the dock, tap Arrived and we will start the detention clock.",
+    "footer": "Reply STOP to stop load messages.",
+    "template": {
+     "name": "dockclock_load_dispatch",
+     "language": "en_US"
+    },
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Arrived"
+     },
+     {
+      "type": "quick_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m10",
+    "at": "2026-10-20T19:37:18.367Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "tell_tap_arrived_first",
+    "kind": "wa_text",
+    "body": "Tap Arrived and share your location first.",
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m11",
+    "at": "2026-10-20T19:37:20.884Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "location_arrived",
+    "kind": "wa_location_request",
+    "body": "Share your location to start the dock clock. Only send it while parked.",
+    "actions": [
+     {
+      "type": "send_location",
+      "title": "Send location"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m12",
+    "at": "2026-10-20T19:37:25.976Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "offer_release",
+    "kind": "wa_reply_buttons",
+    "body": "Checked in at Lakeshore DC, Columbus OH at 11:30 (WhatsApp server time). Tap Released when you are unloaded and leaving the door.",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Released"
+     },
+     {
+      "type": "quick_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m13",
+    "at": "2026-10-20T19:37:29.379Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "notice_sent",
+    "kind": "wa_template",
+    "body": "Load SMOKE-mvh34j51: free time ends at 13:37 EDT. We emailed Lakeshore Foods (fictional shipper) the detention notice your contract requires. Updates will arrive in this chat.",
+    "template": {
+     "name": "dockclock_notice_sent",
+     "language": "en_US"
+    },
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m14",
+    "at": "2026-10-20T19:37:36.916Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "location_released",
+    "kind": "wa_location_request",
+    "body": "Share your location once more to stop the dock clock.",
+    "actions": [
+     {
+      "type": "send_location",
+      "title": "Send location"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m15",
+    "at": "2026-10-20T19:37:39.436Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "release_flow",
+    "kind": "wa_flow",
+    "body": "Clock stopped at Lakeshore DC, Columbus OH. Add a photo of the signed bill of lading so the times on paper back up your pins.",
+    "actions": [
+     {
+      "type": "flow_cta",
+      "title": "Add BOL photo"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m16",
+    "at": "2026-10-20T19:37:42.020Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "tell_bol_partial",
+    "kind": "wa_text",
+    "body": "Some pages could not be saved. Dispatch has been told and will follow up.",
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   }
+  ],
+  "timeline": [
+   {
+    "id": "e1",
+    "at": "2026-10-20T15:27:17.000Z",
+    "title": "Released tapped out of order: refused",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "REJECTED_OUT_OF_ORDER",
+    "tone": "refused",
+    "record": {
+     "detail": {
+      "payload": "dc1.released.SMOKE-mvh34j51.<nonce>"
+     },
+     "phaseBefore": "dispatched",
+     "serverAt": "2026-10-20T15:27:17.000Z",
+     "channel": "whatsapp",
+     "phaseAfter": "dispatched",
+     "sk": "EVENT#2026-10-20T15:27:17.000Z",
+     "outcome": "REJECTED_OUT_OF_ORDER",
+     "type": "button"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m1"
+   },
+   {
+    "id": "e2",
+    "at": "2026-10-20T15:29:17.000Z",
+    "title": "Driver tapped Arrived",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "serverAt": "2026-10-20T15:29:17.000Z",
+     "phaseBefore": "dispatched",
+     "channel": "whatsapp",
+     "phaseAfter": "awaiting_arrival_pin",
+     "detail": {
+      "payload": "dc1.arrived.SMOKE-mvh34j51.<nonce>"
+     },
+     "sk": "EVENT#2026-10-20T15:29:17.000Z",
+     "outcome": "ADVANCED",
+     "type": "button"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m2"
+   },
+   {
+    "id": "e3",
+    "at": "2026-10-20T15:30:17.000Z",
+    "title": "Driver shared a location",
+    "detail": "Inside the facility area. Coordinates are not shown. Time is WhatsApp server time.",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "type": "location",
+     "phaseAfter": "at_dock",
+     "sk": "EVENT#2026-10-20T15:30:17.000Z",
+     "channel": "whatsapp",
+     "serverAt": "2026-10-20T15:30:17.000Z",
+     "detail": {},
+     "phaseBefore": "awaiting_arrival_pin",
+     "outcome": "ADVANCED"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m3"
+   },
+   {
+    "id": "e4",
+    "at": "2026-10-20T16:17:17.000Z",
+    "title": "Arrived tapped again: ignored",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "IGNORED_DUPLICATE_TAP",
+    "tone": "refused",
+    "record": {
+     "outcome": "IGNORED_DUPLICATE_TAP",
+     "phaseAfter": "at_dock",
+     "channel": "whatsapp",
+     "sk": "EVENT#2026-10-20T16:17:17.000Z",
+     "phaseBefore": "at_dock",
+     "serverAt": "2026-10-20T16:17:17.000Z",
+     "detail": {
+      "payload": "dc1.arrived.SMOKE-mvh34j51.<nonce>"
+     },
+     "type": "button"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m4"
+   },
+   {
+    "id": "e5",
+    "at": "2026-10-20T19:06:17.000Z",
+    "title": "Released tapped on an old message: refused",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "REJECTED_STALE_BUTTON",
+    "tone": "refused",
+    "record": {
+     "phaseAfter": "at_dock",
+     "channel": "whatsapp",
+     "serverAt": "2026-10-20T19:06:17.000Z",
+     "phaseBefore": "at_dock",
+     "outcome": "REJECTED_STALE_BUTTON",
+     "detail": {
+      "payload": "dc1.released.SMOKE-mvh34j51.stale000"
+     },
+     "sk": "EVENT#2026-10-20T19:06:17.000Z",
+     "type": "button"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m5"
+   },
+   {
+    "id": "e6",
+    "at": "2026-10-20T19:07:17.000Z",
+    "title": "Driver tapped Released",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "sk": "EVENT#2026-10-20T19:07:17.000Z",
+     "detail": {
+      "payload": "dc1.released.SMOKE-mvh34j51.<nonce>"
+     },
+     "channel": "whatsapp",
+     "serverAt": "2026-10-20T19:07:17.000Z",
+     "phaseBefore": "at_dock",
+     "phaseAfter": "awaiting_release_pin",
+     "outcome": "ADVANCED",
+     "type": "button"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m6"
+   },
+   {
+    "id": "e7",
+    "at": "2026-10-20T19:08:17.000Z",
+    "title": "Driver shared a location",
+    "detail": "Inside the facility area. Coordinates are not shown. Time is WhatsApp server time.",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "phaseBefore": "awaiting_release_pin",
+     "type": "location",
+     "channel": "whatsapp",
+     "phaseAfter": "awaiting_bol",
+     "serverAt": "2026-10-20T19:08:17.000Z",
+     "detail": {},
+     "outcome": "ADVANCED",
+     "sk": "EVENT#2026-10-20T19:08:17.000Z"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m7"
+   },
+   {
+    "id": "e8",
+    "at": "2026-10-20T19:12:17.000Z",
+    "title": "Bill of lading form submitted",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "photoId": "p1",
+    "record": {
+     "type": "flow",
+     "detail": {
+      "flowToken": "dc1.release.SMOKE-mvh34j51.<nonce>"
+     },
+     "channel": "whatsapp",
+     "sk": "EVENT#2026-10-20T19:12:17.000Z",
+     "serverAt": "2026-10-20T19:12:17.000Z",
+     "phaseAfter": "documented",
+     "outcome": "ADVANCED",
+     "phaseBefore": "awaiting_bol"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m8"
+   },
+   {
+    "id": "e9",
+    "at": "2026-10-20T19:37:18.040Z",
+    "title": "DockClock composed the load dispatch (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:37:18.040Z",
+     "channel": "whatsapp",
+     "purpose": "dispatch_template",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Arrived",
+        "type": "quick_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "quick_reply"
+       }
+      ],
+      "buttons": [
+       "Arrived",
+       "Talk to dispatch"
+      ],
+      "footer": "Reply STOP to stop load messages.",
+      "kind": "template",
+      "template": {
+       "language": "en_US",
+       "name": "dockclock_load_dispatch"
+      },
+      "text": "Load SMOKE-mvh34j51 is booked: Lakeshore DC, Columbus OH, appointment Oct 20, 11:37 AM. When you are parked at the dock, tap Arrived and we will start the detention clock."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m9"
+   },
+   {
+    "id": "e10",
+    "at": "2026-10-20T19:37:18.367Z",
+    "title": "DockClock composed tell tap arrived first (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:37:18.367Z",
+     "channel": "whatsapp",
+     "purpose": "tell_tap_arrived_first",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "kind": "text",
+      "text": "Tap Arrived and share your location first."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m10"
+   },
+   {
+    "id": "e11",
+    "at": "2026-10-20T19:37:20.884Z",
+    "title": "DockClock composed location arrived (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:37:20.884Z",
+     "channel": "whatsapp",
+     "purpose": "location_arrived",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Send location",
+        "type": "send_location"
+       }
+      ],
+      "buttons": [
+       "Send location"
+      ],
+      "kind": "location_request",
+      "text": "Share your location to start the dock clock. Only send it while parked."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m11"
+   },
+   {
+    "id": "e12",
+    "at": "2026-10-20T19:37:25.976Z",
+    "title": "DockClock composed offer release (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:37:25.976Z",
+     "channel": "whatsapp",
+     "purpose": "offer_release",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Released",
+        "type": "quick_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "quick_reply"
+       }
+      ],
+      "buttons": [
+       "Released",
+       "Talk to dispatch"
+      ],
+      "kind": "buttons",
+      "text": "Checked in at Lakeshore DC, Columbus OH at 11:30 (WhatsApp server time). Tap Released when you are unloaded and leaving the door."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m12"
+   },
+   {
+    "id": "e13",
+    "at": "2026-10-20T19:37:29.021Z",
+    "title": "Detention notice emailed after free time ended",
+    "services": [
+     "EventBridge Scheduler",
+     "Lambda",
+     "SES"
+    ],
+    "channel": "email",
+    "tone": "money",
+    "emailId": "notice",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e14",
+    "at": "2026-10-20T19:37:29.379Z",
+    "title": "DockClock composed word that the detention notice was emailed (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:37:29.379Z",
+     "channel": "whatsapp",
+     "purpose": "notice_sent",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "kind": "template",
+      "template": {
+       "language": "en_US",
+       "name": "dockclock_notice_sent"
+      },
+      "text": "Load SMOKE-mvh34j51: free time ends at 13:37 EDT. We emailed Lakeshore Foods (fictional shipper) the detention notice your contract requires. Updates will arrive in this chat."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m13"
+   },
+   {
+    "id": "e15",
+    "at": "2026-10-20T19:37:29.819Z",
+    "title": "SES reported the notice delivered",
+    "services": [
+     "SES",
+     "SNS",
+     "Lambda"
+    ],
+    "channel": "email",
+    "tone": "ok",
+    "emailId": "notice",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e16",
+    "at": "2026-10-20T19:37:36.916Z",
+    "title": "DockClock composed location released (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:37:36.916Z",
+     "channel": "whatsapp",
+     "purpose": "location_released",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Send location",
+        "type": "send_location"
+       }
+      ],
+      "buttons": [
+       "Send location"
+      ],
+      "kind": "location_request",
+      "text": "Share your location once more to stop the dock clock."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m14"
+   },
+   {
+    "id": "e17",
+    "at": "2026-10-20T19:37:39.436Z",
+    "title": "DockClock composed the bill of lading form (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:37:39.436Z",
+     "channel": "whatsapp",
+     "purpose": "release_flow",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Add BOL photo",
+        "type": "flow_cta"
+       }
+      ],
+      "flowCta": "Add BOL photo",
+      "kind": "flow",
+      "text": "Clock stopped at Lakeshore DC, Columbus OH. Add a photo of the signed bill of lading so the times on paper back up your pins."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m15"
+   },
+   {
+    "id": "e18",
+    "at": "2026-10-20T19:37:42.020Z",
+    "title": "DockClock composed tell bol partial (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:37:42.020Z",
+     "channel": "whatsapp",
+     "purpose": "tell_bol_partial",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "kind": "text",
+      "text": "Some pages could not be saved. Dispatch has been told and will follow up."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m16"
+   },
+   {
+    "id": "e19",
+    "at": "2026-10-20T19:37:42.025Z",
+    "title": "Dispatch escalation composed (not sent: test load)",
+    "services": [
+     "Lambda",
+     "SES"
+    ],
+    "channel": "email",
+    "tone": "refused",
+    "emailId": "escalation-1",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e20",
+    "at": "2026-10-20T19:37:42.320Z",
+    "title": "The contract decided: billable, $90.99. Evidence sealed and signed",
+    "services": [
+     "Step Functions",
+     "Lambda",
+     "KMS",
+     "S3 Object Lock"
+    ],
+    "tone": "money",
+    "record": {
+     "verdict": "BILLABLE",
+     "reasons": [],
+     "amountUsd": 90.99,
+     "packId": "SMOKE-mvh34j51-69067f8efcea",
+     "digestSha256": "1b05d8a07db40e8a3cf5eb4f262a58663fc4176aa8fdcb3e67e734195a8ed48c"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "e21",
+    "at": "2026-10-20T19:37:43.090Z",
+    "title": "Dispatch escalation composed (not sent: test load)",
+    "services": [
+     "Lambda",
+     "SES"
+    ],
+    "channel": "email",
+    "tone": "refused",
+    "emailId": "escalation-2",
+    "provenance": "recorded"
+   }
+  ],
+  "photos": [
+   {
+    "id": "p1",
+    "page": 1,
+    "channel": "whatsapp",
+    "takenAt": "2026-10-20T19:12:17.000Z",
+    "mimeType": "image/jpeg",
+    "sha256": null,
+    "matchesPack": null,
+    "url": null,
+    "servedBytes": "metadata_stripped",
+    "source": "not_stored",
+    "usedInEvidence": true,
+    "provenance": "synthetic_input"
+   }
+  ],
+  "emails": [
+   {
+    "id": "notice",
+    "purpose": "notice",
+    "sentAt": "2026-10-20T19:37:29.021Z",
+    "status": "delivered",
+    "deliveredAt": "2026-10-20T19:37:29.819Z",
+    "from": "claims@claims.kaungzinhein.com",
+    "to": {
+     "name": "Lakeshore Foods (fictional shipper)",
+     "role": "shipper",
+     "note": "Delivered to our test mailbox, not to a real company."
+    },
+    "subject": "Detention notice: load SMOKE-mvh34j51 at Lakeshore DC, Columbus OH",
+    "attachments": [],
+    "bodyStored": true,
+    "provenance": "recorded"
+   },
+   {
+    "id": "escalation-1",
+    "purpose": "dispatch_escalation",
+    "sentAt": "2026-10-20T19:37:42.025Z",
+    "status": "not_sent",
+    "notSentReason": "Not sent: test loads never email dispatch.",
+    "from": "DockClock dispatch alerts",
+    "to": {
+     "name": "The carrier's dispatch desk",
+     "role": "dispatch",
+     "note": "Our test mailbox for dispatch."
+    },
+    "subject": "DockClock: load SMOKE-mvh34j51 needs dispatch (some bill-of-lading pages could not be downloaded)",
+    "attachments": [],
+    "bodyStored": true,
+    "provenance": "recorded"
+   },
+   {
+    "id": "escalation-2",
+    "purpose": "dispatch_escalation",
+    "sentAt": "2026-10-20T19:37:43.090Z",
+    "status": "not_sent",
+    "notSentReason": "Not sent: test loads never email dispatch.",
+    "from": "DockClock dispatch alerts",
+    "to": {
+     "name": "The carrier's dispatch desk",
+     "role": "dispatch",
+     "note": "Our test mailbox for dispatch."
+    },
+    "subject": "DockClock: load SMOKE-mvh34j51 needs dispatch (no approval within two days; nothing was sent; evidence confidence low)",
+    "attachments": [],
+    "bodyStored": true,
+    "provenance": "recorded"
+   }
+  ],
+  "agentRuns": [],
+  "approval": null,
+  "claim": null,
+  "verdict": {
+   "verdict": "BILLABLE",
+   "reasons": [],
+   "amountUsd": 90.99,
+   "confidence": "low",
+   "signals": [
+    {
+     "name": "arrived_pin_in_geofence",
+     "ok": true,
+     "detail": "inside facility polygon"
+    },
+    {
+     "name": "released_pin_in_geofence",
+     "ok": true,
+     "detail": "inside facility polygon"
+    },
+    {
+     "name": "bol_camera_only",
+     "ok": true,
+     "detail": "captured in camera-only Flow"
+    },
+    {
+     "name": "bol_media_hashed",
+     "ok": false,
+     "detail": "0 of 1 pages stored and hashed"
+    },
+    {
+     "name": "bol_confirmed_by_driver",
+     "ok": true,
+     "detail": "driver confirmed or corrected extracted times"
+    },
+    {
+     "name": "bol_in_matches_arrived_pin",
+     "ok": true,
+     "independent": true,
+     "detail": "2 min apart (tolerance 15); entered by the driver from the paperwork"
+    },
+    {
+     "name": "bol_out_matches_released_pin",
+     "ok": true,
+     "independent": true,
+     "detail": "2 min apart (tolerance 15); entered by the driver from the paperwork"
+    },
+    {
+     "name": "notice_delivered",
+     "ok": true,
+     "detail": "2026-10-20T19:37:29.819Z"
+    }
+   ],
+   "engineInput": {
+    "appointmentAt": "2026-10-20T15:37:17.797Z",
+    "arrived": {
+     "at": "2026-10-20T15:30:17.000Z",
+     "insideGeofence": true
+    },
+    "released": {
+     "at": "2026-10-20T19:08:17.000Z",
+     "insideGeofence": true
+    },
+    "bol": {
+     "signed": true,
+     "checkIn": "2026-10-20T15:32:00.000Z",
+     "checkOut": "2026-10-20T19:06:00.000Z"
+    },
+    "status214": false,
+    "noticeSentAt": "2026-10-20T19:37:29.021Z",
+    "shipperConfirmed": false,
+    "evaluatedAt": "2026-10-20T19:37:42.320Z"
+   }
+  },
+  "pack": {
+   "packId": "SMOKE-mvh34j51-69067f8efcea",
+   "digestSha256": "1b05d8a07db40e8a3cf5eb4f262a58663fc4176aa8fdcb3e67e734195a8ed48c",
+   "sealedAt": "2026-10-20T19:37:42.320Z",
+   "storage": "S3 Object Lock (governance mode, 30 days)",
+   "confidence": "low",
+   "href": "/api/loads/SMOKE-mvh34j51/pack"
+  }
+ }
+}

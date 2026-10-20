@@ -1,0 +1,37 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T19:40:27.594Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "id": "claim",
+  "purpose": "claim",
+  "sentAt": "2026-10-20T18:47:45.975Z",
+  "status": "sent",
+  "from": "claims@claims.kaungzinhein.com",
+  "to": {
+   "name": "Lakeshore Foods (fictional shipper)",
+   "role": "shipper",
+   "note": "Delivered to our test mailbox, not to a real company."
+  },
+  "subject": "Detention Claim – Load SMOKE-mvh1bmmu – Lakeshore DC, Columbus OH",
+  "attachments": [
+   {
+    "name": "SMOKE-mvh1bmmu-f3eaf6ee37aa.json",
+    "contentType": "application/json",
+    "sha256": "096babb5efe2da2cd463af03bdb2b9b386651d08947a7b8590a9c853054402fe",
+    "note": "The signed evidence pack, exactly as sealed."
+   },
+   {
+    "name": "dockclock-public-key.pem",
+    "contentType": "application/x-pem-file",
+    "sha256": "8876fe3fc644cd347dee167da5720bf46a2b36feaea629b2ea3d9896a855e299",
+    "note": "The public key to check the signature."
+   }
+  ],
+  "bodyStored": true,
+  "provenance": "recorded",
+  "body": "Dear Lakeshore Foods,\n\nWe are submitting a detention claim for load SMOKE-mvh1bmmu at Lakeshore DC, Columbus OH.\n\nPer the contract clause terms:\n• Free time: 120 minutes from appointment\n• Rate: $60.00 per hour\n• Appointment: 2026-10-20 10:46 EDT\n\nServer-timestamped events:\n• Arrival: 2026-10-20 10:39 EDT\n• Release: 2026-10-20 14:17 EDT\n\nDetention time: 90.99 minutes\nAmount due: $90.99\n\nThe signed evidence pack is attached.\n\nThank you for your prompt attention to this matter.\n\nBest regards\n\n--\nEvidence pack SMOKE-mvh1bmmu-f3eaf6ee37aa (sha256 891e5d6e28b248fad06b91b2768644d8bb6fa88eeb05d9ff54159900dd3333e2) is attached.\nIt is signed with AWS KMS key <AWS resource name removed> ECDSA P-256 (signatureBase64, DER) over the SHA-256 of the file's \"pack\" field written as canonical JSON (object keys sorted at every level, no spaces), not over the file's own bytes.\nThe public key is attached as dockclock-public-key.pem (SPKI sha256 bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c). DockClock's verifier, npm run verify:pack, applies exactly this rule.\nContract amount: $90.99, computed by the clause engine, not by the agent.\nSent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
+  "bodyNote": "The sent email's bytes, kept with the load's packs. The AWS key name in the footer is removed."
+ }
+}

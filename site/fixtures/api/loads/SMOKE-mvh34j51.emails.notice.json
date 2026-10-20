@@ -1,0 +1,25 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T19:40:28.644Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "id": "notice",
+  "purpose": "notice",
+  "sentAt": "2026-10-20T19:37:29.021Z",
+  "status": "delivered",
+  "deliveredAt": "2026-10-20T19:37:29.819Z",
+  "from": "claims@claims.kaungzinhein.com",
+  "to": {
+   "name": "Lakeshore Foods (fictional shipper)",
+   "role": "shipper",
+   "note": "Delivered to our test mailbox, not to a real company."
+  },
+  "subject": "Detention notice: load SMOKE-mvh34j51 at Lakeshore DC, Columbus OH",
+  "attachments": [],
+  "bodyStored": true,
+  "provenance": "recorded",
+  "body": "To Lakeshore Foods (fictional shipper),\n\nThis is notice that load SMOKE-mvh34j51 is still waiting at Lakeshore DC, Columbus OH.\nThe truck checked in at 2026-10-20 11:30 EDT, recorded by a location pin with a WhatsApp server timestamp inside the facility's geofence.\nFree time under the rate confirmation ends at 2026-10-20 13:37 EDT. From then, detention accrues at $60.00 per hour under your terms.\nPlease release the truck or tell us of any reason the clock should not run.\n\nSent automatically by DockClock for the carrier. The signed evidence pack follows with any claim.",
+  "bodyNote": "The sent email's bytes, kept with the load's packs."
+ }
+}

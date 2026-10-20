@@ -1,0 +1,25 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T19:40:29.210Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "id": "escalation-2",
+  "purpose": "dispatch_escalation",
+  "sentAt": "2026-10-20T19:37:43.090Z",
+  "status": "not_sent",
+  "notSentReason": "Not sent: test loads never email dispatch.",
+  "from": "DockClock dispatch alerts",
+  "to": {
+   "name": "The carrier's dispatch desk",
+   "role": "dispatch",
+   "note": "Our test mailbox for dispatch."
+  },
+  "subject": "DockClock: load SMOKE-mvh34j51 needs dispatch (no approval within two days; nothing was sent; evidence confidence low)",
+  "attachments": [],
+  "bodyStored": true,
+  "provenance": "recorded",
+  "body": "Load SMOKE-mvh34j51 at Lakeshore DC, Columbus OH needs a person.\nReason: no approval within two days; nothing was sent; evidence confidence low.\nPhase: sealed. Driver language: en_US.\nArrived pin: 2026-10-20T15:30:17.000Z. Released pin: 2026-10-20T19:08:17.000Z.\nDriver: <phone removed>, on WhatsApp. Message them there or call them.",
+  "bodyNote": "The text DockClock composed for dispatch, with the driver's contact removed (dispatch's own copy has it)."
+ }
+}

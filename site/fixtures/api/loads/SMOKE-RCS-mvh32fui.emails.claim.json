@@ -1,0 +1,38 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T19:40:30.291Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "id": "claim",
+  "purpose": "claim",
+  "sentAt": "2026-10-20T19:36:30.048Z",
+  "status": "delivered",
+  "deliveredAt": "2026-10-20T19:36:30.850Z",
+  "from": "claims@claims.kaungzinhein.com",
+  "to": {
+   "name": "Freightline Digital (fictional broker)",
+   "role": "broker",
+   "note": "Delivered to our test mailbox, not to a real company."
+  },
+  "subject": "Detention claim for load SMOKE-RCS-mvh32fui - $81.67",
+  "attachments": [
+   {
+    "name": "SMOKE-RCS-mvh32fui-17b37a185c61.json",
+    "contentType": "application/json",
+    "sha256": "a6f8cd13818ef49a57375eede27e4fed8d9469621dd13bbd32aeee2607f70da7",
+    "note": "The signed evidence pack, exactly as sealed."
+   },
+   {
+    "name": "dockclock-public-key.pem",
+    "contentType": "application/x-pem-file",
+    "sha256": "8876fe3fc644cd347dee167da5720bf46a2b36feaea629b2ea3d9896a855e299",
+    "note": "The public key to check the signature."
+   }
+  ],
+  "bodyStored": true,
+  "provenance": "recorded",
+  "body": "Re: Load SMOKE-RCS-mvh32fui\n\nWe are submitting a detention claim for the above load at Lakeshore DC, Columbus OH.\n\nPer the contract terms:\n- Free time: 120 minutes from arrival\n- Rate: $50.00 per hour\n\nServer-timestamped events:\n- Arrival: 2026-10-20 11:28 EDT\n- Release: 2026-10-20 15:06 EDT\n\nDetention time: 98 minutes\nAmount due: $81.67\n\nThe signed evidence pack is attached to this email.\n\nThank you for your prompt attention to this matter.\n\n--\nEvidence pack SMOKE-RCS-mvh32fui-17b37a185c61 (sha256 c47e0e473434a54d40595055924262f3716dd90ab74bfb135d2b19b0ac5e83a4) is attached.\nIt is signed with AWS KMS key <AWS resource name removed> ECDSA P-256 (signatureBase64, DER) over the SHA-256 of the file's \"pack\" field written as canonical JSON (object keys sorted at every level, no spaces), not over the file's own bytes.\nThe public key is attached as dockclock-public-key.pem (SPKI sha256 bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c). DockClock's verifier, npm run verify:pack, applies exactly this rule.\nContract amount: $81.67, computed by the clause engine, not by the agent.\nSent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
+  "bodyNote": "The sent email's bytes, kept with the load's packs. The AWS key name in the footer is removed."
+ }
+}

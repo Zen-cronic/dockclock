@@ -1,0 +1,112 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T19:40:27.027Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "packId": "SMOKE-mvh1bmmu-f3eaf6ee37aa",
+  "digestSha256": "891e5d6e28b248fad06b91b2768644d8bb6fa88eeb05d9ff54159900dd3333e2",
+  "algorithm": "ECDSA_SHA_256",
+  "signatureBase64": "MEUCIQDORxnb9DN1Or4J/ApPTkYGmXmvA2tCt7l+S6XblgUdCAIgL9CtfgA1LQR2BDozq9AiDxN9W24WRLFMunEsL3fJqzI=",
+  "publicKeyPath": "keys/public-key.pem",
+  "spkiSha256": "bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c",
+  "sealedAt": "2026-10-20T18:47:15.755Z",
+  "storage": "S3 Object Lock (governance mode, 30 days)",
+  "pack": {
+   "version": 1,
+   "packId": "SMOKE-mvh1bmmu-f3eaf6ee37aa",
+   "loadId": "SMOKE-mvh1bmmu",
+   "clauseId": "lakeshore-foods",
+   "channel": "whatsapp",
+   "facility": {
+    "id": "lakeshore-columbus",
+    "name": "Lakeshore DC, Columbus OH"
+   },
+   "appointmentAt": "2026-10-20T14:46:49.686Z",
+   "events": {
+    "arrived": {
+     "serverAt": "2026-10-20T14:39:49.000Z",
+     "messageId": "msg-sha256:9caa88792b23ae8a"
+    },
+    "released": {
+     "serverAt": "2026-10-20T18:17:49.000Z",
+     "messageId": "msg-sha256:3117c72b20612aaf"
+    },
+    "bol": {
+     "serverAt": "2026-10-20T18:21:49.000Z",
+     "messageId": "msg-sha256:b33662ead6111f42",
+     "pageSha256s": [
+      null
+     ],
+     "cameraOnly": true,
+     "timesEdited": {
+      "in": true,
+      "out": true
+     }
+    },
+    "notice": {
+     "sentAt": "2026-10-20T18:47:00.887Z",
+     "deliveredAt": "2026-10-20T18:47:01.583Z",
+     "messageId": "msg-sha256:9dc8d671b43210da"
+    }
+   },
+   "corroboration": {
+    "confidence": "low",
+    "signals": [
+     {
+      "name": "arrived_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "released_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "bol_camera_only",
+      "ok": true,
+      "detail": "captured in camera-only Flow"
+     },
+     {
+      "name": "bol_media_hashed",
+      "ok": false,
+      "detail": "0 of 1 pages stored and hashed"
+     },
+     {
+      "name": "bol_confirmed_by_driver",
+      "ok": true,
+      "detail": "driver confirmed or corrected extracted times"
+     },
+     {
+      "name": "bol_in_matches_arrived_pin",
+      "ok": true,
+      "independent": true,
+      "detail": "1 min apart (tolerance 15); entered by the driver from the paperwork"
+     },
+     {
+      "name": "bol_out_matches_released_pin",
+      "ok": true,
+      "independent": true,
+      "detail": "3 min apart (tolerance 15); entered by the driver from the paperwork"
+     },
+     {
+      "name": "notice_delivered",
+      "ok": true,
+      "detail": "2026-10-20T18:47:01.583Z"
+     }
+    ]
+   },
+   "evaluation": {
+    "loadId": "SMOKE-mvh1bmmu",
+    "clockStartAt": "2026-10-20T14:46:49.686Z",
+    "detentionMinutes": 90.98856666666667,
+    "verdict": "BILLABLE",
+    "reasons": [],
+    "billableMinutes": 90.98856666666667,
+    "amountUsd": 90.99
+   },
+   "sealedAt": "2026-10-20T18:47:15.755Z"
+  }
+ }
+}

@@ -1,0 +1,8 @@
+{
+ "schema": "dockclock.api/1",
+ "error": {
+  "status": 404,
+  "code": "not_found",
+  "message": "load LIVE-not-in-demo not found in the demo workspace"
+ }
+}

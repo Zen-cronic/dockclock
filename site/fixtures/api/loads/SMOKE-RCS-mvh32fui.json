@@ -1,0 +1,1111 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T19:40:29.497Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "summary": {
+   "loadId": "SMOKE-RCS-mvh32fui",
+   "runKind": "integration",
+   "runLabel": "Test run",
+   "createdAt": "2026-10-20T19:35:40.478Z",
+   "lastActivityAt": "2026-10-20T19:36:30.048Z",
+   "facility": {
+    "id": "lakeshore-columbus",
+    "name": "Lakeshore DC, Columbus OH",
+    "timeZone": "America/New_York"
+   },
+   "counterparty": {
+    "name": "Freightline Digital (fictional broker)",
+    "role": "broker"
+   },
+   "channel": "rcs",
+   "channels": [
+    "whatsapp",
+    "rcs"
+   ],
+   "language": "en_US",
+   "phase": "sealed",
+   "status": "claim_filed",
+   "live": false,
+   "verdict": "BILLABLE",
+   "amountUsd": 81.67,
+   "claimSentAt": "2026-10-20T19:36:30.048Z",
+   "arrivedAt": "2026-10-20T15:28:40.218Z",
+   "releasedAt": "2026-10-20T19:06:40.218Z",
+   "failover": true,
+   "photos": 1
+  },
+  "run": {
+   "kind": "integration",
+   "summary": "Test run: the driver's messages were replayed test messages. The workflow, the AI agent, the signature and the emails are real.",
+   "notes": [
+    "Driver messages: synthetic, replayed through the deployed stack by the integration test (load id prefix SMOKE-). Their times are set earlier than the run.",
+    "Messages to the driver were composed but not sent: the driver is a test number.",
+    "Approval: recorded from the command line for this test, not a tap on a phone.",
+    "RCS: sent through a Google testing agent, which reaches only phones registered as testers."
+   ]
+  },
+  "clause": {
+   "id": "freightline-digital",
+   "freeTimeMinutes": 120,
+   "freeTimeAnchor": "arrival",
+   "requireOnTimeArrival": true,
+   "ratePerHourUsd": 50,
+   "capUsdPerOccurrence": null,
+   "noticeLeadMinutes": null,
+   "acceptedRecords": [
+    "app_gps",
+    "signed_bol_times"
+   ],
+   "claimWindowHours": 24,
+   "shipperConfirmationRequired": false,
+   "basis": "Modelled on published broker terms. Values those terms do not state are DockClock assumptions."
+  },
+  "clock": {
+   "asOf": "2026-10-20T19:40:29.497Z",
+   "arrivedAt": "2026-10-20T15:28:40.218Z",
+   "releasedAt": "2026-10-20T19:06:40.218Z",
+   "clockStartAt": "2026-10-20T15:28:40.218Z",
+   "freeTimeEndsAt": "2026-10-20T17:28:40.218Z",
+   "detentionMinutes": 98,
+   "billableMinutes": 98,
+   "amountUsd": 81.67,
+   "driverTimes": "synthetic_input"
+  },
+  "workflow": [
+   {
+    "key": "dispatched",
+    "label": "Load dispatched to the driver",
+    "state": "done",
+    "at": "2026-10-20T19:35:40.478Z",
+    "services": [
+     "Lambda",
+     "Step Functions",
+     "EUM RCS"
+    ]
+   },
+   {
+    "key": "arrived",
+    "label": "Arrival confirmed by a location pin",
+    "state": "done",
+    "at": "2026-10-20T15:28:40.218Z",
+    "services": [
+     "EUM RCS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "notice",
+    "label": "Detention notice emailed before free time ends",
+    "state": "skipped",
+    "at": null,
+    "services": [
+     "EventBridge Scheduler",
+     "Lambda",
+     "SES"
+    ],
+    "detail": "released before free time ended"
+   },
+   {
+    "key": "released",
+    "label": "Release confirmed by a location pin",
+    "state": "done",
+    "at": "2026-10-20T19:06:40.218Z",
+    "services": [
+     "EUM RCS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "paperwork",
+    "label": "Bill of lading received",
+    "state": "done",
+    "at": "2026-10-20T19:36:01.524Z",
+    "services": [
+     "EUM RCS",
+     "SQS",
+     "Lambda",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "photo_read",
+    "label": "Photo read by the agent's tool",
+    "state": "done",
+    "at": "2026-10-20T19:36:05.115Z",
+    "services": [
+     "Step Functions",
+     "Lambda"
+    ]
+   },
+   {
+    "key": "sealed",
+    "label": "Contract decided: billable; evidence sealed and signed",
+    "state": "done",
+    "at": "2026-10-20T19:36:05.345Z",
+    "services": [
+     "Lambda",
+     "KMS",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "approval",
+    "label": "Dispatch approved the claim",
+    "state": "done",
+    "at": "2026-10-20T19:36:17.333Z",
+    "services": [
+     "Step Functions",
+     "EUM RCS",
+     "Lambda"
+    ],
+    "detail": "Recorded from the command line for this test, not a tap."
+   },
+   {
+    "key": "claim",
+    "label": "AI agent filed the claim by email",
+    "state": "done",
+    "at": "2026-10-20T19:36:30.048Z",
+    "services": [
+     "Bedrock AgentCore",
+     "AgentCore Gateway",
+     "SES"
+    ]
+   }
+  ],
+  "messages": [
+   {
+    "id": "m1",
+    "at": "2026-10-20T15:27:40.218Z",
+    "channel": "rcs",
+    "direction": "in",
+    "party": "driver",
+    "kind": "rcs_suggestion_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "tap_arrived",
+    "body": "Tapped Arrived",
+    "actions": [
+     {
+      "type": "rcs_reply",
+      "title": "Arrived",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m2",
+    "at": "2026-10-20T15:28:40.218Z",
+    "channel": "rcs",
+    "direction": "in",
+    "party": "driver",
+    "kind": "rcs_location",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "location",
+    "body": "Location shared",
+    "location": {
+     "insideGeofence": true,
+     "note": "Inside the facility area. Coordinates are not shown."
+    }
+   },
+   {
+    "id": "m3",
+    "at": "2026-10-20T19:05:40.218Z",
+    "channel": "rcs",
+    "direction": "in",
+    "party": "driver",
+    "kind": "rcs_suggestion_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "tap_released",
+    "body": "Tapped Released",
+    "actions": [
+     {
+      "type": "rcs_reply",
+      "title": "Released",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m4",
+    "at": "2026-10-20T19:06:40.218Z",
+    "channel": "rcs",
+    "direction": "in",
+    "party": "driver",
+    "kind": "rcs_location",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "location",
+    "body": "Location shared",
+    "location": {
+     "insideGeofence": true,
+     "note": "Inside the facility area. Coordinates are not shown."
+    }
+   },
+   {
+    "id": "m5",
+    "at": "2026-10-20T19:35:40.638Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "dispatch_card",
+    "kind": "rcs_rich_card",
+    "title": "Load SMOKE-RCS-mvh32fui",
+    "body": "Booked: Lakeshore DC, Columbus OH, appointment Oct 20, 11:35 AM. When you are parked at the dock, tap Arrived and we will start the detention clock. Reply STOP to stop load messages.",
+    "actions": [
+     {
+      "type": "rcs_reply",
+      "title": "Arrived"
+     },
+     {
+      "type": "rcs_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m6",
+    "at": "2026-10-20T19:35:41.199Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "location_arrived",
+    "kind": "rcs_location_request",
+    "body": "Share your location to start the dock clock. Only send it while parked.",
+    "actions": [
+     {
+      "type": "rcs_request_location",
+      "title": "Share location"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m7",
+    "at": "2026-10-20T19:35:48.569Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "offer_release",
+    "kind": "rcs_rich_card",
+    "title": "Load SMOKE-RCS-mvh32fui",
+    "body": "Checked in at Lakeshore DC, Columbus OH at 11:28 (server time). Tap Released when you are unloaded and leaving the door.",
+    "actions": [
+     {
+      "type": "rcs_reply",
+      "title": "Released"
+     },
+     {
+      "type": "rcs_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m8",
+    "at": "2026-10-20T19:35:51.098Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "offer_release",
+    "kind": "rcs_rich_card",
+    "title": "Load SMOKE-RCS-mvh32fui",
+    "body": "Checked in at Lakeshore DC, Columbus OH at 11:28 (server time). Tap Released when you are unloaded and leaving the door.",
+    "actions": [
+     {
+      "type": "rcs_reply",
+      "title": "Released"
+     },
+     {
+      "type": "rcs_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m9",
+    "at": "2026-10-20T19:35:56.160Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "location_released",
+    "kind": "rcs_location_request",
+    "body": "Share your location once more to stop the dock clock.",
+    "actions": [
+     {
+      "type": "rcs_request_location",
+      "title": "Share location"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m10",
+    "at": "2026-10-20T19:35:58.680Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "release_flow",
+    "kind": "rcs_text",
+    "body": "Clock stopped at Lakeshore DC, Columbus OH. Reply with a photo of the signed bill of lading. It is saved with this load's evidence and shared with the broker on this load only.",
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m11",
+    "at": "2026-10-20T19:36:01.524Z",
+    "channel": "rcs",
+    "direction": "in",
+    "party": "driver",
+    "kind": "rcs_media",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "photo",
+    "body": "Bill of lading photo",
+    "photoId": "p1"
+   },
+   {
+    "id": "m12",
+    "at": "2026-10-20T19:36:01.778Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "tell_bol_photo_received",
+    "kind": "rcs_text",
+    "body": "Got it. Your photo is saved with this load's evidence.",
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   }
+  ],
+  "timeline": [
+   {
+    "id": "e1",
+    "at": "2026-10-20T15:27:40.218Z",
+    "title": "Driver tapped Arrived",
+    "services": [
+     "EUM RCS",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "rcs",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "outcome": "ADVANCED",
+     "detail": {
+      "payload": "dc1.arrived.SMOKE-RCS-mvh32fui.<nonce>"
+     },
+     "serverAt": "2026-10-20T15:27:40.218Z",
+     "phaseAfter": "awaiting_arrival_pin",
+     "sk": "EVENT#2026-10-20T15:27:40.218Z",
+     "type": "button",
+     "phaseBefore": "dispatched",
+     "channel": "rcs"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m1"
+   },
+   {
+    "id": "e2",
+    "at": "2026-10-20T15:28:40.218Z",
+    "title": "Driver shared a location",
+    "detail": "Inside the facility area. Coordinates are not shown. Time is RCS server time.",
+    "services": [
+     "EUM RCS",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "rcs",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "outcome": "ADVANCED",
+     "type": "location",
+     "phaseAfter": "at_dock",
+     "phaseBefore": "awaiting_arrival_pin",
+     "serverAt": "2026-10-20T15:28:40.218Z",
+     "sk": "EVENT#2026-10-20T15:28:40.218Z",
+     "detail": {},
+     "channel": "rcs"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m2"
+   },
+   {
+    "id": "e3",
+    "at": "2026-10-20T15:29:40.000Z",
+    "title": "WhatsApp delivery failed: switched the driver to RCS",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "outcome": "RESENT_OVER_RCS",
+    "tone": "refused",
+    "record": {
+     "detail": {
+      "errorCode": 131026,
+      "purpose": "offer_release",
+      "queued": "offer_release"
+     },
+     "sk": "EVENT#2026-10-20T15:29:40.000Z",
+     "outcome": "RESENT_OVER_RCS",
+     "type": "failover",
+     "phaseAfter": "at_dock",
+     "serverAt": "2026-10-20T15:29:40.000Z",
+     "phaseBefore": "at_dock",
+     "channel": "rcs"
+    },
+    "provenance": "synthetic_input"
+   },
+   {
+    "id": "e4",
+    "at": "2026-10-20T19:05:40.218Z",
+    "title": "Driver tapped Released",
+    "services": [
+     "EUM RCS",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "rcs",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "serverAt": "2026-10-20T19:05:40.218Z",
+     "detail": {
+      "payload": "dc1.released.SMOKE-RCS-mvh32fui.<nonce>"
+     },
+     "outcome": "ADVANCED",
+     "sk": "EVENT#2026-10-20T19:05:40.218Z",
+     "phaseBefore": "at_dock",
+     "type": "button",
+     "phaseAfter": "awaiting_release_pin",
+     "channel": "rcs"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m3"
+   },
+   {
+    "id": "e5",
+    "at": "2026-10-20T19:06:40.218Z",
+    "title": "Driver shared a location",
+    "detail": "Inside the facility area. Coordinates are not shown. Time is RCS server time.",
+    "services": [
+     "EUM RCS",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "rcs",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "outcome": "ADVANCED",
+     "sk": "EVENT#2026-10-20T19:06:40.218Z",
+     "phaseAfter": "awaiting_bol",
+     "phaseBefore": "awaiting_release_pin",
+     "type": "location",
+     "serverAt": "2026-10-20T19:06:40.218Z",
+     "detail": {},
+     "channel": "rcs"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m4"
+   },
+   {
+    "id": "e6",
+    "at": "2026-10-20T19:35:40.638Z",
+    "title": "DockClock composed the load dispatch card (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:35:40.638Z",
+     "channel": "rcs",
+     "purpose": "dispatch_card",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Arrived",
+        "type": "rcs_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "rcs_reply"
+       }
+      ],
+      "buttons": [
+       "Arrived",
+       "Talk to dispatch"
+      ],
+      "kind": "card",
+      "text": "Booked: Lakeshore DC, Columbus OH, appointment Oct 20, 11:35 AM. When you are parked at the dock, tap Arrived and we will start the detention clock. Reply STOP to stop load messages.",
+      "title": "Load SMOKE-RCS-mvh32fui"
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m5"
+   },
+   {
+    "id": "e7",
+    "at": "2026-10-20T19:35:41.199Z",
+    "title": "DockClock composed location arrived (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:35:41.199Z",
+     "channel": "rcs",
+     "purpose": "location_arrived",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Share location",
+        "type": "rcs_request_location"
+       }
+      ],
+      "buttons": [
+       "Share location"
+      ],
+      "kind": "location_request",
+      "text": "Share your location to start the dock clock. Only send it while parked."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m6"
+   },
+   {
+    "id": "e8",
+    "at": "2026-10-20T19:35:48.569Z",
+    "title": "DockClock composed offer release (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:35:48.569Z",
+     "channel": "rcs",
+     "purpose": "offer_release",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Released",
+        "type": "rcs_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "rcs_reply"
+       }
+      ],
+      "buttons": [
+       "Released",
+       "Talk to dispatch"
+      ],
+      "kind": "card",
+      "text": "Checked in at Lakeshore DC, Columbus OH at 11:28 (server time). Tap Released when you are unloaded and leaving the door.",
+      "title": "Load SMOKE-RCS-mvh32fui"
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m7"
+   },
+   {
+    "id": "e9",
+    "at": "2026-10-20T19:35:51.098Z",
+    "title": "DockClock composed offer release (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:35:51.098Z",
+     "channel": "rcs",
+     "purpose": "offer_release",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Released",
+        "type": "rcs_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "rcs_reply"
+       }
+      ],
+      "buttons": [
+       "Released",
+       "Talk to dispatch"
+      ],
+      "kind": "card",
+      "text": "Checked in at Lakeshore DC, Columbus OH at 11:28 (server time). Tap Released when you are unloaded and leaving the door.",
+      "title": "Load SMOKE-RCS-mvh32fui"
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m8"
+   },
+   {
+    "id": "e10",
+    "at": "2026-10-20T19:35:56.160Z",
+    "title": "DockClock composed location released (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:35:56.160Z",
+     "channel": "rcs",
+     "purpose": "location_released",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Share location",
+        "type": "rcs_request_location"
+       }
+      ],
+      "buttons": [
+       "Share location"
+      ],
+      "kind": "location_request",
+      "text": "Share your location once more to stop the dock clock."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m9"
+   },
+   {
+    "id": "e11",
+    "at": "2026-10-20T19:35:58.680Z",
+    "title": "DockClock composed the bill of lading form (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:35:58.680Z",
+     "channel": "rcs",
+     "purpose": "release_flow",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "kind": "text",
+      "text": "Clock stopped at Lakeshore DC, Columbus OH. Reply with a photo of the signed bill of lading. It is saved with this load's evidence and shared with the broker on this load only."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m10"
+   },
+   {
+    "id": "e12",
+    "at": "2026-10-20T19:36:01.524Z",
+    "title": "Driver sent a photo",
+    "services": [
+     "EUM RCS",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "rcs",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "photoId": "p1",
+    "record": {
+     "outcome": "ADVANCED",
+     "serverAt": "2026-10-20T19:36:01.524Z",
+     "type": "image",
+     "sk": "EVENT#2026-10-20T19:36:01.524Z",
+     "phaseBefore": "awaiting_bol",
+     "phaseAfter": "documented",
+     "detail": {
+      "mimeType": "image/jpeg"
+     },
+     "channel": "rcs"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m11"
+   },
+   {
+    "id": "e13",
+    "at": "2026-10-20T19:36:01.778Z",
+    "title": "DockClock composed tell bol photo received (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T19:36:01.778Z",
+     "channel": "rcs",
+     "purpose": "tell_bol_photo_received",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "kind": "text",
+      "text": "Got it. Your photo is saved with this load's evidence."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m12"
+   },
+   {
+    "id": "e14",
+    "at": "2026-10-20T19:36:05.115Z",
+    "title": "The agent's photo tool read the bill of lading",
+    "services": [
+     "Step Functions",
+     "Lambda"
+    ],
+    "tone": "agent",
+    "photoId": "p1",
+    "record": {
+     "legible": true,
+     "inTime": "13:52",
+     "outTime": "17:18",
+     "receiverSigned": true,
+     "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "e15",
+    "at": "2026-10-20T19:36:05.345Z",
+    "title": "The contract decided: billable, $81.67. Evidence sealed and signed",
+    "services": [
+     "Step Functions",
+     "Lambda",
+     "KMS",
+     "S3 Object Lock"
+    ],
+    "tone": "money",
+    "record": {
+     "verdict": "BILLABLE",
+     "reasons": [],
+     "amountUsd": 81.67,
+     "packId": "SMOKE-RCS-mvh32fui-17b37a185c61",
+     "digestSha256": "c47e0e473434a54d40595055924262f3716dd90ab74bfb135d2b19b0ac5e83a4"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "e16",
+    "at": "2026-10-20T19:36:06.726Z",
+    "title": "Dispatch escalation composed (not sent: test load)",
+    "services": [
+     "Lambda",
+     "SES"
+    ],
+    "channel": "email",
+    "tone": "refused",
+    "emailId": "escalation-1",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e17",
+    "at": "2026-10-20T19:36:17.333Z",
+    "title": "Approval recorded from the command line (test, not a tap)",
+    "services": [
+     "DynamoDB"
+    ],
+    "tone": "ok",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e18",
+    "at": "2026-10-20T19:36:18.462Z",
+    "title": "The AI agent filed the claim by email",
+    "services": [
+     "Bedrock AgentCore",
+     "AgentCore Gateway",
+     "SES"
+    ],
+    "tone": "agent",
+    "agentRunId": "a1",
+    "emailId": "claim",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e19",
+    "at": "2026-10-20T19:36:30.850Z",
+    "title": "SES reported the claim email delivered",
+    "services": [
+     "SES",
+     "SNS",
+     "Lambda"
+    ],
+    "channel": "email",
+    "tone": "ok",
+    "emailId": "claim",
+    "provenance": "recorded"
+   }
+  ],
+  "photos": [
+   {
+    "id": "p1",
+    "page": 1,
+    "channel": "rcs",
+    "takenAt": "2026-10-20T19:36:01.524Z",
+    "mimeType": "image/jpeg",
+    "sha256": "9c38f45a07c6abb362d9bfb13f07c8714c894a1b89740e82688a89dc74590499",
+    "matchesPack": true,
+    "url": "photos/SMOKE-RCS-mvh32fui-1.jpg",
+    "servedBytes": "metadata_stripped",
+    "source": "rendered_fictional_document",
+    "usedInEvidence": true,
+    "legible": true,
+    "reading": {
+     "inTime": "13:52",
+     "outTime": "17:18",
+     "receiverSigned": true,
+     "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+     "readAt": "2026-10-20T19:36:05.115Z"
+    },
+    "provenance": "synthetic_input"
+   }
+  ],
+  "emails": [
+   {
+    "id": "claim",
+    "purpose": "claim",
+    "sentAt": "2026-10-20T19:36:30.048Z",
+    "status": "delivered",
+    "deliveredAt": "2026-10-20T19:36:30.850Z",
+    "from": "claims@claims.kaungzinhein.com",
+    "to": {
+     "name": "Freightline Digital (fictional broker)",
+     "role": "broker",
+     "note": "Delivered to our test mailbox, not to a real company."
+    },
+    "subject": "Detention claim for load SMOKE-RCS-mvh32fui - $81.67",
+    "attachments": [
+     {
+      "name": "SMOKE-RCS-mvh32fui-17b37a185c61.json",
+      "contentType": "application/json",
+      "sha256": "a6f8cd13818ef49a57375eede27e4fed8d9469621dd13bbd32aeee2607f70da7",
+      "note": "The signed evidence pack, exactly as sealed."
+     },
+     {
+      "name": "dockclock-public-key.pem",
+      "contentType": "application/x-pem-file",
+      "sha256": "8876fe3fc644cd347dee167da5720bf46a2b36feaea629b2ea3d9896a855e299",
+      "note": "The public key to check the signature."
+     }
+    ],
+    "bodyStored": true,
+    "provenance": "recorded"
+   },
+   {
+    "id": "escalation-1",
+    "purpose": "dispatch_escalation",
+    "sentAt": "2026-10-20T19:36:06.726Z",
+    "status": "not_sent",
+    "notSentReason": "Not sent: test loads never email dispatch.",
+    "from": "DockClock dispatch alerts",
+    "to": {
+     "name": "The carrier's dispatch desk",
+     "role": "dispatch",
+     "note": "Our test mailbox for dispatch."
+    },
+    "subject": "DockClock: load SMOKE-RCS-mvh32fui needs dispatch (no approval within two days; nothing was sent; evidence confidence low)",
+    "attachments": [],
+    "bodyStored": true,
+    "provenance": "recorded"
+   }
+  ],
+  "agentRuns": [
+   {
+    "id": "a1",
+    "task": "file_claim",
+    "startedAt": "2026-10-20T19:36:18.462Z",
+    "endedAt": "2026-10-20T19:36:33.241Z",
+    "model": "Claude Sonnet 4.5 on Amazon Bedrock AgentCore",
+    "stopReason": "end_turn",
+    "toolCalls": [
+     {
+      "name": "get_load_evidence",
+      "input": {
+       "loadId": "SMOKE-RCS-mvh32fui"
+      },
+      "cedar": {
+       "decision": "permit",
+       "policy": "Read tools are always allowed.",
+       "decisionSource": "inferred"
+      },
+      "result": {
+       "ok": true,
+       "summary": "Sealed BILLABLE, $81.67, dispatch approved."
+      }
+     },
+     {
+      "name": "send_detention_claim",
+      "input": {
+       "amountCents": 8167,
+       "approvalId": "appr-864010a049b6",
+       "body": "(the email body, shown in the mailbox)",
+       "loadId": "SMOKE-RCS-mvh32fui",
+       "packDigest": "c47e0e473434a54d40595055924262f3716dd90ab74bfb135d2b19b0ac5e83a4",
+       "subject": "Detention claim for load SMOKE-RCS-mvh32fui - $81.67"
+      },
+      "cedar": {
+       "decision": "permit",
+       "policy": "The claim tool needs an approval id and 0 < amount ≤ $5,000.00 (in cents).",
+       "decisionSource": "inferred"
+      },
+      "result": {
+       "ok": true,
+       "summary": "Email accepted by SES; claim recorded as sent."
+      }
+     }
+    ],
+    "guard": {
+     "amountCentsSent": 8167,
+     "amountCentsSealed": 8167,
+     "digestSent": "c47e0e473434a54d40595055924262f3716dd90ab74bfb135d2b19b0ac5e83a4",
+     "digestSealed": "c47e0e473434a54d40595055924262f3716dd90ab74bfb135d2b19b0ac5e83a4",
+     "match": true
+    },
+    "text": "**Claim filed successfully!**\n\nThe detention claim for load SMOKE-RCS-mvh32fui has been sent to Freightline Digital (fictional broker) for **$81.67**. The email includes:\n- The server-timestamped arrival (2026-10-20 11:28 EDT) and release (2026-10-20 15:06 EDT) times\n- The contract terms (120 minutes free time, $50/hour rate)\n- The 98 minutes of detention time\n- The signed evidence pack attachment\n\nThe claim was sent at 2026-10-20T19:36:30.048Z.",
+    "provenance": "recorded"
+   }
+  ],
+  "approval": null,
+  "claim": {
+   "status": "sent",
+   "amountUsd": 81.67,
+   "amountCents": 8167,
+   "packDigest": "c47e0e473434a54d40595055924262f3716dd90ab74bfb135d2b19b0ac5e83a4",
+   "sentAt": "2026-10-20T19:36:30.048Z",
+   "subject": "Detention claim for load SMOKE-RCS-mvh32fui - $81.67",
+   "secondsAfterApproval": 12.7
+  },
+  "verdict": {
+   "verdict": "BILLABLE",
+   "reasons": [],
+   "amountUsd": 81.67,
+   "confidence": "low",
+   "signals": [
+    {
+     "name": "arrived_pin_in_geofence",
+     "ok": true,
+     "detail": "inside facility polygon"
+    },
+    {
+     "name": "released_pin_in_geofence",
+     "ok": true,
+     "detail": "inside facility polygon"
+    },
+    {
+     "name": "bol_camera_only",
+     "ok": false,
+     "detail": "RCS photo reply; camera or gallery unknown"
+    },
+    {
+     "name": "bol_media_hashed",
+     "ok": true,
+     "detail": "1 of 1 pages stored and hashed"
+    },
+    {
+     "name": "bol_confirmed_by_driver",
+     "ok": false,
+     "detail": "RCS has no form, so no driver-entered times or signed box"
+    }
+   ],
+   "engineInput": {
+    "appointmentAt": "2026-10-20T15:35:40.218Z",
+    "arrived": {
+     "at": "2026-10-20T15:28:40.218Z",
+     "insideGeofence": true
+    },
+    "released": {
+     "at": "2026-10-20T19:06:40.218Z",
+     "insideGeofence": true
+    },
+    "bol": {
+     "signed": false,
+     "checkIn": null,
+     "checkOut": null
+    },
+    "status214": false,
+    "noticeSentAt": null,
+    "shipperConfirmed": false,
+    "evaluatedAt": "2026-10-20T19:36:05.345Z"
+   }
+  },
+  "pack": {
+   "packId": "SMOKE-RCS-mvh32fui-17b37a185c61",
+   "digestSha256": "c47e0e473434a54d40595055924262f3716dd90ab74bfb135d2b19b0ac5e83a4",
+   "sealedAt": "2026-10-20T19:36:05.345Z",
+   "storage": "S3 Object Lock (governance mode, 30 days)",
+   "confidence": "low",
+   "href": "/api/loads/SMOKE-RCS-mvh32fui/pack"
+  }
+ }
+}
