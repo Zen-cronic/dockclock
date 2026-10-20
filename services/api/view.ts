@@ -402,7 +402,9 @@ function photosOf(p: Parts, sources: LoadSources): PhotoInfo[] {
     const page = index + 1;
     const type = sources.photoTypes[page] ?? null;
     const hash = str(photo.sha256);
-    const stored = str(photo.s3Key) !== null;
+    // Only a photo the evidence path accepted (stored and hashed) is shown; one it refused, such
+    // as an RCS object not written with its message, counts as not stored.
+    const stored = str(photo.s3Key) !== null && hash !== null;
     const source: PhotoInfo["source"] = !stored ? "not_stored" : type === null ? "test_bytes" : p.synthetic ? "rendered_fictional_document" : "phone_camera";
     const readThisPage = Number(reading.page ?? 1) === page && typeof reading.legible === "boolean";
     return {
@@ -413,7 +415,7 @@ function photosOf(p: Parts, sources: LoadSources): PhotoInfo[] {
       mimeType: type ?? String(photo.mimeType ?? "application/octet-stream"),
       sha256: hash,
       matchesPack: packHashes && hash ? packHashes[index] === hash : null,
-      url: type ? `/api/loads/${p.loadId}/photos/${page}` : null,
+      url: stored && type ? `/api/loads/${p.loadId}/photos/${page}` : null,
       servedBytes: "metadata_stripped",
       source,
       usedInEvidence: true,

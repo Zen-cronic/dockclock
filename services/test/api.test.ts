@@ -174,6 +174,14 @@ describe("console read API", () => {
     expect(gpsJpeg.toString("latin1")).toContain("Exif");
   });
 
+  it("never serves a photo the evidence path refused (no hash)", async () => {
+    const meta = partitions["SMOKE-RCS-1"]![0]!;
+    meta.bol = { ...(meta.bol as Record<string, unknown>), photos: [{ mediaId: "m1", mimeType: "image/jpeg", s3Key: "rcs-inbound/rcs/SMOKE-RCS-1#bol.jpg" }] };
+    expect((await get("/api/loads/SMOKE-RCS-1/photos/1")).statusCode).toBe(404);
+    const view = JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data;
+    expect(view.photos[0]).toMatchObject({ url: null, source: "not_stored", sha256: null });
+  });
+
   it("refuses a stored photo that is not an image", async () => {
     objects["rcs-inbound/rcs/SMOKE-RCS-1#bol.jpg"] = "smoke bill of lading";
     const res = await get("/api/loads/SMOKE-RCS-1/photos/1");

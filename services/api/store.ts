@@ -86,7 +86,8 @@ export async function photoBytes(items: Item[], page: number, range?: string): P
   const bol = obj(meta?.bol);
   const photos = Array.isArray(bol.photos) ? bol.photos.map(obj) : [];
   const photo = photos[page - 1];
-  if (!meta || !photo) return null;
+  // Never a photo the evidence path refused: it has no hash.
+  if (!meta || !photo || !str(photo.sha256)) return null;
   const loadId = String(meta.loadId);
   const key = str(photo.s3Key);
   if (key && (key.startsWith(`media/${loadId}/`) || key.startsWith("rcs-inbound/rcs/"))) {
