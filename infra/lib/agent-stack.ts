@@ -186,7 +186,9 @@ export class AgentStack extends Stack {
     this.harnessArn = harness.attrArn;
 
     // How the workflow and scripts start the agent: a fixed task line and a validated load id.
-    this.invokeFunction = fn("InvokeAgent", "invoke.ts", { HARNESS_ARN: harness.attrArn }, Duration.minutes(5), INVOKE_AGENT_FUNCTION_NAME);
+    // Every run is recorded under its load (AGENT#<startedAt>#<task>), with the model it ran on.
+    this.invokeFunction = fn("InvokeAgent", "invoke.ts", { HARNESS_ARN: harness.attrArn, TABLE_NAME: core.table.tableName, AGENT_MODEL_ID: config.agentModelId }, Duration.minutes(5), INVOKE_AGENT_FUNCTION_NAME);
+    core.table.grantWriteData(this.invokeFunction);
     this.invokeFunction.addToRolePolicy(
       new iam.PolicyStatement({ actions: ["bedrock-agentcore:InvokeHarness", "bedrock-agentcore:InvokeAgentRuntime"], resources: [harness.attrArn, `${harness.attrArn}/*`] }),
     );
