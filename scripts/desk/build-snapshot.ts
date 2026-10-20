@@ -1,9 +1,11 @@
 // Builds the judge desk's replay file (site/src/snapshot.ts, schema dockclock.replay/1) from one
 // load's stored records. Pure: the CLI in scripts/desk-snapshot.ts reads AWS and passes the records
-// in. Everything that leaves here is scrubbed, and findLeaks() is the gate the CLI and tests share.
+// in. Everything that leaves here is scrubbed (@dockclock/sanitize), and findLeaks() is the gate the
+// CLI, the read API and the tests share.
 import { createHash } from "node:crypto";
 import { clauseById, detentionStartsAt, evaluate, type ClauseSpec, type LoadEvidence } from "@dockclock/clause-engine";
 import { canonicalJson, checkGeofence, facilityById, localClockToIso, type SignedPack } from "@dockclock/evidence";
+import { parseMime, scrub, scrubText } from "@dockclock/sanitize";
 import { COPY, type Language } from "../../services/src/messages.js";
 import type {
   AgentRun,
@@ -39,111 +41,6 @@ export interface SnapshotSources {
 const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
 const obj = (v: unknown): Item => (v && typeof v === "object" && !Array.isArray(v) ? (v as Item) : {});
 const sha256 = (bytes: Buffer | string) => createHash("sha256").update(bytes).digest("hex");
-
-// MIME: just enough for the two formats DockClock sends (text/plain and multipart/mixed, base64).
-export interface ParsedEmail {
-  from: string;
-  subject: string;
-  date: string | null;
-  text: string;
-  attachments: Array<{ name: string; contentType: string; sha256: string }>;
-}
-
-function splitHead(raw: string): { headers: Record<string, string>; body: string } {
-  const at = raw.indexOf("\r\n\r\n");
-  const head = at === -1 ? raw : raw.slice(0, at);
-  const headers: Record<string, string> = {};
-  for (const line of head.replace(/\r\n[ \t]+/g, " ").split("\r\n")) {
-    const colon = line.indexOf(":");
-    if (colon > 0) headers[line.slice(0, colon).trim().toLowerCase()] = line.slice(colon + 1).trim();
-  }
-  return { headers, body: at === -1 ? "" : raw.slice(at + 4) };
-}
-
-function decodeWords(value: string): string {
-  return value.replace(/=\?UTF-8\?B\?([^?]+)\?=/gi, (_, b64: string) => Buffer.from(b64, "base64").toString("utf8"));
-}
-
-function decodeBody(body: string, encoding: string | undefined): Buffer {
-  return encoding?.toLowerCase() === "base64" ? Buffer.from(body.replace(/\s+/g, ""), "base64") : Buffer.from(body, "utf8");
-}
-
-export function parseMime(raw: string): ParsedEmail {
-  const { headers, body } = splitHead(raw);
-  const out: ParsedEmail = { from: headers.from ?? "", subject: decodeWords(headers.subject ?? ""), date: headers.date ?? null, text: "", attachments: [] };
-  const boundary = /boundary="?([^";]+)"?/i.exec(headers["content-type"] ?? "")?.[1];
-  if (!boundary) {
-    out.text = decodeBody(body, headers["content-transfer-encoding"]).toString("utf8");
-    return out;
-  }
-  for (const part of body.split(`--${boundary}`).slice(1)) {
-    if (part.startsWith("--")) break;
-    const p = splitHead(part.replace(/^\r\n/, ""));
-    const bytes = decodeBody(p.body, p.headers["content-transfer-encoding"]);
-    const type = (p.headers["content-type"] ?? "text/plain").split(";")[0]!.trim();
-    const name = /filename="?([^";]+)"?/i.exec(p.headers["content-disposition"] ?? "")?.[1];
-    if (name) out.attachments.push({ name, contentType: type, sha256: sha256(bytes) });
-    else if (type === "text/plain" && !out.text) out.text = bytes.toString("utf8");
-  }
-  return out;
-}
-
-// Scrubbing. Keys that may hold a person's contact, a place, an AWS name or a raw message id.
-const DROP_KEYS = /^(pk|lat|lon|latitude|longitude|location|e164|address|bsuid|boundBsuid|driverKey|messageId|wamid|failedMessageId|dispatchMessageId|approvalMessageId|s3Key|mimeKey|keyId|executionArn|token|tokens|taskToken|nonce|mediaId|metaSha256|from|outbox)$/i;
-
-export function scrubText(text: string): string {
-  return text
-    .replace(/arn:aws[a-z-]*:[^\s"')]+/g, "<AWS resource name removed>")
-    .replace(/\+\d{10,15}/g, "<phone removed>")
-    .replace(/\b[A-Z]{2}\.\d{10,}\b/g, "<id removed>")
-    .replace(/\bwamid\.[A-Za-z0-9._=+/-]+/g, "<message id removed>")
-    .replace(/\b(dc1\.[a-z_]+\.[A-Za-z0-9-]+\.)[0-9a-f]{6,}/g, "$1<nonce>")
-    .replace(/s3:\/\/\S+/g, "<S3 location removed>")
-    .replace(/\b(packs|rcs-inbound|media)\/[A-Za-z0-9._/-]+/g, "<S3 key removed>");
-}
-
-export function scrub(value: unknown): unknown {
-  if (typeof value === "string") return scrubText(value);
-  if (Array.isArray(value)) return value.map(scrub);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value as Item).filter(([k]) => !DROP_KEYS.test(k)).map(([k, v]) => [k, scrub(v)]));
-  }
-  return value;
-}
-
-// Everything the published file must not hold. Returns one line per finding; empty means clean.
-export function findLeaks(value: unknown, accountId?: string): string[] {
-  const leaks: string[] = [];
-  const walk = (v: unknown, path: string) => {
-    if (typeof v === "string") {
-      const checks: Array<[string, RegExp]> = [
-        ["E.164 number", /\+\d{10,15}/],
-        ["BSUID", /\b[A-Z]{2}\.\d{10,}\b/],
-        ["ARN", /arn:aws/],
-        ["12-digit account id", /(^|[^0-9A-Za-z])\d{12}([^0-9A-Za-z]|$)/],
-        ["S3 key", /\b(packs|rcs-inbound|media)\/[A-Za-z0-9._-]+\/|s3:\/\//],
-        ["WhatsApp message id", /\bwamid\.(?!smoke\.)/],
-        ["coordinate pair", /-?\d{1,3}\.\d{4,}\s*,\s*-?\d{1,3}\.\d{4,}/],
-      ];
-      for (const [name, re] of checks) if (re.test(v)) leaks.push(`${name} at ${path}`);
-      if (accountId && v.includes(accountId)) leaks.push(`account id at ${path}`);
-      return;
-    }
-    if (Array.isArray(v)) {
-      if (v.length === 2 && v.every((n) => typeof n === "number" && !Number.isInteger(n) && Math.abs(n) <= 180)) leaks.push(`numeric coordinate pair at ${path}`);
-      v.forEach((x, i) => walk(x, `${path}[${i}]`));
-      return;
-    }
-    if (v && typeof v === "object") {
-      for (const [k, x] of Object.entries(v as Item)) {
-        if (/^(lat|lon|latitude|longitude)$/i.test(k)) leaks.push(`coordinate key ${k} at ${path}`);
-        walk(x, `${path}.${k}`);
-      }
-    }
-  };
-  walk(value, "$");
-  return leaks;
-}
 
 // Mapping helpers.
 const toCents = (usd: number) => Math.round(usd * 100);

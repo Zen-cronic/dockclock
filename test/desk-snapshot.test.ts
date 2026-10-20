@@ -10,7 +10,8 @@ import { describe, expect, it } from "vitest";
 import { textMime } from "../services/src/mime.js";
 import { renderWhatsApp } from "../services/src/outbound.js";
 import { dispatchTemplate } from "../services/src/sender.js";
-import { buildSnapshot, findLeaks, parseMime } from "../scripts/desk/build-snapshot.js";
+import { findLeaks } from "@dockclock/sanitize";
+import { buildSnapshot } from "../scripts/desk/build-snapshot.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const ACCOUNT = "925432502717";
@@ -162,11 +163,6 @@ describe("desk snapshot", () => {
     const again = evaluate({ loadId: "LIVE-test1", clauseId: "lakeshore-foods", facility: facility.name, ...snapshot.verdict.engineInput }, clauseById("lakeshore-foods"));
     expect(again.amountUsd).toBe(snapshot.verdict.amountUsd);
     expect(snapshot.pack.pack).toEqual((await sources()).signedPack.pack);
-  });
-
-  it("reads back the MIME DockClock sends", () => {
-    const raw = textMime({ from: "a@example.com", to: "b@example.com", subject: "Notice – ü", text: "Hello", date: new Date(0) });
-    expect(parseMime(raw)).toMatchObject({ subject: "Notice – ü", text: "Hello\n", attachments: [] });
   });
 
   it("emits JSON that type-checks against the site's ReplaySnapshot contract", async () => {

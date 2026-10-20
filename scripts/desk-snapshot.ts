@@ -7,7 +7,8 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetObjectCommand, NoSuchKey, S3Client } from "@aws-sdk/client-s3";
 import { DynamoDBDocumentClient, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { KmsSigner, registerFacility, sha256Hex, type Facility, type SignedPack } from "@dockclock/evidence";
-import { buildSnapshot, findLeaks } from "./desk/build-snapshot.js";
+import { findLeaks } from "@dockclock/sanitize";
+import { buildSnapshot } from "./desk/build-snapshot.js";
 
 const outputs = JSON.parse(readFileSync(new URL("../.cdk-outputs.json", import.meta.url), "utf8")).DockClockMessaging as Record<string, string>;
 const loadId = process.argv[2];

@@ -19,6 +19,7 @@
     "@dockclock/clause-engine": "0.1.0",
     "@dockclock/evidence": "0.1.0",
     "@dockclock/rcs": "0.1.0",
+    "@dockclock/sanitize": "0.1.0",
     "@dockclock/whatsapp": "0.1.0"
   },
   "exports": {
