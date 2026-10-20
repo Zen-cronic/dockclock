@@ -192,6 +192,7 @@ export class MessagingStack extends Stack {
     });
     const noticeFn = fn("Notice", "notice.ts", {
       ...channelEnv,
+      EVIDENCE_BUCKET: core.evidenceBucket.bucketName,
       CLAIMS_FROM_EMAIL: config.claimsFromEmail,
       COUNTERPARTY_EMAIL_BROKER: config.counterpartyEmailBroker,
       COUNTERPARTY_EMAIL_SHIPPER: config.counterpartyEmailShipper,
@@ -200,6 +201,8 @@ export class MessagingStack extends Stack {
     });
     noticeFn.grantInvoke(schedulerRole);
     core.table.grantReadWriteData(noticeFn);
+    // The sent notice's raw MIME is kept with the load's packs.
+    core.evidenceBucket.grantPut(noticeFn, "packs/*");
     core.identitySecret.grantRead(noticeFn);
     noticeFn.addToRolePolicy(sendWhatsApp);
     if (rcs) noticeFn.addToRolePolicy(rcs.sendRcs);

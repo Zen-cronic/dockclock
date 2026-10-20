@@ -78,6 +78,8 @@ export class AgentStack extends Stack {
     );
     core.table.grantReadWriteData(tools);
     core.evidenceBucket.grantRead(tools);
+    // The sent claim's raw MIME is kept with the load's packs.
+    core.evidenceBucket.grantPut(tools, "packs/*");
     // The claim email attaches the evidence key's public half.
     core.evidenceKey.grant(tools, "kms:GetPublicKey");
     core.mediaBucket.grantRead(tools);

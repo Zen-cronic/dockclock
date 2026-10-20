@@ -1,6 +1,6 @@
 import { createPublicKey } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context } from "aws-lambda";
@@ -242,14 +242,15 @@ async function sendDetentionClaim(input: ClaimRequest) {
   }
   // From here the email is out. A failure to record it keeps the reservation, so no retry re-sends.
   const sentAt = new Date().toISOString();
+  const mimeKey = await storeClaimEmail(load.loadId, raw);
   try {
     await ddb.send(
       new UpdateCommand({
         TableName: env("TABLE_NAME"),
         Key: key(load.loadId, "CLAIM"),
-        UpdateExpression: "SET #s = :s, sentAt = :t, sesMessageId = :m, subject = :sub",
+        UpdateExpression: `SET #s = :s, sentAt = :t, sesMessageId = :m, subject = :sub${mimeKey ? ", mimeKey = :k" : ""}`,
         ExpressionAttributeNames: { "#s": "status" },
-        ExpressionAttributeValues: { ":s": "sent", ":t": sentAt, ":m": sesMessageId, ":sub": input.subject },
+        ExpressionAttributeValues: { ":s": "sent", ":t": sentAt, ":m": sesMessageId, ":sub": input.subject, ...(mimeKey ? { ":k": mimeKey } : {}) },
       }),
     );
   } catch (error) {
@@ -257,6 +258,20 @@ async function sendDetentionClaim(input: ClaimRequest) {
   }
   console.log(JSON.stringify({ kind: "claim_sent", loadId: load.loadId, amountUsd: evaluation.amountUsd, sesMessageId }));
   return { sent: true, sentAt, sesMessageId, recipientRole: clause.role, amountUsd: evaluation.amountUsd };
+}
+
+// The claim email's exact bytes, kept next to the load's packs under the same Object Lock retention.
+// The email is already out, so a failure here is logged and returns null instead of throwing.
+export const claimEmailKey = (loadId: string) => `packs/${loadId}/claim.eml`;
+async function storeClaimEmail(loadId: string, raw: string): Promise<string | null> {
+  const mimeKey = claimEmailKey(loadId);
+  try {
+    await s3.send(new PutObjectCommand({ Bucket: env("EVIDENCE_BUCKET"), Key: mimeKey, Body: raw, ContentType: "message/rfc822" }));
+    return mimeKey;
+  } catch (error) {
+    console.log(JSON.stringify({ kind: "claim_email_unstored", loadId, error: (error as Error).name }));
+    return null;
+  }
 }
 
 type ToolInput = Record<string, unknown>;

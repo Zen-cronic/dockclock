@@ -1,4 +1,5 @@
 import { ConflictException, CreateScheduleCommand, SchedulerClient } from "@aws-sdk/client-scheduler";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context, SNSEvent } from "aws-lambda";
@@ -11,9 +12,11 @@ import { COPY, type Language } from "./messages.js";
 import { notifyDispatch } from "./escalate.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
+import { emailKey, textMime } from "./mime.js";
 
 const scheduler = new SchedulerClient({ maxAttempts: 3 });
 const ses = new SESv2Client({ maxAttempts: 3 });
+const s3 = new S3Client({ maxAttempts: 3 });
 
 export const TEMPLATE_NOTICE_SENT = "dockclock_notice_sent";
 // Sent this long before the clause's own lead time, so a slow delivery still meets the deadline.
@@ -125,14 +128,17 @@ async function sendNotice(loadId: string): Promise<{ sent: boolean }> {
     if ((error as Error).name === "ConditionalCheckFailedException") return { sent: false };
     throw error;
   }
+  // Raw MIME built here rather than by SES, so the stored copy is byte-for-byte what was sent.
+  const to = env.counterpartyEmail(clause.role);
+  const raw = textMime({ from: env.claimsFromEmail(), to, subject, text, date: new Date(sentAt) });
   let messageId: string | undefined;
   try {
     const out = await ses.send(
       new SendEmailCommand({
         FromEmailAddress: env.claimsFromEmail(),
-        Destination: { ToAddresses: [env.counterpartyEmail(clause.role)] },
+        Destination: { ToAddresses: [to] },
         ConfigurationSetName: env.configurationSet(),
-        Content: { Simple: { Subject: { Data: subject }, Body: { Text: { Data: text } } } },
+        Content: { Raw: { Data: Buffer.from(raw, "utf8") } },
         EmailTags: [
           { Name: "purpose", Value: "detention_notice" },
           { Name: "loadId", Value: loadId },
@@ -146,6 +152,7 @@ async function sendNotice(loadId: string): Promise<{ sent: boolean }> {
   }
   await ddb.send(new UpdateCommand({ TableName: env.table(), Key: keys.load(loadId), UpdateExpression: "SET notice.messageId = :m", ExpressionAttributeValues: { ":m": messageId } }));
   log("notice_sent", { loadId, messageId, detentionStartAt });
+  await storeNoticeEmail(loadId, raw);
 
   const facility = facilityById(load.facilityId);
   const language: Language = load.language ?? "en_US";
@@ -154,6 +161,18 @@ async function sendNotice(loadId: string): Promise<{ sent: boolean }> {
   if (load.channel === "rcs") await sendRcs(target, rcsText(COPY[language].noticeSent(load.loadId, ends, clause.counterparty)), "notice_sent", loadId);
   else await send(target, noticeSentTemplate(language, load.loadId, ends, clause.counterparty), "notice_sent", loadId);
   return { sent: true };
+}
+
+// The sent notice's bytes, kept with the load's packs. The email is already out, so a failure to
+// keep the copy is logged and does not fail the step (a retry would find the notice sent).
+async function storeNoticeEmail(loadId: string, raw: string): Promise<void> {
+  const key = emailKey(loadId, "notice");
+  try {
+    await s3.send(new PutObjectCommand({ Bucket: env.bucket(), Key: key, Body: raw, ContentType: "message/rfc822" }));
+    await ddb.send(new UpdateCommand({ TableName: env.table(), Key: keys.load(loadId), UpdateExpression: "SET notice.mimeKey = :k", ExpressionAttributeValues: { ":k": key } }));
+  } catch (error) {
+    log("notice_email_unstored", { loadId, error: (error as Error).name });
+  }
 }
 
 interface SesEvent {

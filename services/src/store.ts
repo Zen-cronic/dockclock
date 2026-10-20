@@ -52,6 +52,8 @@ export interface NoticeItem {
   scheduledFor: string;
   sentAt?: string;
   messageId?: string;
+  // The sent email's raw MIME in the evidence bucket.
+  mimeKey?: string;
   deliveredAt?: string;
   bouncedAt?: string;
   skipped?: string;

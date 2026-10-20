@@ -1,9 +1,9 @@
 import { createPublicKey } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { GetPublicKeyCommand, KMSClient } from "@aws-sdk/client-kms";
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context } from "aws-lambda";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -54,6 +54,8 @@ describe("send_detention_claim", () => {
     dynamo.on(PutCommand).resolves({});
     s3.on(GetObjectCommand).resolves({ Body: { transformToString: async () => packJson } } as never);
     ses.on(SendEmailCommand).resolves({ MessageId: "ses-1" });
+    s3.on(PutObjectCommand).resolves({});
+    dynamo.on(UpdateCommand).resolves({});
   });
 
   it("reserves nothing when the public key cannot be fetched, so a retry can still file", async () => {
@@ -76,6 +78,27 @@ describe("send_detention_claim", () => {
     expect(decoded).toContain(packJson);
     expect(decoded).toContain(publishedPem);
     expect(decoded[0]).toContain('over the SHA-256 of the file\'s "pack" field written as canonical JSON');
+  });
+
+  it("keeps the exact claim email next to the load's packs and points the claim record at it", async () => {
+    kms.on(GetPublicKeyCommand).resolves({ PublicKey: der });
+    await handler(claim, context);
+    const raw = Buffer.from(ses.commandCalls(SendEmailCommand)[0]!.args[0].input.Content!.Raw!.Data!).toString();
+    const put = s3.commandCalls(PutObjectCommand)[0]!.args[0].input;
+    expect(put).toMatchObject({ Bucket: "evidence", Key: "packs/SMOKE-mve8yfv3/claim.eml", ContentType: "message/rfc822" });
+    expect(put.Body).toBe(raw);
+    const update = dynamo.commandCalls(UpdateCommand)[0]!.args[0].input;
+    expect(update.UpdateExpression).toContain("mimeKey = :k");
+    expect(update.ExpressionAttributeValues?.[":k"]).toBe("packs/SMOKE-mve8yfv3/claim.eml");
+  });
+
+  it("still records the sent claim when keeping the copy fails", async () => {
+    kms.on(GetPublicKeyCommand).resolves({ PublicKey: der });
+    s3.on(PutObjectCommand).rejects(new Error("denied"));
+    expect(await handler(claim, context)).toMatchObject({ sent: true });
+    const update = dynamo.commandCalls(UpdateCommand)[0]!.args[0].input;
+    expect(update.UpdateExpression).not.toContain("mimeKey");
+    expect(update.ExpressionAttributeValues?.[":s"]).toBe("sent");
   });
 });
 

@@ -1,4 +1,5 @@
 import { CreateScheduleCommand, SchedulerClient } from "@aws-sdk/client-scheduler";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { SendWhatsAppMessageCommand, SocialMessagingClient } from "@aws-sdk/client-socialmessaging";
@@ -15,6 +16,7 @@ const scheduler = mockClient(SchedulerClient);
 const ses = mockClient(SESv2Client);
 const messaging = mockClient(SocialMessagingClient);
 const secrets = mockClient(SecretsManagerClient);
+const s3 = mockClient(S3Client);
 const context = { invokedFunctionArn: "arn:aws:lambda:us-east-1:111122223333:function:notice" } as Context;
 
 let load: Record<string, unknown>;
@@ -56,11 +58,13 @@ describe("detention notice", () => {
       DRIVER_ALLOWLIST: "+15550100001",
       ORIGINATION_PHONE_ID: "phone-number-id-test",
       IDENTITY_SECRET_ARN: "arn:secret",
+      EVIDENCE_BUCKET: "evidence",
     });
   });
 
   beforeEach(() => {
-    for (const m of [dynamo, scheduler, ses, messaging, secrets]) m.reset();
+    for (const m of [dynamo, scheduler, ses, messaging, secrets, s3]) m.reset();
+    s3.on(PutObjectCommand).resolves({});
     load = freshLoad();
     secrets.on(GetSecretValueCommand).resolves({ SecretString: "k" });
     dynamo.on(GetCommand).callsFake(async (input: { Key: { pk: string; sk: string } }) => (input.Key.sk === "META" ? { Item: structuredClone(load) } : {}));
@@ -72,6 +76,7 @@ describe("detention notice", () => {
         notice.sentAt = values[":t"];
       }
       if (input.UpdateExpression === "SET notice.messageId = :m") notice.messageId = values[":m"];
+      if (input.UpdateExpression === "SET notice.mimeKey = :k") notice.mimeKey = values[":k"];
       if (input.UpdateExpression.startsWith("SET notice.deliveredAt")) {
         if (notice.messageId !== values[":m"]) throw Object.assign(new Error("other"), { name: "ConditionalCheckFailedException" });
         notice.deliveredAt ??= values[":t"];
@@ -132,6 +137,25 @@ describe("detention notice", () => {
     expect((load.notice as Record<string, unknown>).messageId).toBe("ses-notice-1");
     const driver = JSON.parse(Buffer.from(messaging.commandCalls(SendWhatsAppMessageCommand)[0]!.args[0].input.message as Uint8Array).toString());
     expect(driver.template.name).toBe("dockclock_notice_sent");
+  });
+
+  it("sends the notice as raw MIME and keeps those exact bytes with the load's packs", async () => {
+    await handler({ kind: "send", loadId: "4471" }, context);
+    const raw = Buffer.from(ses.commandCalls(SendEmailCommand)[0]!.args[0].input.Content!.Raw!.Data!).toString("utf8");
+    expect(raw).toContain("Subject: Detention notice: load 4471 at Lakeshore DC, Columbus OH");
+    expect(raw).toContain("To: broker@example.com");
+    const body = Buffer.from(raw.split("\r\n\r\n")[1]!.replace(/\r\n/g, ""), "base64").toString("utf8");
+    expect(body).toContain("ends at 2026-10-17 16:00 EDT");
+    const put = s3.commandCalls(PutObjectCommand)[0]!.args[0].input;
+    expect(put).toMatchObject({ Bucket: "evidence", Key: "packs/4471/notice.eml", ContentType: "message/rfc822" });
+    expect(put.Body).toBe(raw);
+    expect((load.notice as Record<string, unknown>).mimeKey).toBe("packs/4471/notice.eml");
+  });
+
+  it("still tells the driver when keeping the copy fails", async () => {
+    s3.on(PutObjectCommand).rejects(new Error("denied"));
+    expect(await handler({ kind: "send", loadId: "4471" }, context)).toEqual({ sent: true });
+    expect(messaging.commandCalls(SendWhatsAppMessageCommand)).toHaveLength(1);
   });
 
   it("sends nothing once the truck is released", async () => {
