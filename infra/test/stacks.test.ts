@@ -133,6 +133,9 @@ describe("stacks", () => {
     });
     const noticeEnv = JSON.stringify(msgT.findResources("AWS::Lambda::Function"));
     expect(noticeEnv).toContain("EVIDENCE_BUCKET");
+    // Raw MIME sends are authorized as ses:SendRawEmail (found live: SendEmail alone is refused).
+    const noticePolicy = Object.entries(msgT.findResources("AWS::IAM::Policy")).find(([id]) => id.startsWith("NoticeServiceRoleDefaultPolicy"));
+    expect(JSON.stringify(noticePolicy)).toContain("ses:SendRawEmail");
   });
 
   it("serves the judge desk from a private bucket through CloudFront over HTTPS only", () => {

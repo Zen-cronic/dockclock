@@ -207,6 +207,9 @@ export class MessagingStack extends Stack {
     noticeFn.addToRolePolicy(sendWhatsApp);
     if (rcs) noticeFn.addToRolePolicy(rcs.sendRcs);
     noticeFn.addToRolePolicy(sesSend);
+    // The notice goes out as raw MIME (so the stored copy is the sent bytes), which SES authorizes
+    // as SendRawEmail.
+    noticeFn.addToRolePolicy(new iam.PolicyStatement({ actions: ["ses:SendRawEmail"], resources: sesSend.resources }));
     noticeFn.addToRolePolicy(
       new iam.PolicyStatement({ actions: ["scheduler:CreateSchedule"], resources: [`arn:aws:scheduler:${config.region}:${config.account}:schedule/${NOTICE_SCHEDULE_GROUP}/*`] }),
     );
