@@ -1,7 +1,7 @@
 import { ConflictException, CreateScheduleCommand, SchedulerClient } from "@aws-sdk/client-scheduler";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
-import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context, SNSEvent } from "aws-lambda";
 import { clauseById, detentionStartsAt } from "@dockclock/clause-engine";
 import { facilityById, isoToLocalClock, isoToLocalDateTime, zoneAbbreviation } from "@dockclock/evidence";
@@ -182,15 +182,36 @@ interface SesEvent {
   bounce?: { timestamp: string };
 }
 
-// SES delivery events: a delivered notice becomes evidence; a bounced one goes to a person.
+// SES delivery events. A delivered notice becomes evidence; a bounced one goes to a person. The
+// claim and dispatch escalation emails get their delivery or bounce time recorded too, matched by
+// SES message id so a stray event never marks the wrong email.
 async function onSesEvents(event: SNSEvent): Promise<void> {
   for (const record of event.Records) {
     const ses = JSON.parse(record.Sns.Message) as SesEvent;
-    if (ses.mail.tags?.purpose?.[0] !== "detention_notice") continue;
-    const loadId = ses.mail.tags.loadId?.[0];
+    const purpose = ses.mail.tags?.purpose?.[0];
+    const loadId = ses.mail.tags?.loadId?.[0];
     if (!loadId) continue;
     const field = ses.eventType === "Delivery" ? "deliveredAt" : ses.eventType === "Bounce" ? "bouncedAt" : null;
     if (!field) continue;
+    const at = ses.delivery?.timestamp ?? ses.bounce?.timestamp ?? record.Sns.Timestamp;
+    if (purpose === "detention_claim") {
+      if (await markDelivery(keys.claim(loadId), field, at, "sesMessageId", ses.mail.messageId)) log(`claim_email_${field === "deliveredAt" ? "delivered" : "bounced"}`, { loadId, messageId: ses.mail.messageId });
+      continue;
+    }
+    if (purpose === "dispatch_escalation") {
+      const found = await ddb.send(
+        new QueryCommand({
+          TableName: env.table(),
+          KeyConditionExpression: "pk = :p AND begins_with(sk, :s)",
+          FilterExpression: "sesMessageId = :m",
+          ExpressionAttributeValues: { ":p": `LOAD#${loadId}`, ":s": "EMAIL#escalation#", ":m": ses.mail.messageId },
+        }),
+      );
+      const item = found.Items?.[0] as { pk: string; sk: string } | undefined;
+      if (item && (await markDelivery({ pk: item.pk, sk: item.sk }, field, at, "sesMessageId", ses.mail.messageId))) log(`escalation_${field === "deliveredAt" ? "delivered" : "bounced"}`, { loadId, messageId: ses.mail.messageId });
+      continue;
+    }
+    if (purpose !== "detention_notice") continue;
     try {
       await ddb.send(
         new UpdateCommand({
@@ -198,7 +219,7 @@ async function onSesEvents(event: SNSEvent): Promise<void> {
           Key: keys.load(loadId),
           UpdateExpression: `SET notice.${field} = if_not_exists(notice.${field}, :t)`,
           ConditionExpression: "notice.messageId = :m",
-          ExpressionAttributeValues: { ":t": ses.delivery?.timestamp ?? ses.bounce?.timestamp ?? record.Sns.Timestamp, ":m": ses.mail.messageId },
+          ExpressionAttributeValues: { ":t": at, ":m": ses.mail.messageId },
         }),
       );
     } catch (error) {
@@ -210,6 +231,25 @@ async function onSesEvents(event: SNSEvent): Promise<void> {
       const load = await getLoad(loadId);
       if (load) await notifyDispatch(load, "the detention notice email bounced; send notice another way");
     }
+  }
+}
+
+// Sets deliveredAt or bouncedAt once on the record whose message id matches. False when it does not.
+async function markDelivery(key: { pk: string; sk: string }, field: "deliveredAt" | "bouncedAt", at: string, idField: string, messageId: string): Promise<boolean> {
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: env.table(),
+        Key: key,
+        UpdateExpression: `SET ${field} = if_not_exists(${field}, :t)`,
+        ConditionExpression: `${idField} = :m`,
+        ExpressionAttributeValues: { ":t": at, ":m": messageId },
+      }),
+    );
+    return true;
+  } catch (error) {
+    if ((error as Error).name !== "ConditionalCheckFailedException") throw error;
+    return false;
   }
 }
 

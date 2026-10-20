@@ -6,6 +6,8 @@ export const keys = {
   pack: (loadId: string, packId: string) => ({ pk: `LOAD#${loadId}`, sk: `PACK#${packId}` }),
   // An outbound message as the recipient saw it, in the load's own partition (no recipient).
   send: (loadId: string, sentAt: string, messageId: string) => ({ pk: `LOAD#${loadId}`, sk: `SEND#${sentAt}#${messageId}` }),
+  // A dispatch escalation email, scrubbed of the driver's contact.
+  escalationEmail: (loadId: string, sentAt: string, id: string) => ({ pk: `LOAD#${loadId}`, sk: `EMAIL#escalation#${sentAt}#${id}` }),
   dedupe: (wamid: string) => ({ pk: `WAMID#${wamid}`, sk: "DEDUPE" }),
   driver: (driverKey: string) => ({ pk: `DRIVER#${driverKey}`, sk: "ACTIVE" }),
   receipt: (messageId: string) => ({ pk: `MSG#${messageId}`, sk: "RECEIPT" }),
@@ -14,4 +16,5 @@ export const keys = {
   demoQuota: (day: string, scope: string) => ({ pk: `DEMOQUOTA#${day}`, sk: scope }),
   approvalRequest: (loadId: string) => ({ pk: `LOAD#${loadId}`, sk: "APPROVAL_REQUEST" }),
   approval: (loadId: string) => ({ pk: `LOAD#${loadId}`, sk: "APPROVAL" }),
+  claim: (loadId: string) => ({ pk: `LOAD#${loadId}`, sk: "CLAIM" }),
 };

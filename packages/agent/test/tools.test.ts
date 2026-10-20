@@ -83,6 +83,8 @@ describe("send_detention_claim", () => {
   it("keeps the exact claim email next to the load's packs and points the claim record at it", async () => {
     kms.on(GetPublicKeyCommand).resolves({ PublicKey: der });
     await handler(claim, context);
+    // Tagged with its load, so SES delivery events can be recorded on the claim.
+    expect(ses.commandCalls(SendEmailCommand)[0]!.args[0].input.EmailTags).toContainEqual({ Name: "loadId", Value: "SMOKE-mve8yfv3" });
     const raw = Buffer.from(ses.commandCalls(SendEmailCommand)[0]!.args[0].input.Content!.Raw!.Data!).toString();
     const put = s3.commandCalls(PutObjectCommand)[0]!.args[0].input;
     expect(put).toMatchObject({ Bucket: "evidence", Key: "packs/SMOKE-mve8yfv3/claim.eml", ContentType: "message/rfc822" });

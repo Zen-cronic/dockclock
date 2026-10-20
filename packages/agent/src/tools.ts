@@ -231,7 +231,10 @@ async function sendDetentionClaim(input: ClaimRequest) {
       new SendEmailCommand({
         Content: { Raw: { Data: Buffer.from(raw, "utf8") } },
         ConfigurationSetName: configurationSet,
-        EmailTags: [{ Name: "purpose", Value: "detention_claim" }],
+        EmailTags: [
+          { Name: "purpose", Value: "detention_claim" },
+          { Name: "loadId", Value: load.loadId },
+        ],
       }),
     );
     sesMessageId = out.MessageId;

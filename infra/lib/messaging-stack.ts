@@ -265,7 +265,8 @@ export class MessagingStack extends Stack {
     );
 
     const notifyFn = fn("NotifyDispatch", "notify.ts", channelEnv);
-    core.table.grantReadData(notifyFn);
+    // Write: each escalation is also recorded on its load (EMAIL#escalation#...), scrubbed.
+    core.table.grantReadWriteData(notifyFn);
     notifyFn.addToRolePolicy(sesSend);
     const notify = (id: string, reason: string) =>
       new tasks.LambdaInvoke(this, id, {
