@@ -95,7 +95,11 @@ export function LoadDetailRoute() {
   const [node, setNode] = useState<FlowNode | null>(null);
   const [party, setParty] = useState<"driver" | "dispatcher">("driver");
   const captures = useMemo(() => (id ? recordedCaptures(id) : []), [id]);
-  const [capture, setCapture] = useState<number | null>(null);
+  const stageParam = search.get("stage");
+  const [capture, setCapture] = useState<number | null>(() => {
+    const i = stageParam ? captures.findIndex((c) => c.status === stageParam) : -1;
+    return i >= 0 && i < captures.length - 1 ? i : null;
+  });
   const shown = capture !== null ? captures[capture]?.detail : undefined;
   const pack = usePack(load);
   if (!load)

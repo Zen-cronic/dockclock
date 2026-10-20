@@ -91,6 +91,25 @@ function PhotoTile({ photo }: { photo: LoadDetail["photos"][number] }) {
   );
 }
 
+function NoPhoto({ lane }: { lane: "whatsapp" | "rcs" }) {
+  const [params] = useSearchParams();
+  const rcs = new URLSearchParams(params);
+  rcs.set("lane", "rcs");
+  return (
+    <div className="phototile nophoto-tile">
+      <div className="nophoto" aria-hidden="true">—</div>
+      <div>
+        <b>No photo on this test run</b>
+        {lane === "whatsapp" && (
+          <p className="small" style={{ marginTop: 6 }}>
+            <Link to={`/judges/proved?${rcs}`}>See the RCS lane ›</Link>
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Judges() {
   const { step: stepParam } = useParams();
   const [params, setParams] = useSearchParams();
@@ -204,7 +223,7 @@ export function Judges() {
               <>
                 <h1>{title}</h1>
                 <p className="say">{say}</p>
-                {step === "proved" && load.photos[0] && <PhotoTile photo={load.photos[0]} />}
+                {step === "proved" && (load.photos.find((p) => p.url) ? <PhotoTile photo={load.photos.find((p) => p.url)!} /> : <NoPhoto lane={lane} />)}
                 <div className="acts">
                   {i > 0 && <button className="btn" onClick={() => go(JUDGE_STEPS[i - 1]!)}>Back</button>}
                   {i < JUDGE_STEPS.length - 1 && <button className="btn primary" onClick={() => go(JUDGE_STEPS[i + 1]!)}>{i === 0 ? "Start" : "Next"}</button>}

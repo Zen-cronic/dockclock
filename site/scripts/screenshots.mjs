@@ -23,20 +23,20 @@ const server = createServer(async (req, res) => {
   }
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
-const base = `http://127.0.0.1:${server.address().port}`;
+const base = process.env.BASE ?? `http://127.0.0.1:${server.address().port}`;
 
 const routes = [
   ["overview", "/"],
   ["messages", "/messages"],
   ["loads", "/loads"],
-  ["load-timeline", "/loads/SMOKE-mvh1bmmu"],
-  ["load-conversation", "/loads/SMOKE-mvh1bmmu/conversation"],
-  ["load-agent", "/loads/SMOKE-mvh1bmmu/agent"],
-  ["load-evidence", "/loads/SMOKE-mvh1bmmu/evidence"],
-  ["load-whatif", "/loads/SMOKE-mvh1bmmu/whatif"],
-  ["load-progress", "/loads/SMOKE-mvh34j51"],
-  ["load-rcs-conversation", "/loads/SMOKE-RCS-mvh32fui/conversation"],
-  ["load-rcs-evidence", "/loads/SMOKE-RCS-mvh32fui/evidence"],
+  ["load-timeline", "/loads/SMOKE-DEMO-mvh3xsdv"],
+  ["load-conversation", "/loads/SMOKE-DEMO-mvh3xsdv/conversation"],
+  ["load-agent", "/loads/SMOKE-DEMO-mvh3xsdv/agent"],
+  ["load-evidence", "/loads/SMOKE-DEMO-mvh3xsdv/evidence"],
+  ["load-whatif", "/loads/SMOKE-DEMO-mvh3xsdv/whatif"],
+  ["load-progress", "/loads/SMOKE-DEMO-mvh3xsdv?stage=at_dock"],
+  ["load-rcs-conversation", "/loads/SMOKE-DEMO-mvh3xsdq/conversation"],
+  ["load-rcs-evidence", "/loads/SMOKE-DEMO-mvh3xsdq/evidence"],
   ["judges-start", "/judges"],
   ["judges-proved", "/judges/proved"],
   ["judges-filed", "/judges/filed"],
