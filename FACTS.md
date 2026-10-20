@@ -68,9 +68,20 @@ Status key:
 | RCS driver loop on a real phone | Load `LIVE-mve1ve6d` (2026-10-18): dispatch card delivered 12:38:58 EDT; Arrived 12:52:43, arrival pin 12:54:00, Released 12:54:06, release pin 12:54:16, BOL photo 12:54:41 EDT, all over RCS; photo hashed; sealed NEEDS_HUMAN (pins outside the facility) | live (phone) |
 | Once-only failover from a failed WhatsApp send to RCS | `services/test/failover.test.ts`; `npm run smoke:rcs` (synthetic events) | tested + live (integration) |
 
+## Judge desk and its records
+| Claim | Evidence | Status |
+|---|---|---|
+| Every accepted WhatsApp and RCS send, including the dispatcher approval request, is also recorded in the load's partition (`SEND#`) with its channel, purpose, template and the rendered text, button titles and Flow call to action, and no recipient, phone, BSUID or button payload | `services/src/outbound.ts`, `services/src/sender.ts`; `services/test/outbound.test.ts`. Not yet seen live: smoke loads message a blocked test number, so the first live `SEND#` needs a real-phone load | tested |
+| The detention notice and the claim email are kept byte for byte (raw MIME) next to the load's packs under S3 Object Lock, and the notice and claim records point at them | Load `SMOKE-mvh1bmmu` (2026-10-20): `notice.eml` and `claim.eml`, Object Lock GOVERNANCE to 2026-11-19; `services/test/notice.test.ts`, `packages/agent/test/tools.test.ts` | live (integration) + tested |
+| Every claims-agent run, from the workflow or the CLI, is recorded under its load (`AGENT#`) with ordered tool calls, key results, final text, model and duration, including a run that refused because dispatch had not approved | Same load: one refused `file_claim` run (no approval), then a filed one with the SES message id; `packages/agent/src/invoke.ts`; `packages/agent/test/invoke.test.ts` | live (integration) + tested |
+| Sealed packs carry message ids as short sha256 references, never a raw WhatsApp id (which encodes the sender's phone number) | Same load's pack; `packages/evidence/test/evidence.test.ts`; `docs/evidence/README.md` | live (integration) + tested |
+| The judge desk is a static page on CloudFront (HTTPS, private S3 origin with origin access control) | Stack `DockClockDesk`, `infra/lib/desk-stack.ts`; `infra/test/stacks.test.ts`; https://d3djuoqhg6b8o2.cloudfront.net (2026-10-20) | live (integration) + tested |
+| A load's replay file is exported with no coordinates, phone numbers, BSUIDs, message ids, ARNs, account id or S3 keys, its engine inputs reproduce the sealed verdict, and it type-checks against the page's contract | `npm run desk:snapshot -- <loadId>` (`scripts/desk-snapshot.ts`); `test/desk-snapshot.test.ts` | tested |
+
 ## Not built yet
 | Claim | Status |
 |---|---|
 | Dispute replies | planned |
 | Live phone runs of the photo retake and the judge path | planned |
+| A judge-desk replay of a load driven from a real phone (needed for recorded outbound message text) | planned |
 | Demo video | planned |
