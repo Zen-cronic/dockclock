@@ -1,0 +1,825 @@
+{
+ "schema": "dockclock.replay/1",
+ "exportedAt": "2026-10-20T18:54:24.575Z",
+ "run": {
+  "kind": "integration",
+  "summary": "Test run: the driver's messages were replayed test messages and the approval was recorded from the command line. The AI agent, the signature and the emails were real.",
+  "notes": [
+   "Driver messages: synthetic, replayed through the deployed stack by the integration test (load id prefix SMOKE-). Their times were set earlier than the run.",
+   "Messages to the driver were not sent (test number), so the phone shows only the driver's replayed replies.",
+   "Approval: recorded from the command line for this test, not a tap on a phone.",
+   "Claim email: sent by Amazon SES to our test mailbox; shown here from its stored bytes.",
+   "Detention notice: sent by Amazon SES to our test mailbox; delivery is SES's delivery event.",
+   "No bill-of-lading photo was stored in this run, so evidence confidence is low."
+  ]
+ },
+ "load": {
+  "loadId": "SMOKE-mvh1bmmu",
+  "facility": {
+   "id": "lakeshore-columbus",
+   "name": "Lakeshore DC, Columbus OH",
+   "timeZone": "America/New_York"
+  },
+  "counterparty": {
+   "name": "Lakeshore Foods (fictional shipper)",
+   "role": "shipper"
+  },
+  "appointmentAt": "2026-10-20T14:46:49.686Z",
+  "channel": "whatsapp",
+  "language": "en_US",
+  "demo": false
+ },
+ "clause": {
+  "id": "lakeshore-foods",
+  "freeTimeMinutes": 120,
+  "freeTimeAnchor": "appointment",
+  "requireOnTimeArrival": true,
+  "ratePerHourUsd": 60,
+  "capUsdPerOccurrence": 360,
+  "noticeLeadMinutes": null,
+  "acceptedRecords": [
+   "status_214",
+   "signed_bol_times"
+  ],
+  "claimWindowHours": 168,
+  "shipperConfirmationRequired": false,
+  "basis": "Modelled on published shipper terms. Values those terms do not state are DockClock assumptions."
+ },
+ "clock": {
+  "arrivedAt": "2026-10-20T14:39:49.000Z",
+  "releasedAt": "2026-10-20T18:17:49.000Z",
+  "clockStartAt": "2026-10-20T14:46:49.686Z",
+  "freeTimeEndsAt": "2026-10-20T16:46:49.686Z",
+  "detentionMinutes": 90.98856666666667,
+  "billableMinutes": 90.98856666666667,
+  "driverTimes": "synthetic_input"
+ },
+ "messages": [
+  {
+   "id": "m1",
+   "at": "2026-10-20T14:36:49.000Z",
+   "direction": "in",
+   "party": "driver",
+   "channel": "whatsapp",
+   "bodyProvenance": "synthetic_input",
+   "provenance": "synthetic_input",
+   "purpose": "tap_released",
+   "kind": "buttons",
+   "body": "Tapped Released",
+   "buttons": [
+    {
+     "title": "Released",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "id": "m2",
+   "at": "2026-10-20T14:38:49.000Z",
+   "direction": "in",
+   "party": "driver",
+   "channel": "whatsapp",
+   "bodyProvenance": "synthetic_input",
+   "provenance": "synthetic_input",
+   "purpose": "tap_arrived",
+   "kind": "buttons",
+   "body": "Tapped Arrived",
+   "buttons": [
+    {
+     "title": "Arrived",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "id": "m3",
+   "at": "2026-10-20T14:39:49.000Z",
+   "direction": "in",
+   "party": "driver",
+   "channel": "whatsapp",
+   "bodyProvenance": "synthetic_input",
+   "provenance": "synthetic_input",
+   "purpose": "location",
+   "kind": "location",
+   "body": "Location shared",
+   "location": {
+    "insideGeofence": true,
+    "note": "Inside the facility area. Coordinates are not shown."
+   }
+  },
+  {
+   "id": "m4",
+   "at": "2026-10-20T15:26:49.000Z",
+   "direction": "in",
+   "party": "driver",
+   "channel": "whatsapp",
+   "bodyProvenance": "synthetic_input",
+   "provenance": "synthetic_input",
+   "purpose": "tap_arrived",
+   "kind": "buttons",
+   "body": "Tapped Arrived",
+   "buttons": [
+    {
+     "title": "Arrived",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "id": "m5",
+   "at": "2026-10-20T18:15:49.000Z",
+   "direction": "in",
+   "party": "driver",
+   "channel": "whatsapp",
+   "bodyProvenance": "synthetic_input",
+   "provenance": "synthetic_input",
+   "purpose": "tap_released",
+   "kind": "buttons",
+   "body": "Tapped Released",
+   "buttons": [
+    {
+     "title": "Released",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "id": "m6",
+   "at": "2026-10-20T18:16:49.000Z",
+   "direction": "in",
+   "party": "driver",
+   "channel": "whatsapp",
+   "bodyProvenance": "synthetic_input",
+   "provenance": "synthetic_input",
+   "purpose": "tap_released",
+   "kind": "buttons",
+   "body": "Tapped Released",
+   "buttons": [
+    {
+     "title": "Released",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "id": "m7",
+   "at": "2026-10-20T18:17:49.000Z",
+   "direction": "in",
+   "party": "driver",
+   "channel": "whatsapp",
+   "bodyProvenance": "synthetic_input",
+   "provenance": "synthetic_input",
+   "purpose": "location",
+   "kind": "location",
+   "body": "Location shared",
+   "location": {
+    "insideGeofence": true,
+    "note": "Inside the facility area. Coordinates are not shown."
+   }
+  },
+  {
+   "id": "m8",
+   "at": "2026-10-20T18:21:49.000Z",
+   "direction": "in",
+   "party": "driver",
+   "channel": "whatsapp",
+   "bodyProvenance": "synthetic_input",
+   "provenance": "synthetic_input",
+   "purpose": "flow_reply",
+   "kind": "flow_reply",
+   "body": "Bill of lading form",
+   "flowReply": {
+    "inTime": "10:41",
+    "outTime": "14:15",
+    "receiverSigned": true,
+    "delayReason": "dock_not_ready",
+    "photoStored": false
+   }
+  }
+ ],
+ "timeline": [
+  {
+   "id": "e1",
+   "at": "2026-10-20T14:36:49.000Z",
+   "title": "Released tapped out of order: refused",
+   "services": [
+    "EUM Social",
+    "SNS",
+    "SQS",
+    "Lambda",
+    "DynamoDB"
+   ],
+   "outcome": "REJECTED_OUT_OF_ORDER",
+   "tone": "refused",
+   "record": {
+    "sk": "EVENT#2026-10-20T14:36:49.000Z",
+    "serverAt": "2026-10-20T14:36:49.000Z",
+    "type": "button",
+    "detail": {
+     "payload": "dc1.released.SMOKE-mvh1bmmu.<nonce>"
+    },
+    "phaseAfter": "dispatched",
+    "channel": "whatsapp",
+    "outcome": "REJECTED_OUT_OF_ORDER",
+    "phaseBefore": "dispatched"
+   },
+   "provenance": "synthetic_input",
+   "messageId": "m1"
+  },
+  {
+   "id": "e2",
+   "at": "2026-10-20T14:38:49.000Z",
+   "title": "Driver tapped Arrived",
+   "services": [
+    "EUM Social",
+    "SNS",
+    "SQS",
+    "Lambda",
+    "DynamoDB"
+   ],
+   "outcome": "ADVANCED",
+   "tone": "neutral",
+   "record": {
+    "outcome": "ADVANCED",
+    "type": "button",
+    "detail": {
+     "payload": "dc1.arrived.SMOKE-mvh1bmmu.<nonce>"
+    },
+    "serverAt": "2026-10-20T14:38:49.000Z",
+    "channel": "whatsapp",
+    "phaseBefore": "dispatched",
+    "phaseAfter": "awaiting_arrival_pin",
+    "sk": "EVENT#2026-10-20T14:38:49.000Z"
+   },
+   "provenance": "synthetic_input",
+   "messageId": "m2"
+  },
+  {
+   "id": "e3",
+   "at": "2026-10-20T14:39:49.000Z",
+   "title": "Driver shared a location",
+   "detail": "Inside the facility area. Coordinates are not shown. Time is WhatsApp server time.",
+   "services": [
+    "EUM Social",
+    "SNS",
+    "SQS",
+    "Lambda",
+    "DynamoDB"
+   ],
+   "outcome": "ADVANCED",
+   "tone": "neutral",
+   "record": {
+    "serverAt": "2026-10-20T14:39:49.000Z",
+    "outcome": "ADVANCED",
+    "phaseAfter": "at_dock",
+    "phaseBefore": "awaiting_arrival_pin",
+    "type": "location",
+    "channel": "whatsapp",
+    "detail": {},
+    "sk": "EVENT#2026-10-20T14:39:49.000Z"
+   },
+   "provenance": "synthetic_input",
+   "messageId": "m3"
+  },
+  {
+   "id": "e4",
+   "at": "2026-10-20T15:26:49.000Z",
+   "title": "Arrived tapped again: ignored",
+   "services": [
+    "EUM Social",
+    "SNS",
+    "SQS",
+    "Lambda",
+    "DynamoDB"
+   ],
+   "outcome": "IGNORED_DUPLICATE_TAP",
+   "tone": "refused",
+   "record": {
+    "outcome": "IGNORED_DUPLICATE_TAP",
+    "phaseAfter": "at_dock",
+    "type": "button",
+    "detail": {
+     "payload": "dc1.arrived.SMOKE-mvh1bmmu.<nonce>"
+    },
+    "channel": "whatsapp",
+    "sk": "EVENT#2026-10-20T15:26:49.000Z",
+    "serverAt": "2026-10-20T15:26:49.000Z",
+    "phaseBefore": "at_dock"
+   },
+   "provenance": "synthetic_input",
+   "messageId": "m4"
+  },
+  {
+   "id": "e5",
+   "at": "2026-10-20T18:15:49.000Z",
+   "title": "Released tapped on an old message: refused",
+   "services": [
+    "EUM Social",
+    "SNS",
+    "SQS",
+    "Lambda",
+    "DynamoDB"
+   ],
+   "outcome": "REJECTED_STALE_BUTTON",
+   "tone": "refused",
+   "record": {
+    "outcome": "REJECTED_STALE_BUTTON",
+    "sk": "EVENT#2026-10-20T18:15:49.000Z",
+    "detail": {
+     "payload": "dc1.released.SMOKE-mvh1bmmu.stale000"
+    },
+    "phaseAfter": "at_dock",
+    "type": "button",
+    "channel": "whatsapp",
+    "serverAt": "2026-10-20T18:15:49.000Z",
+    "phaseBefore": "at_dock"
+   },
+   "provenance": "synthetic_input",
+   "messageId": "m5"
+  },
+  {
+   "id": "e6",
+   "at": "2026-10-20T18:16:49.000Z",
+   "title": "Driver tapped Released",
+   "services": [
+    "EUM Social",
+    "SNS",
+    "SQS",
+    "Lambda",
+    "DynamoDB"
+   ],
+   "outcome": "ADVANCED",
+   "tone": "neutral",
+   "record": {
+    "phaseAfter": "awaiting_release_pin",
+    "outcome": "ADVANCED",
+    "type": "button",
+    "sk": "EVENT#2026-10-20T18:16:49.000Z",
+    "detail": {
+     "payload": "dc1.released.SMOKE-mvh1bmmu.<nonce>"
+    },
+    "channel": "whatsapp",
+    "serverAt": "2026-10-20T18:16:49.000Z",
+    "phaseBefore": "at_dock"
+   },
+   "provenance": "synthetic_input",
+   "messageId": "m6"
+  },
+  {
+   "id": "e7",
+   "at": "2026-10-20T18:17:49.000Z",
+   "title": "Driver shared a location",
+   "detail": "Inside the facility area. Coordinates are not shown. Time is WhatsApp server time.",
+   "services": [
+    "EUM Social",
+    "SNS",
+    "SQS",
+    "Lambda",
+    "DynamoDB"
+   ],
+   "outcome": "ADVANCED",
+   "tone": "neutral",
+   "record": {
+    "outcome": "ADVANCED",
+    "type": "location",
+    "channel": "whatsapp",
+    "serverAt": "2026-10-20T18:17:49.000Z",
+    "sk": "EVENT#2026-10-20T18:17:49.000Z",
+    "phaseBefore": "awaiting_release_pin",
+    "phaseAfter": "awaiting_bol",
+    "detail": {}
+   },
+   "provenance": "synthetic_input",
+   "messageId": "m7"
+  },
+  {
+   "id": "e8",
+   "at": "2026-10-20T18:21:49.000Z",
+   "title": "Bill of lading form submitted",
+   "services": [
+    "EUM Social",
+    "SNS",
+    "SQS",
+    "Lambda",
+    "DynamoDB"
+   ],
+   "outcome": "ADVANCED",
+   "tone": "neutral",
+   "record": {
+    "phaseAfter": "documented",
+    "phaseBefore": "awaiting_bol",
+    "type": "flow",
+    "outcome": "ADVANCED",
+    "channel": "whatsapp",
+    "detail": {
+     "flowToken": "dc1.release.SMOKE-mvh1bmmu.<nonce>"
+    },
+    "serverAt": "2026-10-20T18:21:49.000Z",
+    "sk": "EVENT#2026-10-20T18:21:49.000Z"
+   },
+   "provenance": "synthetic_input",
+   "messageId": "m8"
+  },
+  {
+   "id": "e9",
+   "at": "2026-10-20T18:47:00.887Z",
+   "title": "Detention notice emailed after free time ended",
+   "services": [
+    "EventBridge Scheduler",
+    "Lambda",
+    "SES"
+   ],
+   "tone": "money",
+   "emailId": "x1",
+   "provenance": "recorded"
+  },
+  {
+   "id": "e10",
+   "at": "2026-10-20T18:47:01.583Z",
+   "title": "SES reported the notice delivered",
+   "services": [
+    "SES",
+    "SNS",
+    "Lambda"
+   ],
+   "tone": "ok",
+   "emailId": "x1",
+   "provenance": "recorded"
+  },
+  {
+   "id": "e11",
+   "at": "2026-10-20T18:47:15.755Z",
+   "title": "The contract decided: billable, $90.99. Evidence sealed and signed",
+   "services": [
+    "Step Functions",
+    "Lambda",
+    "KMS",
+    "S3 Object Lock"
+   ],
+   "tone": "money",
+   "record": {
+    "verdict": "BILLABLE",
+    "reasons": [],
+    "amountUsd": 90.99,
+    "packId": "SMOKE-mvh1bmmu-f3eaf6ee37aa",
+    "digestSha256": "891e5d6e28b248fad06b91b2768644d8bb6fa88eeb05d9ff54159900dd3333e2"
+   },
+   "provenance": "recorded"
+  },
+  {
+   "id": "e12",
+   "at": "2026-10-20T18:47:25.492Z",
+   "title": "The AI agent did not file (no dispatch approval)",
+   "services": [
+    "Bedrock AgentCore",
+    "AgentCore Gateway"
+   ],
+   "tone": "refused",
+   "agentRunId": "a1",
+   "provenance": "recorded"
+  },
+  {
+   "id": "e13",
+   "at": "2026-10-20T18:47:33.776Z",
+   "title": "Approval recorded from the command line (test, not a tap)",
+   "services": [
+    "DynamoDB"
+   ],
+   "tone": "ok",
+   "provenance": "recorded"
+  },
+  {
+   "id": "e14",
+   "at": "2026-10-20T18:47:34.222Z",
+   "title": "The AI agent filed the claim by email",
+   "services": [
+    "Bedrock AgentCore",
+    "AgentCore Gateway",
+    "SES"
+   ],
+   "tone": "agent",
+   "agentRunId": "a2",
+   "emailId": "x2",
+   "provenance": "recorded"
+  }
+ ],
+ "verdict": {
+  "verdict": "BILLABLE",
+  "reasons": [],
+  "amountUsd": 90.99,
+  "confidence": "low",
+  "signals": [
+   {
+    "name": "arrived_pin_in_geofence",
+    "ok": true,
+    "detail": "inside facility polygon"
+   },
+   {
+    "name": "released_pin_in_geofence",
+    "ok": true,
+    "detail": "inside facility polygon"
+   },
+   {
+    "name": "bol_camera_only",
+    "ok": true,
+    "detail": "captured in camera-only Flow"
+   },
+   {
+    "name": "bol_media_hashed",
+    "ok": false,
+    "detail": "0 of 1 pages stored and hashed"
+   },
+   {
+    "name": "bol_confirmed_by_driver",
+    "ok": true,
+    "detail": "driver confirmed or corrected extracted times"
+   },
+   {
+    "name": "bol_in_matches_arrived_pin",
+    "ok": true,
+    "independent": true,
+    "detail": "1 min apart (tolerance 15); entered by the driver from the paperwork"
+   },
+   {
+    "name": "bol_out_matches_released_pin",
+    "ok": true,
+    "independent": true,
+    "detail": "3 min apart (tolerance 15); entered by the driver from the paperwork"
+   },
+   {
+    "name": "notice_delivered",
+    "ok": true,
+    "detail": "2026-10-20T18:47:01.583Z"
+   }
+  ],
+  "engineInput": {
+   "appointmentAt": "2026-10-20T14:46:49.686Z",
+   "arrived": {
+    "at": "2026-10-20T14:39:49.000Z",
+    "insideGeofence": true
+   },
+   "released": {
+    "at": "2026-10-20T18:17:49.000Z",
+    "insideGeofence": true
+   },
+   "bol": {
+    "signed": true,
+    "checkIn": "2026-10-20T14:41:00.000Z",
+    "checkOut": "2026-10-20T18:15:00.000Z"
+   },
+   "status214": false,
+   "noticeSentAt": "2026-10-20T18:47:00.887Z",
+   "shipperConfirmed": false,
+   "evaluatedAt": "2026-10-20T18:47:15.755Z"
+  }
+ },
+ "pack": {
+  "packId": "SMOKE-mvh1bmmu-f3eaf6ee37aa",
+  "digestSha256": "891e5d6e28b248fad06b91b2768644d8bb6fa88eeb05d9ff54159900dd3333e2",
+  "algorithm": "ECDSA_SHA_256",
+  "signatureBase64": "MEUCIQDORxnb9DN1Or4J/ApPTkYGmXmvA2tCt7l+S6XblgUdCAIgL9CtfgA1LQR2BDozq9AiDxN9W24WRLFMunEsL3fJqzI=",
+  "publicKeyPath": "keys/public-key.pem",
+  "spkiSha256": "bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c",
+  "sealedAt": "2026-10-20T18:47:15.755Z",
+  "storage": "S3 Object Lock (governance mode, 30 days)",
+  "pack": {
+   "version": 1,
+   "packId": "SMOKE-mvh1bmmu-f3eaf6ee37aa",
+   "loadId": "SMOKE-mvh1bmmu",
+   "clauseId": "lakeshore-foods",
+   "channel": "whatsapp",
+   "facility": {
+    "id": "lakeshore-columbus",
+    "name": "Lakeshore DC, Columbus OH"
+   },
+   "appointmentAt": "2026-10-20T14:46:49.686Z",
+   "events": {
+    "arrived": {
+     "serverAt": "2026-10-20T14:39:49.000Z",
+     "messageId": "msg-sha256:9caa88792b23ae8a"
+    },
+    "released": {
+     "serverAt": "2026-10-20T18:17:49.000Z",
+     "messageId": "msg-sha256:3117c72b20612aaf"
+    },
+    "bol": {
+     "serverAt": "2026-10-20T18:21:49.000Z",
+     "messageId": "msg-sha256:b33662ead6111f42",
+     "pageSha256s": [
+      null
+     ],
+     "cameraOnly": true,
+     "timesEdited": {
+      "in": true,
+      "out": true
+     }
+    },
+    "notice": {
+     "sentAt": "2026-10-20T18:47:00.887Z",
+     "deliveredAt": "2026-10-20T18:47:01.583Z",
+     "messageId": "msg-sha256:9dc8d671b43210da"
+    }
+   },
+   "corroboration": {
+    "confidence": "low",
+    "signals": [
+     {
+      "name": "arrived_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "released_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "bol_camera_only",
+      "ok": true,
+      "detail": "captured in camera-only Flow"
+     },
+     {
+      "name": "bol_media_hashed",
+      "ok": false,
+      "detail": "0 of 1 pages stored and hashed"
+     },
+     {
+      "name": "bol_confirmed_by_driver",
+      "ok": true,
+      "detail": "driver confirmed or corrected extracted times"
+     },
+     {
+      "name": "bol_in_matches_arrived_pin",
+      "ok": true,
+      "independent": true,
+      "detail": "1 min apart (tolerance 15); entered by the driver from the paperwork"
+     },
+     {
+      "name": "bol_out_matches_released_pin",
+      "ok": true,
+      "independent": true,
+      "detail": "3 min apart (tolerance 15); entered by the driver from the paperwork"
+     },
+     {
+      "name": "notice_delivered",
+      "ok": true,
+      "detail": "2026-10-20T18:47:01.583Z"
+     }
+    ]
+   },
+   "evaluation": {
+    "loadId": "SMOKE-mvh1bmmu",
+    "clockStartAt": "2026-10-20T14:46:49.686Z",
+    "detentionMinutes": 90.98856666666667,
+    "verdict": "BILLABLE",
+    "reasons": [],
+    "billableMinutes": 90.98856666666667,
+    "amountUsd": 90.99
+   },
+   "sealedAt": "2026-10-20T18:47:15.755Z"
+  }
+ },
+ "emails": [
+  {
+   "id": "x1",
+   "purpose": "notice",
+   "sentAt": "2026-10-20T18:47:00.887Z",
+   "deliveredAt": "2026-10-20T18:47:01.583Z",
+   "from": "claims@claims.kaungzinhein.com",
+   "to": {
+    "name": "Lakeshore Foods (fictional shipper)",
+    "role": "shipper",
+    "note": "Delivered to our test mailbox, not to a real company."
+   },
+   "subject": "Detention notice: load SMOKE-mvh1bmmu at Lakeshore DC, Columbus OH",
+   "body": "To Lakeshore Foods (fictional shipper),\n\nThis is notice that load SMOKE-mvh1bmmu is still waiting at Lakeshore DC, Columbus OH.\nThe truck checked in at 2026-10-20 10:39 EDT, recorded by a location pin with a WhatsApp server timestamp inside the facility's geofence.\nFree time under the rate confirmation ends at 2026-10-20 12:46 EDT. From then, detention accrues at $60.00 per hour under your terms.\nPlease release the truck or tell us of any reason the clock should not run.\n\nSent automatically by DockClock for the carrier. The signed evidence pack follows with any claim.",
+   "bodyProvenance": "recorded",
+   "bodyNote": "The sent email's bytes, kept with the load's packs.",
+   "attachments": [],
+   "provenance": "recorded"
+  },
+  {
+   "id": "x2",
+   "purpose": "claim",
+   "sentAt": "2026-10-20T18:47:45.975Z",
+   "from": "claims@claims.kaungzinhein.com",
+   "to": {
+    "name": "Lakeshore Foods (fictional shipper)",
+    "role": "shipper",
+    "note": "Delivered to our test mailbox, not to a real company."
+   },
+   "subject": "Detention Claim – Load SMOKE-mvh1bmmu – Lakeshore DC, Columbus OH",
+   "body": "Dear Lakeshore Foods,\n\nWe are submitting a detention claim for load SMOKE-mvh1bmmu at Lakeshore DC, Columbus OH.\n\nPer the contract clause terms:\n• Free time: 120 minutes from appointment\n• Rate: $60.00 per hour\n• Appointment: 2026-10-20 10:46 EDT\n\nServer-timestamped events:\n• Arrival: 2026-10-20 10:39 EDT\n• Release: 2026-10-20 14:17 EDT\n\nDetention time: 90.99 minutes\nAmount due: $90.99\n\nThe signed evidence pack is attached.\n\nThank you for your prompt attention to this matter.\n\nBest regards\n\n--\nEvidence pack SMOKE-mvh1bmmu-f3eaf6ee37aa (sha256 891e5d6e28b248fad06b91b2768644d8bb6fa88eeb05d9ff54159900dd3333e2) is attached.\nIt is signed with AWS KMS key <AWS resource name removed> ECDSA P-256 (signatureBase64, DER) over the SHA-256 of the file's \"pack\" field written as canonical JSON (object keys sorted at every level, no spaces), not over the file's own bytes.\nThe public key is attached as dockclock-public-key.pem (SPKI sha256 bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c). DockClock's verifier, npm run verify:pack, applies exactly this rule.\nContract amount: $90.99, computed by the clause engine, not by the agent.\nSent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
+   "bodyProvenance": "recorded",
+   "bodyNote": "The sent email's bytes, kept with the load's packs. The AWS key name in the footer is removed here.",
+   "attachments": [
+    {
+     "name": "SMOKE-mvh1bmmu-f3eaf6ee37aa.json",
+     "contentType": "application/json",
+     "sha256": "096babb5efe2da2cd463af03bdb2b9b386651d08947a7b8590a9c853054402fe",
+     "note": "The signed evidence pack, exactly as sealed."
+    },
+    {
+     "name": "dockclock-public-key.pem",
+     "contentType": "application/x-pem-file",
+     "sha256": "8876fe3fc644cd347dee167da5720bf46a2b36feaea629b2ea3d9896a855e299",
+     "note": "The public key to check the signature."
+    }
+   ],
+   "provenance": "recorded"
+  }
+ ],
+ "agentRuns": [
+  {
+   "id": "a1",
+   "task": "file_claim",
+   "startedAt": "2026-10-20T18:47:25.492Z",
+   "endedAt": "2026-10-20T18:47:33.448Z",
+   "model": "Claude Sonnet 4.5 on Amazon Bedrock AgentCore",
+   "stopReason": "end_turn",
+   "toolCalls": [
+    {
+     "name": "get_load_evidence",
+     "input": {
+      "loadId": "SMOKE-mvh1bmmu"
+     },
+     "cedar": {
+      "decision": "permit",
+      "policy": "Read tools are always allowed.",
+      "decisionSource": "inferred"
+     },
+     "result": {
+      "ok": true,
+      "summary": "Sealed BILLABLE, $90.99, no dispatch approval."
+     }
+    }
+   ],
+   "text": "The load evidence shows:\n- **Verdict**: BILLABLE ✓\n- **Approval**: null ✗\n\n**I cannot file this claim** because there is no dispatch approval. The load has a sealed BILLABLE verdict for $90.99, but dispatch has not approved it yet. A dispatch approval is required before I can send the detention claim to the counterparty.",
+   "provenance": "recorded"
+  },
+  {
+   "id": "a2",
+   "task": "file_claim",
+   "startedAt": "2026-10-20T18:47:34.222Z",
+   "endedAt": "2026-10-20T18:47:50.075Z",
+   "model": "Claude Sonnet 4.5 on Amazon Bedrock AgentCore",
+   "stopReason": "end_turn",
+   "toolCalls": [
+    {
+     "name": "get_load_evidence",
+     "input": {
+      "loadId": "SMOKE-mvh1bmmu"
+     },
+     "cedar": {
+      "decision": "permit",
+      "policy": "Read tools are always allowed.",
+      "decisionSource": "inferred"
+     },
+     "result": {
+      "ok": true,
+      "summary": "Sealed BILLABLE, $90.99, dispatch approved."
+     }
+    },
+    {
+     "name": "send_detention_claim",
+     "input": {
+      "amountCents": 9099,
+      "approvalId": "appr-1c9ebdab88ac",
+      "body": "(the email body, shown in the mailbox)",
+      "loadId": "SMOKE-mvh1bmmu",
+      "packDigest": "891e5d6e28b248fad06b91b2768644d8bb6fa88eeb05d9ff54159900dd3333e2",
+      "subject": "Detention Claim – Load SMOKE-mvh1bmmu – Lakeshore DC, Columbus OH"
+     },
+     "cedar": {
+      "decision": "permit",
+      "policy": "The claim tool needs an approval id and 0 < amount ≤ $5,000.00 (in cents).",
+      "decisionSource": "inferred"
+     },
+     "result": {
+      "ok": true,
+      "summary": "Email accepted by SES; claim recorded as sent."
+     }
+    }
+   ],
+   "guard": {
+    "amountCentsSent": 9099,
+    "amountCentsSealed": 9099,
+    "digestSent": "891e5d6e28b248fad06b91b2768644d8bb6fa88eeb05d9ff54159900dd3333e2",
+    "digestSealed": "891e5d6e28b248fad06b91b2768644d8bb6fa88eeb05d9ff54159900dd3333e2",
+    "match": true
+   },
+   "text": "**Claim filed successfully!**\n\nThe detention claim for load SMOKE-mvh1bmmu has been sent to Lakeshore Foods (shipper) for **$90.99**.\n\n**Summary:**\n- **Load:** SMOKE-mvh1bmmu\n- **Facility:** Lakeshore DC, Columbus OH\n- **Arrival:** 2026-10-20 10:39 EDT\n- **Release:** 2026-10-20 14:17 EDT\n- **Free time:** 120 minutes from appointment (10:46 EDT)\n- **Detention:** 90.99 minutes at $60.00/hour\n- **Amount:** $90.99\n- **Evidence pack attached:** 891e5d6e28b248fad06b91b2768644d8bb6fa88eeb05d9ff54159900dd3333e2\n\nThe claim was sent at 2026-10-20T18:47:45.975Z with the signed evidence pack attached.",
+   "provenance": "recorded"
+  }
+ ],
+ "approval": null,
+ "claim": {
+  "status": "sent",
+  "amountUsd": 90.99,
+  "amountCents": 9099,
+  "packDigest": "891e5d6e28b248fad06b91b2768644d8bb6fa88eeb05d9ff54159900dd3333e2",
+  "sentAt": "2026-10-20T18:47:45.975Z",
+  "subject": "Detention Claim – Load SMOKE-mvh1bmmu – Lakeshore DC, Columbus OH",
+  "secondsAfterApproval": 12.2
+ }
+}
