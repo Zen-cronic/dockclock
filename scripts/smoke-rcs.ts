@@ -110,7 +110,6 @@ const pin = JSON.stringify({ type: "LOCATION", latitude: 39.8995, longitude: -82
 // A stand-in for a photo End User Messaging stored, under the prefix the agent is configured with.
 const photoKey = `${out("RcsMediaPrefix")}/rcs/smoke-${loadId}#bol.jpg`;
 const photoBytes = photoPath ? readFileSync(photoPath) : Buffer.from(`smoke bill of lading for ${loadId}`);
-await s3.send(new PutObjectCommand({ Bucket: out("RcsMediaBucket"), Key: photoKey, Body: photoBytes, ContentType: "image/jpeg" }));
 const media = JSON.stringify({ mediaStatus: "SUCCESS", s3Bucket: out("RcsMediaBucket"), s3Key: photoKey, mimeType: "image/jpeg", fileName: "bol.jpg", fileSizeBytes: photoBytes.length });
 
 // A WhatsApp message this load "sent" that then failed: the failover must run exactly once. On an
@@ -136,7 +135,10 @@ if (!startOnWhatsApp) await feed("WhatsApp failure of the Released offer", whats
 await feed("the same failure reported again", whatsappFailed(failedId, startOnWhatsApp ? t(250) : t(246)));
 await feed("Released (suggested reply)", rcs(tap("released"), t(30)));
 await feed("release pin", rcs(pin, t(29)));
-await feed("BOL photo reply", rcs(media, t(25)));
+// The ingest guard accepts a stored RCS photo only if it was written with its message, so the
+// object goes up just before the reply, and the reply carries the time it is sent.
+await s3.send(new PutObjectCommand({ Bucket: out("RcsMediaBucket"), Key: photoKey, Body: photoBytes, ContentType: "image/jpeg" }));
+await feed("BOL photo reply", rcs(media, Date.now()));
 
 let status = "RUNNING";
 for (let i = 0; i < 45 && status === "RUNNING"; i++) {
