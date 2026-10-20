@@ -25,9 +25,9 @@ describe("read API construct", () => {
     expect(policies).toContain("/index/byWorkspace");
   });
 
-  it("is reachable only through CloudFront, with capped concurrency", () => {
+  it("is reachable only through CloudFront, with a short timeout and no reservation by default", () => {
     t.hasResourceProperties("AWS::Lambda::Url", { AuthType: "AWS_IAM" });
-    t.hasResourceProperties("AWS::Lambda::Function", { ReservedConcurrentExecutions: 10 });
+    t.hasResourceProperties("AWS::Lambda::Function", { Timeout: 10, ReservedConcurrentExecutions: Match.absent() });
     t.resourceCountIs("AWS::CloudFront::OriginAccessControl", 2);
     t.hasResourceProperties("AWS::CloudFront::Distribution", {
       DistributionConfig: Match.objectLike({ CacheBehaviors: [Match.objectLike({ PathPattern: "/api/*", ViewerProtocolPolicy: "redirect-to-https", AllowedMethods: ["GET", "HEAD"] })] }),

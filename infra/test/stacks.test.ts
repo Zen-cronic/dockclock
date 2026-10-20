@@ -172,7 +172,8 @@ describe("stacks", () => {
     });
     deskT.hasResourceProperties("AWS::Lambda::Url", { AuthType: "AWS_IAM" });
     deskT.hasResourceProperties("AWS::Lambda::Function", {
-      ReservedConcurrentExecutions: 10,
+      // The account's default limit of 10 concurrent executions leaves nothing to reserve.
+      ReservedConcurrentExecutions: Match.absent(),
       Environment: { Variables: Match.objectLike({ TABLE_NAME: Match.anyValue(), EVIDENCE_BUCKET: Match.anyValue(), MEDIA_BUCKET: Match.anyValue(), EVIDENCE_SPKI_SHA256: Match.stringLikeRegexp("^[0-9a-f]{64}$") }) },
     });
     // The API's own role reads only (the site upload role is separate and writes the site bucket).

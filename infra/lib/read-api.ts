@@ -30,12 +30,16 @@ export interface ReadApiProps {
   account: string;
   // The private demo yard (DOCKCLOCK_DEMO_FACILITY), so its pins can be checked. Never returned.
   demoFacility?: string;
+  // Needs an account concurrency limit above 10 + this number.
+  reservedConcurrency?: number;
 }
 
 // The console read API: one Lambda behind a function URL that only CloudFront can call (origin
 // access control, IAM auth), served at /api/* on the desk's distribution. Its role can only read:
 // Query and BatchGetItem on the load table and its byWorkspace index, GetObject on packs and driver
-// media. Reserved concurrency caps what polling can cost.
+// media. Polling is absorbed by CloudFront's 3-second cache and a short timeout. Reserved concurrency
+// is an option (reservedConcurrency), but an account still on the default limit of 10 concurrent
+// executions cannot reserve any: Lambda keeps 10 unreserved.
 export class ReadApi extends Construct {
   readonly fn: NodejsFunction;
   readonly url: lambda.FunctionUrl;
@@ -51,8 +55,8 @@ export class ReadApi extends Construct {
       runtime: lambda.Runtime.NODEJS_22_X,
       architecture: lambda.Architecture.ARM_64,
       memorySize: 512,
-      timeout: Duration.seconds(15),
-      reservedConcurrentExecutions: 10,
+      timeout: Duration.seconds(10),
+      ...(props.reservedConcurrency ? { reservedConcurrentExecutions: props.reservedConcurrency } : {}),
       tracing: lambda.Tracing.ACTIVE,
       loggingFormat: lambda.LoggingFormat.JSON,
       logGroup: new logs.LogGroup(this, "Logs", { retention: logs.RetentionDays.TWO_WEEKS, removalPolicy: RemovalPolicy.DESTROY }),
