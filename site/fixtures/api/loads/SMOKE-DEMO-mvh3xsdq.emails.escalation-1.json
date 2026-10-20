@@ -1,0 +1,25 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T20:09:57.191Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "id": "escalation-1",
+  "purpose": "dispatch_escalation",
+  "sentAt": "2026-10-20T20:08:26.401Z",
+  "status": "not_sent",
+  "notSentReason": "Not sent: test loads never email dispatch.",
+  "from": "DockClock dispatch alerts",
+  "to": {
+   "name": "The carrier's dispatch desk",
+   "role": "dispatch",
+   "note": "Our test mailbox for dispatch."
+  },
+  "subject": "DockClock: load SMOKE-DEMO-mvh3xsdq needs dispatch (no approval within two days; nothing was sent; evidence confidence low)",
+  "attachments": [],
+  "bodyStored": true,
+  "provenance": "recorded",
+  "body": "Load SMOKE-DEMO-mvh3xsdq at Judge demo yard (any location counts) needs a person.\nReason: no approval within two days; nothing was sent; evidence confidence low.\nPhase: sealed. Driver language: en_US.\nArrived pin: 2026-10-20T20:00:11.099Z. Released pin: 2026-10-20T20:08:15.218Z.\nDriver: <phone removed>, on RCS. Message them there or call them.",
+  "bodyNote": "The text DockClock composed for dispatch, with the driver's contact removed (dispatch's own copy has it)."
+ }
+}

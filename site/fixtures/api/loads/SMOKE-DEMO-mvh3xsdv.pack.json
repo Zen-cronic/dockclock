@@ -1,0 +1,112 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T20:09:55.044Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "packId": "SMOKE-DEMO-mvh3xsdv-a02546338a1a",
+  "digestSha256": "8d4078b16e31520de46bb8d1dcc4b036fb80b1dba3c2a1547f70f22b407e5387",
+  "algorithm": "ECDSA_SHA_256",
+  "signatureBase64": "MEUCID3cWv5ouERnBo+dbljJXZWQRvokcuONeQs84iz8DfarAiEA21rwGpOCVffrSYuU9bgrxBRgbse619g2pBKs8SvPo/Y=",
+  "publicKeyPath": "keys/public-key.pem",
+  "spkiSha256": "bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c",
+  "sealedAt": "2026-10-20T20:08:22.272Z",
+  "storage": "S3 Object Lock (governance mode, 30 days)",
+  "pack": {
+   "version": 1,
+   "packId": "SMOKE-DEMO-mvh3xsdv-a02546338a1a",
+   "loadId": "SMOKE-DEMO-mvh3xsdv",
+   "clauseId": "judge-demo",
+   "channel": "whatsapp",
+   "facility": {
+    "id": "judge-demo",
+    "name": "Judge demo yard (any location counts)"
+   },
+   "appointmentAt": "2026-10-20T20:00:02.803Z",
+   "events": {
+    "arrived": {
+     "serverAt": "2026-10-20T20:00:11.000Z",
+     "messageId": "msg-sha256:6857ff77e81bee7b"
+    },
+    "released": {
+     "serverAt": "2026-10-20T20:08:15.000Z",
+     "messageId": "msg-sha256:88f03054c080e05d"
+    },
+    "bol": {
+     "serverAt": "2026-10-20T20:08:19.000Z",
+     "messageId": "msg-sha256:4737bc6dfe7eee63",
+     "pageSha256s": [
+      null
+     ],
+     "cameraOnly": true,
+     "timesEdited": {
+      "in": true,
+      "out": true
+     }
+    },
+    "notice": {
+     "sentAt": "2026-10-20T20:01:12.370Z",
+     "deliveredAt": "2026-10-20T20:01:13.172Z",
+     "messageId": "msg-sha256:5a386f617c29a7ba"
+    }
+   },
+   "corroboration": {
+    "confidence": "low",
+    "signals": [
+     {
+      "name": "arrived_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "released_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "bol_camera_only",
+      "ok": true,
+      "detail": "captured in camera-only Flow"
+     },
+     {
+      "name": "bol_media_hashed",
+      "ok": false,
+      "detail": "0 of 1 pages stored and hashed"
+     },
+     {
+      "name": "bol_confirmed_by_driver",
+      "ok": true,
+      "detail": "driver confirmed or corrected extracted times"
+     },
+     {
+      "name": "bol_in_matches_arrived_pin",
+      "ok": true,
+      "independent": true,
+      "detail": "1 min apart (tolerance 15); entered by the driver from the paperwork"
+     },
+     {
+      "name": "bol_out_matches_released_pin",
+      "ok": true,
+      "independent": true,
+      "detail": "1 min apart (tolerance 15); entered by the driver from the paperwork"
+     },
+     {
+      "name": "notice_delivered",
+      "ok": true,
+      "detail": "2026-10-20T20:01:13.172Z"
+     }
+    ]
+   },
+   "evaluation": {
+    "loadId": "SMOKE-DEMO-mvh3xsdv",
+    "clockStartAt": "2026-10-20T20:00:11.000Z",
+    "detentionMinutes": 3.066666666666667,
+    "verdict": "BILLABLE",
+    "reasons": [],
+    "billableMinutes": 3.066666666666667,
+    "amountUsd": 3.07
+   },
+   "sealedAt": "2026-10-20T20:08:22.272Z"
+  }
+ }
+}

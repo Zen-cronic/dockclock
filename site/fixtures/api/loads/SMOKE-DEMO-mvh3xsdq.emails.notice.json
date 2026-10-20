@@ -1,0 +1,25 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T20:09:56.729Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "id": "notice",
+  "purpose": "notice",
+  "sentAt": "2026-10-20T20:01:58.138Z",
+  "status": "delivered",
+  "deliveredAt": "2026-10-20T20:01:58.806Z",
+  "from": "claims@claims.kaungzinhein.com",
+  "to": {
+   "name": "Demo Receiving Co. (fictional)",
+   "role": "shipper",
+   "note": "Delivered to our test mailbox, not to a real company."
+  },
+  "subject": "Detention notice: load SMOKE-DEMO-mvh3xsdq at Judge demo yard (any location counts)",
+  "attachments": [],
+  "bodyStored": true,
+  "provenance": "recorded",
+  "body": "To Demo Receiving Co. (fictional),\n\nThis is notice that load SMOKE-DEMO-mvh3xsdq is still waiting at Judge demo yard (any location counts).\nThe truck checked in at 2026-10-20 16:00 EDT, recorded by a location pin with a WhatsApp server timestamp inside the facility's geofence.\nFree time under the rate confirmation ends at 2026-10-20 16:05 EDT. From then, detention accrues at $60.00 per hour under your terms.\nPlease release the truck or tell us of any reason the clock should not run.\n\nSent automatically by DockClock for the carrier. The signed evidence pack follows with any claim.",
+  "bodyNote": "The sent email's bytes, kept with the load's packs."
+ }
+}

@@ -1,0 +1,38 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T20:09:56.971Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "id": "claim",
+  "purpose": "claim",
+  "sentAt": "2026-10-20T20:09:21.648Z",
+  "status": "delivered",
+  "deliveredAt": "2026-10-20T20:09:23.928Z",
+  "from": "claims@claims.kaungzinhein.com",
+  "to": {
+   "name": "Demo Receiving Co. (fictional)",
+   "role": "shipper",
+   "note": "Delivered to our test mailbox, not to a real company."
+  },
+  "subject": "Detention claim for load SMOKE-DEMO-mvh3xsdq - $3.07",
+  "attachments": [
+   {
+    "name": "SMOKE-DEMO-mvh3xsdq-19cd75157877.json",
+    "contentType": "application/json",
+    "sha256": "da7bc22764106e31d86b81e952d39f33947d249849829bb9abd8462f0f522e49",
+    "note": "The signed evidence pack, exactly as sealed."
+   },
+   {
+    "name": "dockclock-public-key.pem",
+    "contentType": "application/x-pem-file",
+    "sha256": "8876fe3fc644cd347dee167da5720bf46a2b36feaea629b2ea3d9896a855e299",
+    "note": "The public key to check the signature."
+   }
+  ],
+  "bodyStored": true,
+  "provenance": "recorded",
+  "body": "Demo Receiving Co. (fictional),\n\nWe are submitting a detention claim for load SMOKE-DEMO-mvh3xsdq at Judge demo yard (any location counts).\n\nPer the detention clause terms:\n- Free time: 5 minutes from arrival\n- Rate: $60.00 per hour\n- Notice required: 0 minutes\n\nServer-timestamped events:\n- Arrival: 2026-10-20 16:00 EDT\n- Release: 2026-10-20 16:08 EDT\n\nDetention time: 3.07 minutes\nAmount due: $3.07\n\nThe signed evidence pack is attached.\n\nThank you.\n\n--\nEvidence pack SMOKE-DEMO-mvh3xsdq-19cd75157877 (sha256 512e70560cdaeb843997d265343e4b2387e00a12bd26e44faa2a03286f15edeb) is attached.\nIt is signed with AWS KMS key <AWS resource name removed> ECDSA P-256 (signatureBase64, DER) over the SHA-256 of the file's \"pack\" field written as canonical JSON (object keys sorted at every level, no spaces), not over the file's own bytes.\nThe public key is attached as dockclock-public-key.pem (SPKI sha256 bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c). DockClock's verifier, npm run verify:pack, applies exactly this rule.\nContract amount: $3.07, computed by the clause engine, not by the agent.\nSent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
+  "bodyNote": "The sent email's bytes, kept with the load's packs. The AWS key name in the footer is removed."
+ }
+}

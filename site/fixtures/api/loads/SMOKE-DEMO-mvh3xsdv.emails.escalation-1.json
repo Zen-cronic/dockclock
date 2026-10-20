@@ -1,0 +1,25 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T20:09:55.591Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "id": "escalation-1",
+  "purpose": "dispatch_escalation",
+  "sentAt": "2026-10-20T20:08:20.265Z",
+  "status": "not_sent",
+  "notSentReason": "Not sent: test loads never email dispatch.",
+  "from": "DockClock dispatch alerts",
+  "to": {
+   "name": "The carrier's dispatch desk",
+   "role": "dispatch",
+   "note": "Our test mailbox for dispatch."
+  },
+  "subject": "DockClock: load SMOKE-DEMO-mvh3xsdv needs dispatch (some bill-of-lading pages could not be downloaded)",
+  "attachments": [],
+  "bodyStored": true,
+  "provenance": "recorded",
+  "body": "Load SMOKE-DEMO-mvh3xsdv at Judge demo yard (any location counts) needs a person.\nReason: some bill-of-lading pages could not be downloaded.\nPhase: documented. Driver language: en_US.\nArrived pin: 2026-10-20T20:00:11.000Z. Released pin: 2026-10-20T20:08:15.000Z.\nDriver: <phone removed>, on WhatsApp. Message them there or call them.",
+  "bodyNote": "The text DockClock composed for dispatch, with the driver's contact removed (dispatch's own copy has it)."
+ }
+}

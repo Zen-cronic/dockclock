@@ -1,0 +1,260 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T20:00:04.959Z",
+ "workspace": "demo",
+ "pollMs": 3000,
+ "data": {
+  "summary": {
+   "loadId": "SMOKE-DEMO-mvh3xsdv",
+   "runKind": "integration",
+   "runLabel": "Test run",
+   "createdAt": "2026-10-20T20:00:03.970Z",
+   "lastActivityAt": "2026-10-20T20:00:04.110Z",
+   "facility": {
+    "id": "judge-demo",
+    "name": "Judge demo yard (any location counts)",
+    "timeZone": "America/New_York"
+   },
+   "counterparty": {
+    "name": "Demo Receiving Co. (fictional)",
+    "role": "shipper"
+   },
+   "channel": "whatsapp",
+   "channels": [
+    "whatsapp"
+   ],
+   "language": "en_US",
+   "phase": "dispatched",
+   "status": "waiting_for_arrival",
+   "live": true,
+   "verdict": null,
+   "amountUsd": null,
+   "claimSentAt": null,
+   "arrivedAt": null,
+   "releasedAt": null,
+   "failover": false,
+   "photos": 0
+  },
+  "run": {
+   "kind": "integration",
+   "summary": "Test run: the driver's messages were replayed test messages. The workflow, the AI agent, the signature and the emails are real.",
+   "notes": [
+    "Driver messages: synthetic, replayed through the deployed stack by the integration test (load id prefix SMOKE-). Their times are set earlier than the run.",
+    "Messages to the driver were composed but not sent: the driver is a test number."
+   ]
+  },
+  "clause": {
+   "id": "judge-demo",
+   "freeTimeMinutes": 5,
+   "freeTimeAnchor": "arrival",
+   "requireOnTimeArrival": false,
+   "ratePerHourUsd": 60,
+   "capUsdPerOccurrence": 30,
+   "noticeLeadMinutes": 0,
+   "acceptedRecords": [
+    "app_gps",
+    "signed_bol_times"
+   ],
+   "claimWindowHours": 24,
+   "shipperConfirmationRequired": false,
+   "basis": "DockClock judge demo clause, not modelled on any published terms."
+  },
+  "clock": {
+   "asOf": "2026-10-20T20:00:04.959Z",
+   "arrivedAt": null,
+   "releasedAt": null,
+   "clockStartAt": null,
+   "freeTimeEndsAt": null,
+   "detentionMinutes": 0,
+   "billableMinutes": 0,
+   "amountUsd": null,
+   "driverTimes": "synthetic_input"
+  },
+  "workflow": [
+   {
+    "key": "dispatched",
+    "label": "Load dispatched to the driver",
+    "state": "done",
+    "at": "2026-10-20T20:00:03.970Z",
+    "services": [
+     "Lambda",
+     "Step Functions",
+     "EUM Social"
+    ]
+   },
+   {
+    "key": "arrived",
+    "label": "Arrival confirmed by a location pin",
+    "state": "current",
+    "at": null,
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "notice",
+    "label": "Detention notice emailed before free time ends",
+    "state": "waiting",
+    "at": null,
+    "services": [
+     "EventBridge Scheduler",
+     "Lambda",
+     "SES"
+    ]
+   },
+   {
+    "key": "released",
+    "label": "Release confirmed by a location pin",
+    "state": "waiting",
+    "at": null,
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "paperwork",
+    "label": "Bill of lading received",
+    "state": "waiting",
+    "at": null,
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "photo_read",
+    "label": "Photo read by the agent's tool",
+    "state": "waiting",
+    "at": null,
+    "services": [
+     "Step Functions",
+     "Lambda"
+    ]
+   },
+   {
+    "key": "sealed",
+    "label": "Evidence sealed and signed",
+    "state": "waiting",
+    "at": null,
+    "services": [
+     "Lambda",
+     "KMS",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "approval",
+    "label": "Dispatch approved the claim",
+    "state": "waiting",
+    "at": null,
+    "services": [
+     "Step Functions",
+     "EUM Social",
+     "Lambda"
+    ]
+   },
+   {
+    "key": "claim",
+    "label": "AI agent filed the claim by email",
+    "state": "waiting",
+    "at": null,
+    "services": [
+     "Bedrock AgentCore",
+     "AgentCore Gateway",
+     "SES"
+    ]
+   }
+  ],
+  "messages": [
+   {
+    "id": "m1",
+    "at": "2026-10-20T20:00:04.110Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "dispatch_template",
+    "kind": "wa_template",
+    "body": "Load SMOKE-DEMO-mvh3xsdv is booked: Judge demo yard (any location counts), appointment Oct 20, 4:00 PM. When you are parked at the dock, tap Arrived and we will start the detention clock.",
+    "footer": "Reply STOP to stop load messages.",
+    "template": {
+     "name": "dockclock_load_dispatch",
+     "language": "en_US"
+    },
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Arrived"
+     },
+     {
+      "type": "quick_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   }
+  ],
+  "timeline": [
+   {
+    "id": "e1",
+    "at": "2026-10-20T20:00:04.110Z",
+    "title": "DockClock composed the load dispatch (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:00:04.110Z",
+     "channel": "whatsapp",
+     "purpose": "dispatch_template",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Arrived",
+        "type": "quick_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "quick_reply"
+       }
+      ],
+      "buttons": [
+       "Arrived",
+       "Talk to dispatch"
+      ],
+      "footer": "Reply STOP to stop load messages.",
+      "kind": "template",
+      "template": {
+       "language": "en_US",
+       "name": "dockclock_load_dispatch"
+      },
+      "text": "Load SMOKE-DEMO-mvh3xsdv is booked: Judge demo yard (any location counts), appointment Oct 20, 4:00 PM. When you are parked at the dock, tap Arrived and we will start the detention clock."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m1"
+   }
+  ],
+  "photos": [],
+  "emails": [],
+  "agentRuns": [],
+  "approval": null,
+  "claim": null,
+  "verdict": null,
+  "pack": null
+ }
+}

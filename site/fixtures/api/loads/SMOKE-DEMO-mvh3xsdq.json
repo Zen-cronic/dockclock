@@ -1,0 +1,1104 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T20:09:55.964Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "summary": {
+   "loadId": "SMOKE-DEMO-mvh3xsdq",
+   "runKind": "integration",
+   "runLabel": "Test run",
+   "createdAt": "2026-10-20T20:00:03.673Z",
+   "lastActivityAt": "2026-10-20T20:09:21.648Z",
+   "facility": {
+    "id": "judge-demo",
+    "name": "Judge demo yard (any location counts)",
+    "timeZone": "America/New_York"
+   },
+   "counterparty": {
+    "name": "Demo Receiving Co. (fictional)",
+    "role": "shipper"
+   },
+   "channel": "rcs",
+   "channels": [
+    "rcs"
+   ],
+   "language": "en_US",
+   "phase": "sealed",
+   "status": "claim_filed",
+   "live": false,
+   "verdict": "BILLABLE",
+   "amountUsd": 3.07,
+   "claimSentAt": "2026-10-20T20:09:21.648Z",
+   "arrivedAt": "2026-10-20T20:00:11.099Z",
+   "releasedAt": "2026-10-20T20:08:15.218Z",
+   "failover": false,
+   "photos": 1
+  },
+  "run": {
+   "kind": "integration",
+   "summary": "Test run: the driver's messages were replayed test messages. The workflow, the AI agent, the signature and the emails are real.",
+   "notes": [
+    "Driver messages: synthetic, replayed through the deployed stack by the integration test (load id prefix SMOKE-). Their times are set earlier than the run.",
+    "Messages to the driver were composed but not sent: the driver is a test number.",
+    "Approval: recorded from the command line for this test, not a tap on a phone.",
+    "RCS: sent through a Google testing agent, which reaches only phones registered as testers."
+   ]
+  },
+  "clause": {
+   "id": "judge-demo",
+   "freeTimeMinutes": 5,
+   "freeTimeAnchor": "arrival",
+   "requireOnTimeArrival": false,
+   "ratePerHourUsd": 60,
+   "capUsdPerOccurrence": 30,
+   "noticeLeadMinutes": 0,
+   "acceptedRecords": [
+    "app_gps",
+    "signed_bol_times"
+   ],
+   "claimWindowHours": 24,
+   "shipperConfirmationRequired": false,
+   "basis": "DockClock judge demo clause, not modelled on any published terms."
+  },
+  "clock": {
+   "asOf": "2026-10-20T20:09:55.964Z",
+   "arrivedAt": "2026-10-20T20:00:11.099Z",
+   "releasedAt": "2026-10-20T20:08:15.218Z",
+   "clockStartAt": "2026-10-20T20:00:11.099Z",
+   "freeTimeEndsAt": "2026-10-20T20:05:11.099Z",
+   "detentionMinutes": 3.06865,
+   "billableMinutes": 3.06865,
+   "amountUsd": 3.07,
+   "driverTimes": "synthetic_input"
+  },
+  "workflow": [
+   {
+    "key": "dispatched",
+    "label": "Load dispatched to the driver",
+    "state": "done",
+    "at": "2026-10-20T20:00:03.673Z",
+    "services": [
+     "Lambda",
+     "Step Functions",
+     "EUM RCS"
+    ]
+   },
+   {
+    "key": "arrived",
+    "label": "Arrival confirmed by a location pin",
+    "state": "done",
+    "at": "2026-10-20T20:00:11.099Z",
+    "services": [
+     "EUM RCS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "notice",
+    "label": "Detention notice emailed before free time ends",
+    "state": "done",
+    "at": "2026-10-20T20:01:58.138Z",
+    "services": [
+     "EventBridge Scheduler",
+     "Lambda",
+     "SES"
+    ]
+   },
+   {
+    "key": "released",
+    "label": "Release confirmed by a location pin",
+    "state": "done",
+    "at": "2026-10-20T20:08:15.218Z",
+    "services": [
+     "EUM RCS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "paperwork",
+    "label": "Bill of lading received",
+    "state": "done",
+    "at": "2026-10-20T20:08:19.532Z",
+    "services": [
+     "EUM RCS",
+     "SQS",
+     "Lambda",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "photo_read",
+    "label": "Photo read by the agent's tool",
+    "state": "done",
+    "at": "2026-10-20T20:08:24.562Z",
+    "services": [
+     "Step Functions",
+     "Lambda"
+    ]
+   },
+   {
+    "key": "sealed",
+    "label": "Contract decided: billable; evidence sealed and signed",
+    "state": "done",
+    "at": "2026-10-20T20:08:24.742Z",
+    "services": [
+     "Lambda",
+     "KMS",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "approval",
+    "label": "Dispatch approved the claim",
+    "state": "done",
+    "at": "2026-10-20T20:09:09.117Z",
+    "services": [
+     "Step Functions",
+     "EUM RCS",
+     "Lambda"
+    ],
+    "detail": "Recorded from the command line for this test, not a tap."
+   },
+   {
+    "key": "claim",
+    "label": "AI agent filed the claim by email",
+    "state": "done",
+    "at": "2026-10-20T20:09:21.648Z",
+    "services": [
+     "Bedrock AgentCore",
+     "AgentCore Gateway",
+     "SES"
+    ]
+   }
+  ],
+  "messages": [
+   {
+    "id": "m1",
+    "at": "2026-10-20T20:00:03.815Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "dispatch_card",
+    "kind": "rcs_rich_card",
+    "title": "Load SMOKE-DEMO-mvh3xsdq",
+    "body": "Booked: Judge demo yard (any location counts), appointment Oct 20, 4:00 PM. When you are parked at the dock, tap Arrived and we will start the detention clock. Reply STOP to stop load messages.",
+    "actions": [
+     {
+      "type": "rcs_reply",
+      "title": "Arrived"
+     },
+     {
+      "type": "rcs_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m2",
+    "at": "2026-10-20T20:00:07.000Z",
+    "channel": "rcs",
+    "direction": "in",
+    "party": "driver",
+    "kind": "rcs_suggestion_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "tap_arrived",
+    "body": "Tapped Arrived",
+    "actions": [
+     {
+      "type": "rcs_reply",
+      "title": "Arrived",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m3",
+    "at": "2026-10-20T20:00:08.255Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "location_arrived",
+    "kind": "rcs_location_request",
+    "body": "Share your location to start the dock clock. Only send it while parked.",
+    "actions": [
+     {
+      "type": "rcs_request_location",
+      "title": "Share location"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m4",
+    "at": "2026-10-20T20:00:11.099Z",
+    "channel": "rcs",
+    "direction": "in",
+    "party": "driver",
+    "kind": "rcs_location",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "location",
+    "body": "Location shared",
+    "location": {
+     "insideGeofence": true,
+     "note": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only."
+    }
+   },
+   {
+    "id": "m5",
+    "at": "2026-10-20T20:00:11.324Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "offer_release",
+    "kind": "rcs_rich_card",
+    "title": "Load SMOKE-DEMO-mvh3xsdq",
+    "body": "Checked in at Judge demo yard (any location counts) at 16:00 (server time). Tap Released when you are unloaded and leaving the door.",
+    "actions": [
+     {
+      "type": "rcs_reply",
+      "title": "Released"
+     },
+     {
+      "type": "rcs_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m6",
+    "at": "2026-10-20T20:01:58.389Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "notice_sent",
+    "kind": "rcs_text",
+    "body": "Load SMOKE-DEMO-mvh3xsdq: free time ends at 16:05 EDT. We emailed Demo Receiving Co. (fictional) the detention notice your contract requires. Updates will arrive in this chat.",
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m7",
+    "at": "2026-10-20T20:08:11.121Z",
+    "channel": "rcs",
+    "direction": "in",
+    "party": "driver",
+    "kind": "rcs_suggestion_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "tap_released",
+    "body": "Tapped Released",
+    "actions": [
+     {
+      "type": "rcs_reply",
+      "title": "Released",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m8",
+    "at": "2026-10-20T20:08:11.556Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "location_released",
+    "kind": "rcs_location_request",
+    "body": "Share your location once more to stop the dock clock.",
+    "actions": [
+     {
+      "type": "rcs_request_location",
+      "title": "Share location"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m9",
+    "at": "2026-10-20T20:08:15.218Z",
+    "channel": "rcs",
+    "direction": "in",
+    "party": "driver",
+    "kind": "rcs_location",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "location",
+    "body": "Location shared",
+    "location": {
+     "insideGeofence": true,
+     "note": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only."
+    }
+   },
+   {
+    "id": "m10",
+    "at": "2026-10-20T20:08:15.497Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "release_flow",
+    "kind": "rcs_text",
+    "body": "Clock stopped at Judge demo yard (any location counts). Reply with a photo of the signed bill of lading. It is saved with this load's evidence and shared with the broker on this load only.",
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m11",
+    "at": "2026-10-20T20:08:19.532Z",
+    "channel": "rcs",
+    "direction": "in",
+    "party": "driver",
+    "kind": "rcs_media",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "photo",
+    "body": "Bill of lading photo",
+    "photoId": "p1"
+   },
+   {
+    "id": "m12",
+    "at": "2026-10-20T20:08:19.854Z",
+    "channel": "rcs",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "tell_bol_photo_received",
+    "kind": "rcs_text",
+    "body": "Got it. Your photo is saved with this load's evidence.",
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   }
+  ],
+  "timeline": [
+   {
+    "id": "e1",
+    "at": "2026-10-20T20:00:03.815Z",
+    "title": "DockClock composed the load dispatch card (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:00:03.815Z",
+     "channel": "rcs",
+     "purpose": "dispatch_card",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Arrived",
+        "type": "rcs_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "rcs_reply"
+       }
+      ],
+      "buttons": [
+       "Arrived",
+       "Talk to dispatch"
+      ],
+      "kind": "card",
+      "text": "Booked: Judge demo yard (any location counts), appointment Oct 20, 4:00 PM. When you are parked at the dock, tap Arrived and we will start the detention clock. Reply STOP to stop load messages.",
+      "title": "Load SMOKE-DEMO-mvh3xsdq"
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m1"
+   },
+   {
+    "id": "e2",
+    "at": "2026-10-20T20:00:07.000Z",
+    "title": "Driver tapped Arrived",
+    "services": [
+     "EUM RCS",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "rcs",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "phaseBefore": "dispatched",
+     "serverAt": "2026-10-20T20:00:07.000Z",
+     "phaseAfter": "awaiting_arrival_pin",
+     "detail": {
+      "payload": "dc1.arrived.SMOKE-DEMO-mvh3xsdq.<nonce>"
+     },
+     "channel": "rcs",
+     "outcome": "ADVANCED",
+     "sk": "EVENT#2026-10-20T20:00:07.000Z",
+     "type": "button"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m2"
+   },
+   {
+    "id": "e3",
+    "at": "2026-10-20T20:00:08.255Z",
+    "title": "DockClock composed location arrived (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:00:08.255Z",
+     "channel": "rcs",
+     "purpose": "location_arrived",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Share location",
+        "type": "rcs_request_location"
+       }
+      ],
+      "buttons": [
+       "Share location"
+      ],
+      "kind": "location_request",
+      "text": "Share your location to start the dock clock. Only send it while parked."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m3"
+   },
+   {
+    "id": "e4",
+    "at": "2026-10-20T20:00:11.099Z",
+    "title": "Driver shared a location",
+    "detail": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only. Time is RCS server time.",
+    "services": [
+     "EUM RCS",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "rcs",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "type": "location",
+     "phaseAfter": "at_dock",
+     "serverAt": "2026-10-20T20:00:11.099Z",
+     "sk": "EVENT#2026-10-20T20:00:11.099Z",
+     "detail": {},
+     "channel": "rcs",
+     "phaseBefore": "awaiting_arrival_pin",
+     "outcome": "ADVANCED"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m4"
+   },
+   {
+    "id": "e5",
+    "at": "2026-10-20T20:00:11.324Z",
+    "title": "DockClock composed offer release (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:00:11.324Z",
+     "channel": "rcs",
+     "purpose": "offer_release",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Released",
+        "type": "rcs_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "rcs_reply"
+       }
+      ],
+      "buttons": [
+       "Released",
+       "Talk to dispatch"
+      ],
+      "kind": "card",
+      "text": "Checked in at Judge demo yard (any location counts) at 16:00 (server time). Tap Released when you are unloaded and leaving the door.",
+      "title": "Load SMOKE-DEMO-mvh3xsdq"
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m5"
+   },
+   {
+    "id": "e6",
+    "at": "2026-10-20T20:01:58.138Z",
+    "title": "Detention notice emailed before free time ended",
+    "services": [
+     "EventBridge Scheduler",
+     "Lambda",
+     "SES"
+    ],
+    "channel": "email",
+    "tone": "money",
+    "emailId": "notice",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e7",
+    "at": "2026-10-20T20:01:58.389Z",
+    "title": "DockClock composed word that the detention notice was emailed (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:01:58.389Z",
+     "channel": "rcs",
+     "purpose": "notice_sent",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "kind": "text",
+      "text": "Load SMOKE-DEMO-mvh3xsdq: free time ends at 16:05 EDT. We emailed Demo Receiving Co. (fictional) the detention notice your contract requires. Updates will arrive in this chat."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m6"
+   },
+   {
+    "id": "e8",
+    "at": "2026-10-20T20:01:58.806Z",
+    "title": "SES reported the notice delivered",
+    "services": [
+     "SES",
+     "SNS",
+     "Lambda"
+    ],
+    "channel": "email",
+    "tone": "ok",
+    "emailId": "notice",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e9",
+    "at": "2026-10-20T20:08:11.121Z",
+    "title": "Driver tapped Released",
+    "services": [
+     "EUM RCS",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "rcs",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "detail": {
+      "payload": "dc1.released.SMOKE-DEMO-mvh3xsdq.<nonce>"
+     },
+     "phaseBefore": "at_dock",
+     "serverAt": "2026-10-20T20:08:11.121Z",
+     "phaseAfter": "awaiting_release_pin",
+     "channel": "rcs",
+     "sk": "EVENT#2026-10-20T20:08:11.121Z",
+     "outcome": "ADVANCED",
+     "type": "button"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m7"
+   },
+   {
+    "id": "e10",
+    "at": "2026-10-20T20:08:11.556Z",
+    "title": "DockClock composed location released (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:08:11.556Z",
+     "channel": "rcs",
+     "purpose": "location_released",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Share location",
+        "type": "rcs_request_location"
+       }
+      ],
+      "buttons": [
+       "Share location"
+      ],
+      "kind": "location_request",
+      "text": "Share your location once more to stop the dock clock."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m8"
+   },
+   {
+    "id": "e11",
+    "at": "2026-10-20T20:08:15.218Z",
+    "title": "Driver shared a location",
+    "detail": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only. Time is RCS server time.",
+    "services": [
+     "EUM RCS",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "rcs",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "phaseBefore": "awaiting_release_pin",
+     "type": "location",
+     "phaseAfter": "awaiting_bol",
+     "sk": "EVENT#2026-10-20T20:08:15.218Z",
+     "detail": {},
+     "channel": "rcs",
+     "outcome": "ADVANCED",
+     "serverAt": "2026-10-20T20:08:15.218Z"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m9"
+   },
+   {
+    "id": "e12",
+    "at": "2026-10-20T20:08:15.497Z",
+    "title": "DockClock composed the bill of lading form (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:08:15.497Z",
+     "channel": "rcs",
+     "purpose": "release_flow",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "kind": "text",
+      "text": "Clock stopped at Judge demo yard (any location counts). Reply with a photo of the signed bill of lading. It is saved with this load's evidence and shared with the broker on this load only."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m10"
+   },
+   {
+    "id": "e13",
+    "at": "2026-10-20T20:08:19.532Z",
+    "title": "Driver sent a photo",
+    "services": [
+     "EUM RCS",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "rcs",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "photoId": "p1",
+    "record": {
+     "sk": "EVENT#2026-10-20T20:08:19.532Z",
+     "phaseAfter": "documented",
+     "serverAt": "2026-10-20T20:08:19.532Z",
+     "channel": "rcs",
+     "detail": {
+      "mimeType": "image/jpeg"
+     },
+     "outcome": "ADVANCED",
+     "phaseBefore": "awaiting_bol",
+     "type": "image"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m11"
+   },
+   {
+    "id": "e14",
+    "at": "2026-10-20T20:08:19.854Z",
+    "title": "DockClock composed tell bol photo received (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM RCS"
+    ],
+    "channel": "rcs",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:08:19.854Z",
+     "channel": "rcs",
+     "purpose": "tell_bol_photo_received",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "kind": "text",
+      "text": "Got it. Your photo is saved with this load's evidence."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m12"
+   },
+   {
+    "id": "e15",
+    "at": "2026-10-20T20:08:24.562Z",
+    "title": "The agent's photo tool read the bill of lading",
+    "services": [
+     "Step Functions",
+     "Lambda"
+    ],
+    "tone": "agent",
+    "photoId": "p1",
+    "record": {
+     "legible": true,
+     "inTime": "13:52",
+     "outTime": "17:18",
+     "receiverSigned": true,
+     "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "e16",
+    "at": "2026-10-20T20:08:24.742Z",
+    "title": "The contract decided: billable, $3.07. Evidence sealed and signed",
+    "services": [
+     "Step Functions",
+     "Lambda",
+     "KMS",
+     "S3 Object Lock"
+    ],
+    "tone": "money",
+    "record": {
+     "verdict": "BILLABLE",
+     "reasons": [],
+     "amountUsd": 3.07,
+     "packId": "SMOKE-DEMO-mvh3xsdq-19cd75157877",
+     "digestSha256": "512e70560cdaeb843997d265343e4b2387e00a12bd26e44faa2a03286f15edeb"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "e17",
+    "at": "2026-10-20T20:08:26.401Z",
+    "title": "Dispatch escalation composed (not sent: test load)",
+    "services": [
+     "Lambda",
+     "SES"
+    ],
+    "channel": "email",
+    "tone": "refused",
+    "emailId": "escalation-1",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e18",
+    "at": "2026-10-20T20:09:09.117Z",
+    "title": "Approval recorded from the command line (test, not a tap)",
+    "services": [
+     "DynamoDB"
+    ],
+    "tone": "ok",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e19",
+    "at": "2026-10-20T20:09:09.556Z",
+    "title": "The AI agent filed the claim by email",
+    "services": [
+     "Bedrock AgentCore",
+     "AgentCore Gateway",
+     "SES"
+    ],
+    "tone": "agent",
+    "agentRunId": "a1",
+    "emailId": "claim",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e20",
+    "at": "2026-10-20T20:09:23.928Z",
+    "title": "SES reported the claim email delivered",
+    "services": [
+     "SES",
+     "SNS",
+     "Lambda"
+    ],
+    "channel": "email",
+    "tone": "ok",
+    "emailId": "claim",
+    "provenance": "recorded"
+   }
+  ],
+  "photos": [
+   {
+    "id": "p1",
+    "page": 1,
+    "channel": "rcs",
+    "takenAt": "2026-10-20T20:08:19.532Z",
+    "mimeType": "image/jpeg",
+    "sha256": "9c38f45a07c6abb362d9bfb13f07c8714c894a1b89740e82688a89dc74590499",
+    "matchesPack": true,
+    "url": "photos/SMOKE-DEMO-mvh3xsdq-1.jpg",
+    "servedBytes": "metadata_stripped",
+    "source": "rendered_fictional_document",
+    "usedInEvidence": true,
+    "legible": true,
+    "reading": {
+     "inTime": "13:52",
+     "outTime": "17:18",
+     "receiverSigned": true,
+     "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+     "readAt": "2026-10-20T20:08:24.562Z"
+    },
+    "provenance": "synthetic_input"
+   }
+  ],
+  "emails": [
+   {
+    "id": "notice",
+    "purpose": "notice",
+    "sentAt": "2026-10-20T20:01:58.138Z",
+    "status": "delivered",
+    "deliveredAt": "2026-10-20T20:01:58.806Z",
+    "from": "claims@claims.kaungzinhein.com",
+    "to": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper",
+     "note": "Delivered to our test mailbox, not to a real company."
+    },
+    "subject": "Detention notice: load SMOKE-DEMO-mvh3xsdq at Judge demo yard (any location counts)",
+    "attachments": [],
+    "bodyStored": true,
+    "provenance": "recorded"
+   },
+   {
+    "id": "claim",
+    "purpose": "claim",
+    "sentAt": "2026-10-20T20:09:21.648Z",
+    "status": "delivered",
+    "deliveredAt": "2026-10-20T20:09:23.928Z",
+    "from": "claims@claims.kaungzinhein.com",
+    "to": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper",
+     "note": "Delivered to our test mailbox, not to a real company."
+    },
+    "subject": "Detention claim for load SMOKE-DEMO-mvh3xsdq - $3.07",
+    "attachments": [
+     {
+      "name": "SMOKE-DEMO-mvh3xsdq-19cd75157877.json",
+      "contentType": "application/json",
+      "sha256": "da7bc22764106e31d86b81e952d39f33947d249849829bb9abd8462f0f522e49",
+      "note": "The signed evidence pack, exactly as sealed."
+     },
+     {
+      "name": "dockclock-public-key.pem",
+      "contentType": "application/x-pem-file",
+      "sha256": "8876fe3fc644cd347dee167da5720bf46a2b36feaea629b2ea3d9896a855e299",
+      "note": "The public key to check the signature."
+     }
+    ],
+    "bodyStored": true,
+    "provenance": "recorded"
+   },
+   {
+    "id": "escalation-1",
+    "purpose": "dispatch_escalation",
+    "sentAt": "2026-10-20T20:08:26.401Z",
+    "status": "not_sent",
+    "notSentReason": "Not sent: test loads never email dispatch.",
+    "from": "DockClock dispatch alerts",
+    "to": {
+     "name": "The carrier's dispatch desk",
+     "role": "dispatch",
+     "note": "Our test mailbox for dispatch."
+    },
+    "subject": "DockClock: load SMOKE-DEMO-mvh3xsdq needs dispatch (no approval within two days; nothing was sent; evidence confidence low)",
+    "attachments": [],
+    "bodyStored": true,
+    "provenance": "recorded"
+   }
+  ],
+  "agentRuns": [
+   {
+    "id": "a1",
+    "task": "file_claim",
+    "startedAt": "2026-10-20T20:09:09.556Z",
+    "endedAt": "2026-10-20T20:09:25.447Z",
+    "model": "Claude Sonnet 4.5 on Amazon Bedrock AgentCore",
+    "stopReason": "end_turn",
+    "toolCalls": [
+     {
+      "name": "get_load_evidence",
+      "input": {
+       "loadId": "SMOKE-DEMO-mvh3xsdq"
+      },
+      "cedar": {
+       "decision": "permit",
+       "policy": "Read tools are always allowed.",
+       "decisionSource": "inferred"
+      },
+      "result": {
+       "ok": true,
+       "summary": "Sealed BILLABLE, $3.07, dispatch approved."
+      }
+     },
+     {
+      "name": "send_detention_claim",
+      "input": {
+       "amountCents": 307,
+       "approvalId": "appr-dc0562d4f0a0",
+       "body": "(the email body, shown in the mailbox)",
+       "loadId": "SMOKE-DEMO-mvh3xsdq",
+       "packDigest": "512e70560cdaeb843997d265343e4b2387e00a12bd26e44faa2a03286f15edeb",
+       "subject": "Detention claim for load SMOKE-DEMO-mvh3xsdq - $3.07"
+      },
+      "cedar": {
+       "decision": "permit",
+       "policy": "The claim tool needs an approval id and 0 < amount ≤ $5,000.00 (in cents).",
+       "decisionSource": "inferred"
+      },
+      "result": {
+       "ok": true,
+       "summary": "Email accepted by SES; claim recorded as sent."
+      }
+     }
+    ],
+    "guard": {
+     "amountCentsSent": 307,
+     "amountCentsSealed": 307,
+     "digestSent": "512e70560cdaeb843997d265343e4b2387e00a12bd26e44faa2a03286f15edeb",
+     "digestSealed": "512e70560cdaeb843997d265343e4b2387e00a12bd26e44faa2a03286f15edeb",
+     "match": true
+    },
+    "text": "**Claim filed successfully!**\n\nThe detention claim for load SMOKE-DEMO-mvh3xsdq has been sent to Demo Receiving Co. (fictional) for **$3.07**.\n\n**Summary:**\n- **Facility**: Judge demo yard (any location counts)\n- **Arrival**: 2026-10-20 16:00 EDT\n- **Release**: 2026-10-20 16:08 EDT\n- **Detention time**: 3.07 minutes (after 5 minutes free time)\n- **Rate**: $60.00/hour\n- **Amount**: $3.07\n- **Evidence pack**: Attached and signed\n- **Sent**: 2026-10-20T20:09:21.648Z",
+    "provenance": "recorded"
+   }
+  ],
+  "approval": null,
+  "claim": {
+   "status": "sent",
+   "amountUsd": 3.07,
+   "amountCents": 307,
+   "packDigest": "512e70560cdaeb843997d265343e4b2387e00a12bd26e44faa2a03286f15edeb",
+   "sentAt": "2026-10-20T20:09:21.648Z",
+   "subject": "Detention claim for load SMOKE-DEMO-mvh3xsdq - $3.07",
+   "secondsAfterApproval": 12.5
+  },
+  "verdict": {
+   "verdict": "BILLABLE",
+   "reasons": [],
+   "amountUsd": 3.07,
+   "confidence": "low",
+   "signals": [
+    {
+     "name": "arrived_pin_in_geofence",
+     "ok": true,
+     "detail": "inside facility polygon"
+    },
+    {
+     "name": "released_pin_in_geofence",
+     "ok": true,
+     "detail": "inside facility polygon"
+    },
+    {
+     "name": "bol_camera_only",
+     "ok": false,
+     "detail": "RCS photo reply; camera or gallery unknown"
+    },
+    {
+     "name": "bol_media_hashed",
+     "ok": true,
+     "detail": "1 of 1 pages stored and hashed"
+    },
+    {
+     "name": "bol_confirmed_by_driver",
+     "ok": false,
+     "detail": "RCS has no form, so no driver-entered times or signed box"
+    },
+    {
+     "name": "notice_delivered",
+     "ok": true,
+     "detail": "2026-10-20T20:01:58.806Z"
+    }
+   ],
+   "engineInput": {
+    "appointmentAt": "2026-10-20T20:00:02.798Z",
+    "arrived": {
+     "at": "2026-10-20T20:00:11.099Z",
+     "insideGeofence": true
+    },
+    "released": {
+     "at": "2026-10-20T20:08:15.218Z",
+     "insideGeofence": true
+    },
+    "bol": {
+     "signed": false,
+     "checkIn": null,
+     "checkOut": null
+    },
+    "status214": false,
+    "noticeSentAt": "2026-10-20T20:01:58.138Z",
+    "shipperConfirmed": false,
+    "evaluatedAt": "2026-10-20T20:08:24.742Z"
+   }
+  },
+  "pack": {
+   "packId": "SMOKE-DEMO-mvh3xsdq-19cd75157877",
+   "digestSha256": "512e70560cdaeb843997d265343e4b2387e00a12bd26e44faa2a03286f15edeb",
+   "sealedAt": "2026-10-20T20:08:24.742Z",
+   "storage": "S3 Object Lock (governance mode, 30 days)",
+   "confidence": "low",
+   "href": "/api/loads/SMOKE-DEMO-mvh3xsdq/pack"
+  }
+ }
+}

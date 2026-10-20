@@ -1,10 +1,72 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T19:40:24.177Z",
+ "generatedAt": "2026-10-20T20:09:52.517Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
   "loads": [
+   {
+    "loadId": "SMOKE-DEMO-mvh3xsdv",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-20T20:00:03.970Z",
+    "lastActivityAt": "2026-10-20T20:09:05.379Z",
+    "facility": {
+     "id": "judge-demo",
+     "name": "Judge demo yard (any location counts)",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper"
+    },
+    "channel": "whatsapp",
+    "channels": [
+     "whatsapp"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "claim_filed",
+    "live": false,
+    "verdict": "BILLABLE",
+    "amountUsd": 3.07,
+    "claimSentAt": "2026-10-20T20:09:05.379Z",
+    "arrivedAt": "2026-10-20T20:00:11.000Z",
+    "releasedAt": "2026-10-20T20:08:15.000Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "SMOKE-DEMO-mvh3xsdq",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-20T20:00:03.673Z",
+    "lastActivityAt": "2026-10-20T20:09:21.648Z",
+    "facility": {
+     "id": "judge-demo",
+     "name": "Judge demo yard (any location counts)",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper"
+    },
+    "channel": "rcs",
+    "channels": [
+     "rcs"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "claim_filed",
+    "live": false,
+    "verdict": "BILLABLE",
+    "amountUsd": 3.07,
+    "claimSentAt": "2026-10-20T20:09:21.648Z",
+    "arrivedAt": "2026-10-20T20:00:11.099Z",
+    "releasedAt": "2026-10-20T20:08:15.218Z",
+    "failover": false,
+    "photos": 1
+   },
    {
     "loadId": "SMOKE-RCS-mvh3695l",
     "runKind": "integration",
@@ -663,8 +725,8 @@
    },
    {
     "loadId": "SMOKE-mve0mtkb",
-    "runKind": "phone",
-    "runLabel": "Real phone",
+    "runKind": "integration",
+    "runLabel": "Test run",
     "createdAt": "2026-10-18T16:04:14.580Z",
     "lastActivityAt": "2026-10-18T16:04:36.827Z",
     "facility": {
@@ -694,8 +756,8 @@
    },
    {
     "loadId": "SMOKE-mvbtpkds",
-    "runKind": "phone",
-    "runLabel": "Real phone",
+    "runKind": "integration",
+    "runLabel": "Test run",
     "createdAt": "2026-10-17T03:14:53.259Z",
     "lastActivityAt": "2026-10-17T03:15:15.235Z",
     "facility": {
@@ -725,8 +787,8 @@
    },
    {
     "loadId": "SMOKE-mvbt20wu",
-    "runKind": "phone",
-    "runLabel": "Real phone",
+    "runKind": "integration",
+    "runLabel": "Test run",
     "createdAt": "2026-10-17T02:56:34.551Z",
     "lastActivityAt": "2026-10-17T02:56:51.208Z",
     "facility": {
@@ -756,8 +818,8 @@
    },
    {
     "loadId": "SMOKE-mvbipt41",
-    "runKind": "phone",
-    "runLabel": "Real phone",
+    "runKind": "integration",
+    "runLabel": "Test run",
     "createdAt": "2026-10-16T22:07:08.782Z",
     "lastActivityAt": "2026-10-16T22:07:25.558Z",
     "facility": {

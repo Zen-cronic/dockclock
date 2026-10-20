@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T19:40:26.658Z",
+ "generatedAt": "2026-10-20T20:09:58.521Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
@@ -60,7 +60,7 @@
    "basis": "Modelled on published shipper terms. Values those terms do not state are DockClock assumptions."
   },
   "clock": {
-   "asOf": "2026-10-20T19:40:26.658Z",
+   "asOf": "2026-10-20T20:09:58.521Z",
    "arrivedAt": "2026-10-20T14:39:49.000Z",
    "releasedAt": "2026-10-20T18:17:49.000Z",
    "clockStartAt": "2026-10-20T14:46:49.686Z",
@@ -347,16 +347,16 @@
     "outcome": "REJECTED_OUT_OF_ORDER",
     "tone": "refused",
     "record": {
-     "sk": "EVENT#2026-10-20T14:36:49.000Z",
-     "serverAt": "2026-10-20T14:36:49.000Z",
-     "type": "button",
      "detail": {
       "payload": "dc1.released.SMOKE-mvh1bmmu.<nonce>"
      },
      "phaseAfter": "dispatched",
      "channel": "whatsapp",
-     "outcome": "REJECTED_OUT_OF_ORDER",
-     "phaseBefore": "dispatched"
+     "serverAt": "2026-10-20T14:36:49.000Z",
+     "sk": "EVENT#2026-10-20T14:36:49.000Z",
+     "phaseBefore": "dispatched",
+     "type": "button",
+     "outcome": "REJECTED_OUT_OF_ORDER"
     },
     "provenance": "synthetic_input",
     "messageId": "m1"
@@ -376,16 +376,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "outcome": "ADVANCED",
-     "type": "button",
      "detail": {
       "payload": "dc1.arrived.SMOKE-mvh1bmmu.<nonce>"
      },
+     "phaseAfter": "awaiting_arrival_pin",
+     "outcome": "ADVANCED",
+     "sk": "EVENT#2026-10-20T14:38:49.000Z",
      "serverAt": "2026-10-20T14:38:49.000Z",
      "channel": "whatsapp",
      "phaseBefore": "dispatched",
-     "phaseAfter": "awaiting_arrival_pin",
-     "sk": "EVENT#2026-10-20T14:38:49.000Z"
+     "type": "button"
     },
     "provenance": "synthetic_input",
     "messageId": "m2"
@@ -406,14 +406,14 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "serverAt": "2026-10-20T14:39:49.000Z",
+     "detail": {},
      "outcome": "ADVANCED",
+     "serverAt": "2026-10-20T14:39:49.000Z",
+     "sk": "EVENT#2026-10-20T14:39:49.000Z",
+     "channel": "whatsapp",
      "phaseAfter": "at_dock",
      "phaseBefore": "awaiting_arrival_pin",
-     "type": "location",
-     "channel": "whatsapp",
-     "detail": {},
-     "sk": "EVENT#2026-10-20T14:39:49.000Z"
+     "type": "location"
     },
     "provenance": "synthetic_input",
     "messageId": "m3"
@@ -433,16 +433,16 @@
     "outcome": "IGNORED_DUPLICATE_TAP",
     "tone": "refused",
     "record": {
-     "outcome": "IGNORED_DUPLICATE_TAP",
-     "phaseAfter": "at_dock",
-     "type": "button",
      "detail": {
       "payload": "dc1.arrived.SMOKE-mvh1bmmu.<nonce>"
      },
-     "channel": "whatsapp",
-     "sk": "EVENT#2026-10-20T15:26:49.000Z",
      "serverAt": "2026-10-20T15:26:49.000Z",
-     "phaseBefore": "at_dock"
+     "phaseBefore": "at_dock",
+     "channel": "whatsapp",
+     "phaseAfter": "at_dock",
+     "outcome": "IGNORED_DUPLICATE_TAP",
+     "sk": "EVENT#2026-10-20T15:26:49.000Z",
+     "type": "button"
     },
     "provenance": "synthetic_input",
     "messageId": "m4"
@@ -462,16 +462,16 @@
     "outcome": "REJECTED_STALE_BUTTON",
     "tone": "refused",
     "record": {
-     "outcome": "REJECTED_STALE_BUTTON",
-     "sk": "EVENT#2026-10-20T18:15:49.000Z",
+     "phaseBefore": "at_dock",
+     "serverAt": "2026-10-20T18:15:49.000Z",
+     "channel": "whatsapp",
+     "phaseAfter": "at_dock",
      "detail": {
       "payload": "dc1.released.SMOKE-mvh1bmmu.stale000"
      },
-     "phaseAfter": "at_dock",
      "type": "button",
-     "channel": "whatsapp",
-     "serverAt": "2026-10-20T18:15:49.000Z",
-     "phaseBefore": "at_dock"
+     "sk": "EVENT#2026-10-20T18:15:49.000Z",
+     "outcome": "REJECTED_STALE_BUTTON"
     },
     "provenance": "synthetic_input",
     "messageId": "m5"
@@ -491,16 +491,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "phaseAfter": "awaiting_release_pin",
+     "phaseBefore": "at_dock",
      "outcome": "ADVANCED",
-     "type": "button",
-     "sk": "EVENT#2026-10-20T18:16:49.000Z",
      "detail": {
       "payload": "dc1.released.SMOKE-mvh1bmmu.<nonce>"
      },
-     "channel": "whatsapp",
      "serverAt": "2026-10-20T18:16:49.000Z",
-     "phaseBefore": "at_dock"
+     "channel": "whatsapp",
+     "phaseAfter": "awaiting_release_pin",
+     "type": "button",
+     "sk": "EVENT#2026-10-20T18:16:49.000Z"
     },
     "provenance": "synthetic_input",
     "messageId": "m6"
@@ -521,14 +521,14 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
+     "detail": {},
      "outcome": "ADVANCED",
-     "type": "location",
-     "channel": "whatsapp",
      "serverAt": "2026-10-20T18:17:49.000Z",
-     "sk": "EVENT#2026-10-20T18:17:49.000Z",
-     "phaseBefore": "awaiting_release_pin",
      "phaseAfter": "awaiting_bol",
-     "detail": {}
+     "phaseBefore": "awaiting_release_pin",
+     "channel": "whatsapp",
+     "type": "location",
+     "sk": "EVENT#2026-10-20T18:17:49.000Z"
     },
     "provenance": "synthetic_input",
     "messageId": "m7"
@@ -549,16 +549,16 @@
     "tone": "neutral",
     "photoId": "p1",
     "record": {
-     "phaseAfter": "documented",
-     "phaseBefore": "awaiting_bol",
-     "type": "flow",
      "outcome": "ADVANCED",
+     "sk": "EVENT#2026-10-20T18:21:49.000Z",
+     "serverAt": "2026-10-20T18:21:49.000Z",
      "channel": "whatsapp",
+     "type": "flow",
+     "phaseBefore": "awaiting_bol",
      "detail": {
       "flowToken": "dc1.release.SMOKE-mvh1bmmu.<nonce>"
      },
-     "serverAt": "2026-10-20T18:21:49.000Z",
-     "sk": "EVENT#2026-10-20T18:21:49.000Z"
+     "phaseAfter": "documented"
     },
     "provenance": "synthetic_input",
     "messageId": "m8"

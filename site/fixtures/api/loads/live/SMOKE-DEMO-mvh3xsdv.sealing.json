@@ -1,0 +1,892 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-20T20:08:20.853Z",
+ "workspace": "demo",
+ "pollMs": 3000,
+ "data": {
+  "summary": {
+   "loadId": "SMOKE-DEMO-mvh3xsdv",
+   "runKind": "integration",
+   "runLabel": "Test run",
+   "createdAt": "2026-10-20T20:00:03.970Z",
+   "lastActivityAt": "2026-10-20T20:08:20.265Z",
+   "facility": {
+    "id": "judge-demo",
+    "name": "Judge demo yard (any location counts)",
+    "timeZone": "America/New_York"
+   },
+   "counterparty": {
+    "name": "Demo Receiving Co. (fictional)",
+    "role": "shipper"
+   },
+   "channel": "whatsapp",
+   "channels": [
+    "whatsapp"
+   ],
+   "language": "en_US",
+   "phase": "documented",
+   "status": "sealing",
+   "live": true,
+   "verdict": null,
+   "amountUsd": null,
+   "claimSentAt": null,
+   "arrivedAt": "2026-10-20T20:00:11.000Z",
+   "releasedAt": "2026-10-20T20:08:15.000Z",
+   "failover": false,
+   "photos": 1
+  },
+  "run": {
+   "kind": "integration",
+   "summary": "Test run: the driver's messages were replayed test messages. The workflow, the AI agent, the signature and the emails are real.",
+   "notes": [
+    "Driver messages: synthetic, replayed through the deployed stack by the integration test (load id prefix SMOKE-). Their times are set earlier than the run.",
+    "Messages to the driver were composed but not sent: the driver is a test number."
+   ]
+  },
+  "clause": {
+   "id": "judge-demo",
+   "freeTimeMinutes": 5,
+   "freeTimeAnchor": "arrival",
+   "requireOnTimeArrival": false,
+   "ratePerHourUsd": 60,
+   "capUsdPerOccurrence": 30,
+   "noticeLeadMinutes": 0,
+   "acceptedRecords": [
+    "app_gps",
+    "signed_bol_times"
+   ],
+   "claimWindowHours": 24,
+   "shipperConfirmationRequired": false,
+   "basis": "DockClock judge demo clause, not modelled on any published terms."
+  },
+  "clock": {
+   "asOf": "2026-10-20T20:08:20.853Z",
+   "arrivedAt": "2026-10-20T20:00:11.000Z",
+   "releasedAt": "2026-10-20T20:08:15.000Z",
+   "clockStartAt": "2026-10-20T20:00:11.000Z",
+   "freeTimeEndsAt": "2026-10-20T20:05:11.000Z",
+   "detentionMinutes": 3.066666666666667,
+   "billableMinutes": 3.066666666666667,
+   "amountUsd": null,
+   "driverTimes": "synthetic_input"
+  },
+  "workflow": [
+   {
+    "key": "dispatched",
+    "label": "Load dispatched to the driver",
+    "state": "done",
+    "at": "2026-10-20T20:00:03.970Z",
+    "services": [
+     "Lambda",
+     "Step Functions",
+     "EUM Social"
+    ]
+   },
+   {
+    "key": "arrived",
+    "label": "Arrival confirmed by a location pin",
+    "state": "done",
+    "at": "2026-10-20T20:00:11.000Z",
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "notice",
+    "label": "Detention notice emailed before free time ends",
+    "state": "done",
+    "at": "2026-10-20T20:01:12.370Z",
+    "services": [
+     "EventBridge Scheduler",
+     "Lambda",
+     "SES"
+    ]
+   },
+   {
+    "key": "released",
+    "label": "Release confirmed by a location pin",
+    "state": "done",
+    "at": "2026-10-20T20:08:15.000Z",
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "paperwork",
+    "label": "Bill of lading received",
+    "state": "done",
+    "at": "2026-10-20T20:08:19.000Z",
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "photo_read",
+    "label": "Photo read by the agent's tool",
+    "state": "current",
+    "at": null,
+    "services": [
+     "Step Functions",
+     "Lambda"
+    ]
+   },
+   {
+    "key": "sealed",
+    "label": "Evidence sealed and signed",
+    "state": "current",
+    "at": null,
+    "services": [
+     "Lambda",
+     "KMS",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "approval",
+    "label": "Dispatch approved the claim",
+    "state": "waiting",
+    "at": null,
+    "services": [
+     "Step Functions",
+     "EUM Social",
+     "Lambda"
+    ]
+   },
+   {
+    "key": "claim",
+    "label": "AI agent filed the claim by email",
+    "state": "waiting",
+    "at": null,
+    "services": [
+     "Bedrock AgentCore",
+     "AgentCore Gateway",
+     "SES"
+    ]
+   }
+  ],
+  "messages": [
+   {
+    "id": "m1",
+    "at": "2026-10-20T20:00:04.110Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "dispatch_template",
+    "kind": "wa_template",
+    "body": "Load SMOKE-DEMO-mvh3xsdv is booked: Judge demo yard (any location counts), appointment Oct 20, 4:00 PM. When you are parked at the dock, tap Arrived and we will start the detention clock.",
+    "footer": "Reply STOP to stop load messages.",
+    "template": {
+     "name": "dockclock_load_dispatch",
+     "language": "en_US"
+    },
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Arrived"
+     },
+     {
+      "type": "quick_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m2",
+    "at": "2026-10-20T20:00:07.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_button_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "tap_arrived",
+    "body": "Tapped Arrived",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Arrived",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m3",
+    "at": "2026-10-20T20:00:08.817Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "location_arrived",
+    "kind": "wa_location_request",
+    "body": "Share your location to start the dock clock. Only send it while parked.",
+    "actions": [
+     {
+      "type": "send_location",
+      "title": "Send location"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m4",
+    "at": "2026-10-20T20:00:11.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_location",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "location",
+    "body": "Location shared",
+    "location": {
+     "insideGeofence": true,
+     "note": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only."
+    }
+   },
+   {
+    "id": "m5",
+    "at": "2026-10-20T20:00:11.615Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "offer_release",
+    "kind": "wa_reply_buttons",
+    "body": "Checked in at Judge demo yard (any location counts) at 16:00 (WhatsApp server time). Tap Released when you are unloaded and leaving the door.",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Released"
+     },
+     {
+      "type": "quick_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m6",
+    "at": "2026-10-20T20:01:12.808Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "notice_sent",
+    "kind": "wa_template",
+    "body": "Load SMOKE-DEMO-mvh3xsdv: free time ends at 16:05 EDT. We emailed Demo Receiving Co. (fictional) the detention notice your contract requires. Updates will arrive in this chat.",
+    "template": {
+     "name": "dockclock_notice_sent",
+     "language": "en_US"
+    },
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m7",
+    "at": "2026-10-20T20:08:11.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_button_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "tap_released",
+    "body": "Tapped Released",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Released",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m8",
+    "at": "2026-10-20T20:08:11.674Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "location_released",
+    "kind": "wa_location_request",
+    "body": "Share your location once more to stop the dock clock.",
+    "actions": [
+     {
+      "type": "send_location",
+      "title": "Send location"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m9",
+    "at": "2026-10-20T20:08:15.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_location",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "location",
+    "body": "Location shared",
+    "location": {
+     "insideGeofence": true,
+     "note": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only."
+    }
+   },
+   {
+    "id": "m10",
+    "at": "2026-10-20T20:08:15.692Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "release_flow",
+    "kind": "wa_flow",
+    "body": "Clock stopped at Judge demo yard (any location counts). Add a photo of the signed bill of lading so the times on paper back up your pins.",
+    "actions": [
+     {
+      "type": "flow_cta",
+      "title": "Add BOL photo"
+     }
+    ],
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   },
+   {
+    "id": "m11",
+    "at": "2026-10-20T20:08:19.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_flow_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "synthetic_input",
+    "purpose": "flow_reply",
+    "body": "Bill of lading form",
+    "flowReply": {
+     "inTime": "16:01",
+     "outTime": "16:07",
+     "receiverSigned": true,
+     "delayReason": "dock_not_ready"
+    },
+    "photoId": "p1"
+   },
+   {
+    "id": "m12",
+    "at": "2026-10-20T20:08:20.246Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "tell_bol_partial",
+    "kind": "wa_text",
+    "body": "Some pages could not be saved. Dispatch has been told and will follow up.",
+    "status": "not_sent",
+    "notSentReason": "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+    "provenance": "recorded"
+   }
+  ],
+  "timeline": [
+   {
+    "id": "e1",
+    "at": "2026-10-20T20:00:04.110Z",
+    "title": "DockClock composed the load dispatch (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:00:04.110Z",
+     "channel": "whatsapp",
+     "purpose": "dispatch_template",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Arrived",
+        "type": "quick_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "quick_reply"
+       }
+      ],
+      "buttons": [
+       "Arrived",
+       "Talk to dispatch"
+      ],
+      "footer": "Reply STOP to stop load messages.",
+      "kind": "template",
+      "template": {
+       "language": "en_US",
+       "name": "dockclock_load_dispatch"
+      },
+      "text": "Load SMOKE-DEMO-mvh3xsdv is booked: Judge demo yard (any location counts), appointment Oct 20, 4:00 PM. When you are parked at the dock, tap Arrived and we will start the detention clock."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m1"
+   },
+   {
+    "id": "e2",
+    "at": "2026-10-20T20:00:07.000Z",
+    "title": "Driver tapped Arrived",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "channel": "whatsapp",
+     "detail": {
+      "payload": "dc1.arrived.SMOKE-DEMO-mvh3xsdv.<nonce>"
+     },
+     "phaseBefore": "dispatched",
+     "serverAt": "2026-10-20T20:00:07.000Z",
+     "phaseAfter": "awaiting_arrival_pin",
+     "outcome": "ADVANCED",
+     "sk": "EVENT#2026-10-20T20:00:07.000Z",
+     "type": "button"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m2"
+   },
+   {
+    "id": "e3",
+    "at": "2026-10-20T20:00:08.817Z",
+    "title": "DockClock composed location arrived (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:00:08.817Z",
+     "channel": "whatsapp",
+     "purpose": "location_arrived",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Send location",
+        "type": "send_location"
+       }
+      ],
+      "buttons": [
+       "Send location"
+      ],
+      "kind": "location_request",
+      "text": "Share your location to start the dock clock. Only send it while parked."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m3"
+   },
+   {
+    "id": "e4",
+    "at": "2026-10-20T20:00:11.000Z",
+    "title": "Driver shared a location",
+    "detail": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only. Time is WhatsApp server time.",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "phaseBefore": "awaiting_arrival_pin",
+     "detail": {},
+     "channel": "whatsapp",
+     "sk": "EVENT#2026-10-20T20:00:11.000Z",
+     "serverAt": "2026-10-20T20:00:11.000Z",
+     "outcome": "ADVANCED",
+     "type": "location",
+     "phaseAfter": "at_dock"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m4"
+   },
+   {
+    "id": "e5",
+    "at": "2026-10-20T20:00:11.615Z",
+    "title": "DockClock composed offer release (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:00:11.615Z",
+     "channel": "whatsapp",
+     "purpose": "offer_release",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Released",
+        "type": "quick_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "quick_reply"
+       }
+      ],
+      "buttons": [
+       "Released",
+       "Talk to dispatch"
+      ],
+      "kind": "buttons",
+      "text": "Checked in at Judge demo yard (any location counts) at 16:00 (WhatsApp server time). Tap Released when you are unloaded and leaving the door."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m5"
+   },
+   {
+    "id": "e6",
+    "at": "2026-10-20T20:01:12.370Z",
+    "title": "Detention notice emailed before free time ended",
+    "services": [
+     "EventBridge Scheduler",
+     "Lambda",
+     "SES"
+    ],
+    "channel": "email",
+    "tone": "money",
+    "emailId": "notice",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e7",
+    "at": "2026-10-20T20:01:12.808Z",
+    "title": "DockClock composed word that the detention notice was emailed (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:01:12.808Z",
+     "channel": "whatsapp",
+     "purpose": "notice_sent",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "kind": "template",
+      "template": {
+       "language": "en_US",
+       "name": "dockclock_notice_sent"
+      },
+      "text": "Load SMOKE-DEMO-mvh3xsdv: free time ends at 16:05 EDT. We emailed Demo Receiving Co. (fictional) the detention notice your contract requires. Updates will arrive in this chat."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m6"
+   },
+   {
+    "id": "e8",
+    "at": "2026-10-20T20:01:13.172Z",
+    "title": "SES reported the notice delivered",
+    "services": [
+     "SES",
+     "SNS",
+     "Lambda"
+    ],
+    "channel": "email",
+    "tone": "ok",
+    "emailId": "notice",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e9",
+    "at": "2026-10-20T20:08:11.000Z",
+    "title": "Driver tapped Released",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "sk": "EVENT#2026-10-20T20:08:11.000Z",
+     "phaseBefore": "at_dock",
+     "channel": "whatsapp",
+     "detail": {
+      "payload": "dc1.released.SMOKE-DEMO-mvh3xsdv.<nonce>"
+     },
+     "outcome": "ADVANCED",
+     "serverAt": "2026-10-20T20:08:11.000Z",
+     "phaseAfter": "awaiting_release_pin",
+     "type": "button"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m7"
+   },
+   {
+    "id": "e10",
+    "at": "2026-10-20T20:08:11.674Z",
+    "title": "DockClock composed location released (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:08:11.674Z",
+     "channel": "whatsapp",
+     "purpose": "location_released",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Send location",
+        "type": "send_location"
+       }
+      ],
+      "buttons": [
+       "Send location"
+      ],
+      "kind": "location_request",
+      "text": "Share your location once more to stop the dock clock."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m8"
+   },
+   {
+    "id": "e11",
+    "at": "2026-10-20T20:08:15.000Z",
+    "title": "Driver shared a location",
+    "detail": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only. Time is WhatsApp server time.",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "detail": {},
+     "phaseBefore": "awaiting_release_pin",
+     "serverAt": "2026-10-20T20:08:15.000Z",
+     "channel": "whatsapp",
+     "phaseAfter": "awaiting_bol",
+     "outcome": "ADVANCED",
+     "type": "location",
+     "sk": "EVENT#2026-10-20T20:08:15.000Z"
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m9"
+   },
+   {
+    "id": "e12",
+    "at": "2026-10-20T20:08:15.692Z",
+    "title": "DockClock composed the bill of lading form (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:08:15.692Z",
+     "channel": "whatsapp",
+     "purpose": "release_flow",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "actions": [
+       {
+        "title": "Add BOL photo",
+        "type": "flow_cta"
+       }
+      ],
+      "flowCta": "Add BOL photo",
+      "kind": "flow",
+      "text": "Clock stopped at Judge demo yard (any location counts). Add a photo of the signed bill of lading so the times on paper back up your pins."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m10"
+   },
+   {
+    "id": "e13",
+    "at": "2026-10-20T20:08:19.000Z",
+    "title": "Bill of lading form submitted",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "photoId": "p1",
+    "record": {
+     "phaseAfter": "documented",
+     "phaseBefore": "awaiting_bol",
+     "type": "flow",
+     "channel": "whatsapp",
+     "sk": "EVENT#2026-10-20T20:08:19.000Z",
+     "serverAt": "2026-10-20T20:08:19.000Z",
+     "outcome": "ADVANCED",
+     "detail": {
+      "flowToken": "dc1.release.SMOKE-DEMO-mvh3xsdv.<nonce>"
+     }
+    },
+    "provenance": "synthetic_input",
+    "messageId": "m11"
+   },
+   {
+    "id": "e14",
+    "at": "2026-10-20T20:08:20.246Z",
+    "title": "DockClock composed tell bol partial (not sent: test number)",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-20T20:08:20.246Z",
+     "channel": "whatsapp",
+     "purpose": "tell_bol_partial",
+     "audience": "driver",
+     "status": "not_sent",
+     "message": {
+      "kind": "text",
+      "text": "Some pages could not be saved. Dispatch has been told and will follow up."
+     },
+     "receipts": {}
+    },
+    "provenance": "recorded",
+    "messageId": "m12"
+   },
+   {
+    "id": "e15",
+    "at": "2026-10-20T20:08:20.265Z",
+    "title": "Dispatch escalation composed (not sent: test load)",
+    "services": [
+     "Lambda",
+     "SES"
+    ],
+    "channel": "email",
+    "tone": "refused",
+    "emailId": "escalation-1",
+    "provenance": "recorded"
+   }
+  ],
+  "photos": [
+   {
+    "id": "p1",
+    "page": 1,
+    "channel": "whatsapp",
+    "takenAt": "2026-10-20T20:08:19.000Z",
+    "mimeType": "image/jpeg",
+    "sha256": null,
+    "matchesPack": null,
+    "url": null,
+    "servedBytes": "metadata_stripped",
+    "source": "not_stored",
+    "usedInEvidence": true,
+    "provenance": "synthetic_input"
+   }
+  ],
+  "emails": [
+   {
+    "id": "notice",
+    "purpose": "notice",
+    "sentAt": "2026-10-20T20:01:12.370Z",
+    "status": "delivered",
+    "deliveredAt": "2026-10-20T20:01:13.172Z",
+    "from": "claims@claims.kaungzinhein.com",
+    "to": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper",
+     "note": "Delivered to our test mailbox, not to a real company."
+    },
+    "subject": "Detention notice: load SMOKE-DEMO-mvh3xsdv at Judge demo yard (any location counts)",
+    "attachments": [],
+    "bodyStored": true,
+    "provenance": "recorded"
+   },
+   {
+    "id": "escalation-1",
+    "purpose": "dispatch_escalation",
+    "sentAt": "2026-10-20T20:08:20.265Z",
+    "status": "not_sent",
+    "notSentReason": "Not sent: test loads never email dispatch.",
+    "from": "DockClock dispatch alerts",
+    "to": {
+     "name": "The carrier's dispatch desk",
+     "role": "dispatch",
+     "note": "Our test mailbox for dispatch."
+    },
+    "subject": "DockClock: load SMOKE-DEMO-mvh3xsdv needs dispatch (some bill-of-lading pages could not be downloaded)",
+    "attachments": [],
+    "bodyStored": true,
+    "provenance": "recorded"
+   }
+  ],
+  "agentRuns": [],
+  "approval": null,
+  "claim": null,
+  "verdict": null,
+  "pack": null
+ }
+}
