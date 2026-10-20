@@ -35,7 +35,8 @@
     "eval:bol": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/eval-bol.ts",
     "agent:run": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/agent-run.ts",
     "approve:load": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/approve-load.ts",
-    "desk:snapshot": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/desk-snapshot.ts"
+    "desk:snapshot": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/desk-snapshot.ts",
+    "backfill:workspace": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/backfill-workspace.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-lambda": "^3.1152.0",

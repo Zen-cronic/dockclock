@@ -4,7 +4,7 @@ import { SendWhatsAppMessageCommand, SocialMessagingClient } from "@aws-sdk/clie
 import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { handler, validate, type DispatchInput } from "../src/dispatch.js";
+import { handler, validate, workspaceOf, type DispatchInput } from "../src/dispatch.js";
 
 const dynamo = mockClient(DynamoDBDocumentClient);
 const sfn = mockClient(SFNClient);
@@ -93,5 +93,22 @@ describe("dispatch", () => {
     dynamo.on(GetCommand).callsFake((q: { Key: { pk: string } }) => (q.Key.pk.startsWith("OPTOUT#") ? { Item: { at: "t" } } : {}));
     await expect(handler(input)).rejects.toThrow(/opted out/);
     expect(dynamo.commandCalls(TransactWriteCommand)).toHaveLength(0);
+  });
+
+  it("lists judge, test and flagged operator loads in the demo workspace, and no others", async () => {
+    expect(workspaceOf({ demo: true })).toBe("demo");
+    expect(workspaceOf({ synthetic: true })).toBe("demo");
+    expect(workspaceOf({ workspace: "demo" })).toBe("demo");
+    expect(workspaceOf({})).toBeNull();
+    expect(() => validate({ ...input, workspace: "prod" as never })).toThrow(/workspace/);
+    dynamo.on(GetCommand).resolves({});
+    const meta = async (extra: Partial<DispatchInput>) => {
+      dynamo.resetHistory();
+      await handler({ ...input, ...extra });
+      const put = dynamo.commandCalls(TransactWriteCommand)[0]!.args[0].input.TransactItems!.find((t) => t.Put?.Item?.sk === "META");
+      return put!.Put!.Item as Record<string, unknown>;
+    };
+    expect((await meta({ workspace: "demo" })).ws).toBe("demo");
+    expect((await meta({})).ws).toBeUndefined();
   });
 });

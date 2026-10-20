@@ -138,6 +138,20 @@ describe("stacks", () => {
     expect(JSON.stringify(noticePolicy)).toContain("ses:SendRawEmail");
   });
 
+  it("indexes only demo-workspace loads for the read API", () => {
+    coreT.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      GlobalSecondaryIndexes: [
+        Match.objectLike({
+          IndexName: "byWorkspace",
+          KeySchema: [
+            { AttributeName: "ws", KeyType: "HASH" },
+            { AttributeName: "createdAt", KeyType: "RANGE" },
+          ],
+        }),
+      ],
+    });
+  });
+
   it("serves the judge desk from a private bucket through CloudFront over HTTPS only", () => {
     const deskT = Template.fromStack(desk);
     deskT.hasResourceProperties("AWS::S3::Bucket", {

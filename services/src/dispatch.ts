@@ -40,6 +40,16 @@ export interface DispatchInput {
   askDispatcher?: boolean;
   // A judge try-it load (see demo.ts).
   demo?: boolean;
+  // "demo" lists an operator load in the public demo workspace (the console read API). Judge and
+  // test loads are always there.
+  workspace?: "demo";
+}
+
+// The public demo workspace: the only loads the console read API will show.
+export const DEMO_WORKSPACE = "demo";
+
+export function workspaceOf(input: Pick<DispatchInput, "demo" | "synthetic" | "workspace">): typeof DEMO_WORKSPACE | null {
+  return input.demo === true || input.synthetic === true || input.workspace === DEMO_WORKSPACE ? DEMO_WORKSPACE : null;
 }
 
 export interface DispatchOutput {
@@ -75,6 +85,7 @@ export function validate(input: DispatchInput): { language: Language; address: A
     throw new DispatchRejected("address.e164 is not a valid phone number");
   }
   if (input.channel !== "whatsapp" && input.channel !== "rcs") throw new DispatchRejected("channel must be whatsapp or rcs");
+  if (input.workspace !== undefined && input.workspace !== DEMO_WORKSPACE) throw new DispatchRejected('workspace must be "demo" when given');
   if (input.channel === "rcs" && address.kind !== "phone") throw new DispatchRejected("an RCS driver needs a phone number");
   if (input.channel === "rcs" && !env.rcs()) throw new DispatchRejected("RCS is not configured for this deployment");
   return { language, address, appointment: formatAppointment(input.appointmentAt, facility.timeZone, language) };
@@ -185,6 +196,8 @@ export async function handler(input: DispatchInput): Promise<DispatchOutput> {
               synthetic: input.synthetic === true,
               ...(input.askDispatcher === true ? { askDispatcher: true } : {}),
               ...(input.demo === true ? { demo: true } : {}),
+              // Sparse key of the byWorkspace index: only demo-workspace loads carry it.
+              ...(workspaceOf(input) ? { ws: workspaceOf(input) } : {}),
               createdAt,
             },
             ConditionExpression: "attribute_not_exists(pk)",

@@ -5,6 +5,10 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import type { Construct } from "constructs";
 
+// The console read API lists loads through this sparse index: only loads in the public demo
+// workspace carry `ws`, so nothing else can be listed.
+export const WORKSPACE_INDEX = "byWorkspace";
+
 // State that outlives any deploy: the load table, the signing key, the locked evidence bucket and
 // the key that turns phone numbers into opaque driver ids.
 export class CoreStack extends Stack {
@@ -23,6 +27,14 @@ export class CoreStack extends Stack {
       billing: dynamodb.Billing.onDemand(),
       timeToLiveAttribute: "expires",
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      globalSecondaryIndexes: [
+        {
+          indexName: WORKSPACE_INDEX,
+          partitionKey: { name: "ws", type: dynamodb.AttributeType.STRING },
+          sortKey: { name: "createdAt", type: dynamodb.AttributeType.STRING },
+          projectionType: dynamodb.ProjectionType.ALL,
+        },
+      ],
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
