@@ -35,6 +35,7 @@ import type {
 import {
   addressOnly,
   agentRunsOf,
+  isSynthetic,
   buttonAction,
   checkEngineInput,
   clauseInfo,
@@ -109,7 +110,7 @@ function partsOf(items: Item[]): Parts {
   const meta = bySk("META");
   if (!meta) throw new Error("no META item for this load");
   const approvalItem = bySk("APPROVAL");
-  const synthetic = meta.synthetic === true;
+  const synthetic = isSynthetic(meta);
   const sorted = (prefix: string) => items.filter((i) => String(i.sk).startsWith(prefix)).sort((a, b) => String(a.sk).localeCompare(String(b.sk)));
   return {
     meta,

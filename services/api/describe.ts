@@ -19,9 +19,15 @@ export const INBOUND_SERVICES: Record<string, ServiceTag[]> = {
   rcs: ["EUM RCS", "SNS", "SQS", "Lambda", "DynamoDB"],
 };
 
+// A test load: flagged synthetic at dispatch, or a SMOKE- load from before the flag existed
+// (2026-10-16 to 18), whose driver messages were synthetic all the same.
+export function isSynthetic(meta: Item): boolean {
+  return meta.synthetic === true || String(meta.loadId ?? "").startsWith("SMOKE-");
+}
+
 export function runKindOf(meta: Item, approval: Item | null): RunKind {
   if (meta.demo === true) return "demo";
-  if (meta.synthetic !== true) return "phone";
+  if (!isSynthetic(meta)) return "phone";
   return approval?.approver === "dispatcher-whatsapp" ? "operator" : "integration";
 }
 

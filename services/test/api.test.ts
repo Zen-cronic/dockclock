@@ -123,6 +123,13 @@ describe("console read API", () => {
     for (const secret of [PHONE, BSUID, ACCOUNT, "68220ac1613f", "secret-token", "wamid.", "rcs-inbound/", String(INSIDE[1])]) expect(res.body).not.toContain(secret);
   });
 
+  it("labels a SMOKE- load from before the synthetic flag as a test run", async () => {
+    delete partitions["SMOKE-RCS-2"]![0]!.synthetic;
+    const view = JSON.parse((await get("/api/loads/SMOKE-RCS-2")).body).data;
+    expect(view.summary).toMatchObject({ runKind: "integration", runLabel: "Test run" });
+    expect(view.clock.driverTimes).toBe("synthetic_input");
+  });
+
   it("lists demo-workspace loads only and answers 404 for any other load", async () => {
     const list = JSON.parse((await get("/api/loads")).body);
     expect(list.data.loads.map((l: { loadId: string }) => l.loadId).sort()).toEqual(["SMOKE-RCS-1", "SMOKE-RCS-2"]);
