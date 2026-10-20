@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T20:09:54.782Z",
+ "generatedAt": "2026-10-20T20:13:37.145Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
@@ -61,7 +61,7 @@
    "basis": "DockClock judge demo clause, not modelled on any published terms."
   },
   "clock": {
-   "asOf": "2026-10-20T20:09:54.782Z",
+   "asOf": "2026-10-20T20:13:37.145Z",
    "arrivedAt": "2026-10-20T20:00:11.000Z",
    "releasedAt": "2026-10-20T20:08:15.000Z",
    "clockStartAt": "2026-10-20T20:00:11.000Z",
@@ -414,7 +414,7 @@
    {
     "id": "e1",
     "at": "2026-10-20T20:00:04.110Z",
-    "title": "DockClock composed the load dispatch (not sent: test number)",
+    "title": "DockClock composed the load dispatch (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -470,15 +470,15 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
+     "channel": "whatsapp",
      "detail": {
       "payload": "dc1.arrived.SMOKE-DEMO-mvh3xsdv.<nonce>"
      },
+     "phaseBefore": "dispatched",
+     "serverAt": "2026-10-20T20:00:07.000Z",
      "phaseAfter": "awaiting_arrival_pin",
      "outcome": "ADVANCED",
-     "channel": "whatsapp",
      "sk": "EVENT#2026-10-20T20:00:07.000Z",
-     "serverAt": "2026-10-20T20:00:07.000Z",
-     "phaseBefore": "dispatched",
      "type": "button"
     },
     "provenance": "synthetic_input",
@@ -487,7 +487,7 @@
    {
     "id": "e3",
     "at": "2026-10-20T20:00:08.817Z",
-    "title": "DockClock composed location arrived (not sent: test number)",
+    "title": "DockClock composed a request for the arrival location (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -534,14 +534,14 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "detail": {},
-     "outcome": "ADVANCED",
-     "channel": "whatsapp",
-     "phaseAfter": "at_dock",
-     "serverAt": "2026-10-20T20:00:11.000Z",
      "phaseBefore": "awaiting_arrival_pin",
+     "detail": {},
+     "channel": "whatsapp",
+     "sk": "EVENT#2026-10-20T20:00:11.000Z",
+     "serverAt": "2026-10-20T20:00:11.000Z",
+     "outcome": "ADVANCED",
      "type": "location",
-     "sk": "EVENT#2026-10-20T20:00:11.000Z"
+     "phaseAfter": "at_dock"
     },
     "provenance": "synthetic_input",
     "messageId": "m4"
@@ -549,7 +549,7 @@
    {
     "id": "e5",
     "at": "2026-10-20T20:00:11.615Z",
-    "title": "DockClock composed offer release (not sent: test number)",
+    "title": "DockClock composed the check-in confirmation with Released (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -602,7 +602,7 @@
    {
     "id": "e7",
     "at": "2026-10-20T20:01:12.808Z",
-    "title": "DockClock composed word that the detention notice was emailed (not sent: test number)",
+    "title": "DockClock composed word that the detention notice was emailed (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -659,13 +659,13 @@
     "record": {
      "sk": "EVENT#2026-10-20T20:08:11.000Z",
      "phaseBefore": "at_dock",
-     "outcome": "ADVANCED",
-     "serverAt": "2026-10-20T20:08:11.000Z",
      "channel": "whatsapp",
-     "phaseAfter": "awaiting_release_pin",
      "detail": {
       "payload": "dc1.released.SMOKE-DEMO-mvh3xsdv.<nonce>"
      },
+     "outcome": "ADVANCED",
+     "serverAt": "2026-10-20T20:08:11.000Z",
+     "phaseAfter": "awaiting_release_pin",
      "type": "button"
     },
     "provenance": "synthetic_input",
@@ -674,7 +674,7 @@
    {
     "id": "e10",
     "at": "2026-10-20T20:08:11.674Z",
-    "title": "DockClock composed location released (not sent: test number)",
+    "title": "DockClock composed a request for the release location (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -722,13 +722,13 @@
     "tone": "neutral",
     "record": {
      "detail": {},
-     "outcome": "ADVANCED",
-     "phaseAfter": "awaiting_bol",
      "phaseBefore": "awaiting_release_pin",
+     "serverAt": "2026-10-20T20:08:15.000Z",
      "channel": "whatsapp",
+     "phaseAfter": "awaiting_bol",
+     "outcome": "ADVANCED",
      "type": "location",
-     "sk": "EVENT#2026-10-20T20:08:15.000Z",
-     "serverAt": "2026-10-20T20:08:15.000Z"
+     "sk": "EVENT#2026-10-20T20:08:15.000Z"
     },
     "provenance": "synthetic_input",
     "messageId": "m9"
@@ -736,7 +736,7 @@
    {
     "id": "e12",
     "at": "2026-10-20T20:08:15.692Z",
-    "title": "DockClock composed the bill of lading form (not sent: test number)",
+    "title": "DockClock composed the bill of lading form (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -781,16 +781,16 @@
     "tone": "neutral",
     "photoId": "p1",
     "record": {
-     "outcome": "ADVANCED",
-     "channel": "whatsapp",
+     "phaseAfter": "documented",
+     "phaseBefore": "awaiting_bol",
      "type": "flow",
+     "channel": "whatsapp",
+     "sk": "EVENT#2026-10-20T20:08:19.000Z",
      "serverAt": "2026-10-20T20:08:19.000Z",
+     "outcome": "ADVANCED",
      "detail": {
       "flowToken": "dc1.release.SMOKE-DEMO-mvh3xsdv.<nonce>"
-     },
-     "sk": "EVENT#2026-10-20T20:08:19.000Z",
-     "phaseBefore": "awaiting_bol",
-     "phaseAfter": "documented"
+     }
     },
     "provenance": "synthetic_input",
     "messageId": "m11"
@@ -798,7 +798,7 @@
    {
     "id": "e14",
     "at": "2026-10-20T20:08:20.246Z",
-    "title": "DockClock composed tell bol partial (not sent: test number)",
+    "title": "DockClock composed a reply to the driver (not sent)",
     "services": [
      "Lambda",
      "EUM Social"

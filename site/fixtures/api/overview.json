@@ -1,13 +1,13 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T20:09:51.147Z",
+ "generatedAt": "2026-10-20T20:13:33.972Z",
  "workspace": "demo",
  "pollMs": 3000,
  "data": {
   "window": {
    "loads": 27,
    "from": "2026-10-16T22:07:08.782Z",
-   "to": "2026-10-20T20:09:51.147Z"
+   "to": "2026-10-20T20:13:33.972Z"
   },
   "loads": {
    "total": 27,
@@ -182,7 +182,7 @@
     "runKind": "integration",
     "kind": "message",
     "channel": "whatsapp",
-    "title": "DockClock composed tell bol partial (not sent: test number)",
+    "title": "DockClock composed a reply to the driver (not sent)",
     "tone": "neutral",
     "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e14"
    },
@@ -193,7 +193,7 @@
     "runKind": "integration",
     "kind": "message",
     "channel": "rcs",
-    "title": "DockClock composed tell bol photo received (not sent: test number)",
+    "title": "DockClock composed a reply to the driver (not sent)",
     "tone": "neutral",
     "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e14"
    },
@@ -226,7 +226,7 @@
     "runKind": "integration",
     "kind": "message",
     "channel": "whatsapp",
-    "title": "DockClock composed the bill of lading form (not sent: test number)",
+    "title": "DockClock composed the bill of lading form (not sent)",
     "tone": "neutral",
     "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e12"
    },
@@ -237,7 +237,7 @@
     "runKind": "integration",
     "kind": "message",
     "channel": "rcs",
-    "title": "DockClock composed the bill of lading form (not sent: test number)",
+    "title": "DockClock composed the bill of lading form (not sent)",
     "tone": "neutral",
     "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e12"
    },
@@ -270,7 +270,7 @@
     "runKind": "integration",
     "kind": "message",
     "channel": "whatsapp",
-    "title": "DockClock composed location released (not sent: test number)",
+    "title": "DockClock composed a request for the release location (not sent)",
     "tone": "neutral",
     "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e10"
    },
@@ -281,7 +281,7 @@
     "runKind": "integration",
     "kind": "message",
     "channel": "rcs",
-    "title": "DockClock composed location released (not sent: test number)",
+    "title": "DockClock composed a request for the release location (not sent)",
     "tone": "neutral",
     "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e10"
    }

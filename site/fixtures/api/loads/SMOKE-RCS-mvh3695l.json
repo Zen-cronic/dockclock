@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T20:09:58.045Z",
+ "generatedAt": "2026-10-20T20:13:40.261Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
@@ -62,7 +62,7 @@
    "basis": "Modelled on published broker terms. Values those terms do not state are DockClock assumptions."
   },
   "clock": {
-   "asOf": "2026-10-20T20:09:58.045Z",
+   "asOf": "2026-10-20T20:13:40.261Z",
    "arrivedAt": "2026-10-20T15:31:38.169Z",
    "releasedAt": "2026-10-20T19:09:38.169Z",
    "clockStartAt": "2026-10-20T15:31:38.169Z",
@@ -419,16 +419,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "detail": {
-      "payload": "dc1.arrived.SMOKE-RCS-mvh3695l.<nonce>"
-     },
      "phaseBefore": "dispatched",
      "phaseAfter": "awaiting_arrival_pin",
      "serverAt": "2026-10-20T15:30:38.169Z",
      "channel": "rcs",
-     "outcome": "ADVANCED",
      "sk": "EVENT#2026-10-20T15:30:38.169Z",
-     "type": "button"
+     "detail": {
+      "payload": "dc1.arrived.SMOKE-RCS-mvh3695l.<nonce>"
+     },
+     "type": "button",
+     "outcome": "ADVANCED"
     },
     "provenance": "synthetic_input",
     "messageId": "m1"
@@ -449,14 +449,14 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "type": "location",
      "phaseAfter": "at_dock",
-     "detail": {},
+     "sk": "EVENT#2026-10-20T15:31:38.169Z",
+     "type": "location",
      "serverAt": "2026-10-20T15:31:38.169Z",
      "channel": "rcs",
      "phaseBefore": "awaiting_arrival_pin",
-     "outcome": "ADVANCED",
-     "sk": "EVENT#2026-10-20T15:31:38.169Z"
+     "detail": {},
+     "outcome": "ADVANCED"
     },
     "provenance": "synthetic_input",
     "messageId": "m2"
@@ -475,18 +475,18 @@
     "outcome": "RESENT_OVER_RCS",
     "tone": "refused",
     "record": {
-     "sk": "EVENT#2026-10-20T15:32:38.000Z",
      "phaseAfter": "at_dock",
-     "phaseBefore": "at_dock",
-     "outcome": "RESENT_OVER_RCS",
-     "type": "failover",
-     "serverAt": "2026-10-20T15:32:38.000Z",
-     "channel": "rcs",
      "detail": {
       "errorCode": 131026,
       "purpose": "offer_release",
       "queued": "offer_release"
-     }
+     },
+     "channel": "rcs",
+     "serverAt": "2026-10-20T15:32:38.000Z",
+     "phaseBefore": "at_dock",
+     "type": "failover",
+     "outcome": "RESENT_OVER_RCS",
+     "sk": "EVENT#2026-10-20T15:32:38.000Z"
     },
     "provenance": "synthetic_input"
    },
@@ -505,16 +505,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "serverAt": "2026-10-20T19:08:38.169Z",
-     "phaseBefore": "at_dock",
      "detail": {
       "payload": "dc1.released.SMOKE-RCS-mvh3695l.<nonce>"
      },
-     "phaseAfter": "awaiting_release_pin",
+     "serverAt": "2026-10-20T19:08:38.169Z",
      "channel": "rcs",
-     "outcome": "ADVANCED",
+     "phaseBefore": "at_dock",
      "sk": "EVENT#2026-10-20T19:08:38.169Z",
-     "type": "button"
+     "phaseAfter": "awaiting_release_pin",
+     "type": "button",
+     "outcome": "ADVANCED"
     },
     "provenance": "synthetic_input",
     "messageId": "m3"
@@ -535,13 +535,13 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "phaseBefore": "awaiting_release_pin",
      "type": "location",
-     "serverAt": "2026-10-20T19:09:38.169Z",
-     "sk": "EVENT#2026-10-20T19:09:38.169Z",
      "phaseAfter": "awaiting_bol",
-     "detail": {},
+     "serverAt": "2026-10-20T19:09:38.169Z",
+     "phaseBefore": "awaiting_release_pin",
+     "sk": "EVENT#2026-10-20T19:09:38.169Z",
      "channel": "rcs",
+     "detail": {},
      "outcome": "ADVANCED"
     },
     "provenance": "synthetic_input",
@@ -550,7 +550,7 @@
    {
     "id": "e6",
     "at": "2026-10-20T19:38:38.480Z",
-    "title": "DockClock composed the load dispatch card (not sent: test number)",
+    "title": "DockClock composed the load dispatch card (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -590,7 +590,7 @@
    {
     "id": "e7",
     "at": "2026-10-20T19:38:38.920Z",
-    "title": "DockClock composed location arrived (not sent: test number)",
+    "title": "DockClock composed a request for the arrival location (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -624,7 +624,7 @@
    {
     "id": "e8",
     "at": "2026-10-20T19:38:46.538Z",
-    "title": "DockClock composed offer release (not sent: test number)",
+    "title": "DockClock composed the check-in confirmation with Released (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -664,7 +664,7 @@
    {
     "id": "e9",
     "at": "2026-10-20T19:38:49.074Z",
-    "title": "DockClock composed offer release (not sent: test number)",
+    "title": "DockClock composed the check-in confirmation with Released (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -704,7 +704,7 @@
    {
     "id": "e10",
     "at": "2026-10-20T19:38:54.178Z",
-    "title": "DockClock composed location released (not sent: test number)",
+    "title": "DockClock composed a request for the release location (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -738,7 +738,7 @@
    {
     "id": "e11",
     "at": "2026-10-20T19:38:56.760Z",
-    "title": "DockClock composed the bill of lading form (not sent: test number)",
+    "title": "DockClock composed the bill of lading form (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -776,16 +776,16 @@
     "tone": "neutral",
     "photoId": "p1",
     "record": {
-     "serverAt": "2026-10-20T19:38:59.695Z",
      "detail": {
       "mimeType": "image/jpeg"
      },
+     "type": "image",
+     "serverAt": "2026-10-20T19:38:59.695Z",
      "sk": "EVENT#2026-10-20T19:38:59.695Z",
-     "phaseAfter": "documented",
      "channel": "rcs",
-     "outcome": "ADVANCED",
+     "phaseAfter": "documented",
      "phaseBefore": "awaiting_bol",
-     "type": "image"
+     "outcome": "ADVANCED"
     },
     "provenance": "synthetic_input",
     "messageId": "m11"
@@ -793,7 +793,7 @@
    {
     "id": "e13",
     "at": "2026-10-20T19:38:59.914Z",
-    "title": "DockClock composed tell bol photo received (not sent: test number)",
+    "title": "DockClock composed a reply to the driver (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"

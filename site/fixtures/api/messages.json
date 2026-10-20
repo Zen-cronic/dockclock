@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T20:09:53.252Z",
+ "generatedAt": "2026-10-20T20:13:35.643Z",
  "workspace": "demo",
  "pollMs": 3000,
  "data": {

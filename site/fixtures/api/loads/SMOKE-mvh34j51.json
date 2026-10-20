@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T20:10:00.085Z",
+ "generatedAt": "2026-10-20T20:13:42.302Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
@@ -60,7 +60,7 @@
    "basis": "Modelled on published shipper terms. Values those terms do not state are DockClock assumptions."
   },
   "clock": {
-   "asOf": "2026-10-20T20:10:00.085Z",
+   "asOf": "2026-10-20T20:13:42.302Z",
    "arrivedAt": "2026-10-20T15:30:17.000Z",
    "releasedAt": "2026-10-20T19:08:17.000Z",
    "clockStartAt": "2026-10-20T15:37:17.797Z",
@@ -717,7 +717,7 @@
    {
     "id": "e9",
     "at": "2026-10-20T19:37:18.040Z",
-    "title": "DockClock composed the load dispatch (not sent: test number)",
+    "title": "DockClock composed the load dispatch (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -761,7 +761,7 @@
    {
     "id": "e10",
     "at": "2026-10-20T19:37:18.367Z",
-    "title": "DockClock composed tell tap arrived first (not sent: test number)",
+    "title": "DockClock composed a reply to the driver (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -786,7 +786,7 @@
    {
     "id": "e11",
     "at": "2026-10-20T19:37:20.884Z",
-    "title": "DockClock composed location arrived (not sent: test number)",
+    "title": "DockClock composed a request for the arrival location (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -820,7 +820,7 @@
    {
     "id": "e12",
     "at": "2026-10-20T19:37:25.976Z",
-    "title": "DockClock composed offer release (not sent: test number)",
+    "title": "DockClock composed the check-in confirmation with Released (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -873,7 +873,7 @@
    {
     "id": "e14",
     "at": "2026-10-20T19:37:29.379Z",
-    "title": "DockClock composed word that the detention notice was emailed (not sent: test number)",
+    "title": "DockClock composed word that the detention notice was emailed (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -916,7 +916,7 @@
    {
     "id": "e16",
     "at": "2026-10-20T19:37:36.916Z",
-    "title": "DockClock composed location released (not sent: test number)",
+    "title": "DockClock composed a request for the release location (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -950,7 +950,7 @@
    {
     "id": "e17",
     "at": "2026-10-20T19:37:39.436Z",
-    "title": "DockClock composed the bill of lading form (not sent: test number)",
+    "title": "DockClock composed the bill of lading form (not sent)",
     "services": [
      "Lambda",
      "EUM Social"
@@ -982,7 +982,7 @@
    {
     "id": "e18",
     "at": "2026-10-20T19:37:42.020Z",
-    "title": "DockClock composed tell bol partial (not sent: test number)",
+    "title": "DockClock composed a reply to the driver (not sent)",
     "services": [
      "Lambda",
      "EUM Social"

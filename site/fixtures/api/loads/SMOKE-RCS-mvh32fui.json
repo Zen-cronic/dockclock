@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T20:09:59.290Z",
+ "generatedAt": "2026-10-20T20:13:41.502Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
@@ -63,7 +63,7 @@
    "basis": "Modelled on published broker terms. Values those terms do not state are DockClock assumptions."
   },
   "clock": {
-   "asOf": "2026-10-20T20:09:59.290Z",
+   "asOf": "2026-10-20T20:13:41.502Z",
    "arrivedAt": "2026-10-20T15:28:40.218Z",
    "releasedAt": "2026-10-20T19:06:40.218Z",
    "clockStartAt": "2026-10-20T15:28:40.218Z",
@@ -551,7 +551,7 @@
    {
     "id": "e6",
     "at": "2026-10-20T19:35:40.638Z",
-    "title": "DockClock composed the load dispatch card (not sent: test number)",
+    "title": "DockClock composed the load dispatch card (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -591,7 +591,7 @@
    {
     "id": "e7",
     "at": "2026-10-20T19:35:41.199Z",
-    "title": "DockClock composed location arrived (not sent: test number)",
+    "title": "DockClock composed a request for the arrival location (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -625,7 +625,7 @@
    {
     "id": "e8",
     "at": "2026-10-20T19:35:48.569Z",
-    "title": "DockClock composed offer release (not sent: test number)",
+    "title": "DockClock composed the check-in confirmation with Released (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -665,7 +665,7 @@
    {
     "id": "e9",
     "at": "2026-10-20T19:35:51.098Z",
-    "title": "DockClock composed offer release (not sent: test number)",
+    "title": "DockClock composed the check-in confirmation with Released (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -705,7 +705,7 @@
    {
     "id": "e10",
     "at": "2026-10-20T19:35:56.160Z",
-    "title": "DockClock composed location released (not sent: test number)",
+    "title": "DockClock composed a request for the release location (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -739,7 +739,7 @@
    {
     "id": "e11",
     "at": "2026-10-20T19:35:58.680Z",
-    "title": "DockClock composed the bill of lading form (not sent: test number)",
+    "title": "DockClock composed the bill of lading form (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
@@ -794,7 +794,7 @@
    {
     "id": "e13",
     "at": "2026-10-20T19:36:01.778Z",
-    "title": "DockClock composed tell bol photo received (not sent: test number)",
+    "title": "DockClock composed a reply to the driver (not sent)",
     "services": [
      "Lambda",
      "EUM RCS"
