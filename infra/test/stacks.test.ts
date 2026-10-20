@@ -27,7 +27,7 @@ const config = {
 };
 
 describe("stacks", () => {
-  const { core, messaging, email, agent } = buildApp(config, new App({ context: { "aws:cdk:bundling-stacks": [] } }));
+  const { core, messaging, email, agent, desk } = buildApp(config, new App({ context: { "aws:cdk:bundling-stacks": [] } }));
   const coreT = Template.fromStack(core);
   const msgT = Template.fromStack(messaging);
 
@@ -123,5 +123,27 @@ describe("stacks", () => {
     const policies = JSON.stringify(agentT.findResources("AWS::BedrockAgentCore::Policy"));
     expect(policies).toContain("dockclock-tools___send_detention_claim");
     expect(policies).toContain("context.input.amountCents <= 500000");
+  });
+
+  it("records agent runs and keeps sent emails beside the packs", () => {
+    const agentT = Template.fromStack(agent);
+    agentT.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "dockclock-invoke-agent",
+      Environment: { Variables: Match.objectLike({ TABLE_NAME: Match.anyValue(), AGENT_MODEL_ID: config.agentModelId }) },
+    });
+    const noticeEnv = JSON.stringify(msgT.findResources("AWS::Lambda::Function"));
+    expect(noticeEnv).toContain("EVIDENCE_BUCKET");
+  });
+
+  it("serves the judge desk from a private bucket through CloudFront over HTTPS only", () => {
+    const deskT = Template.fromStack(desk);
+    deskT.hasResourceProperties("AWS::S3::Bucket", {
+      PublicAccessBlockConfiguration: { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true },
+    });
+    deskT.resourceCountIs("AWS::CloudFront::OriginAccessControl", 1);
+    deskT.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({ DefaultRootObject: "index.html", DefaultCacheBehavior: Match.objectLike({ ViewerProtocolPolicy: "redirect-to-https" }) }),
+    });
+    deskT.hasOutput("DeskUrl", {});
   });
 });
