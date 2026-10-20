@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 268 64" role="img" aria-labelledby="t">
+  <title id="t">DockClock</title>
+  <circle cx="32" cy="30" r="24" fill="none" stroke="#1c1b17" stroke-width="5"/>
+  <path d="M32 30 L32 12.5 A17.5 17.5 0 0 1 47.16 38.75 Z" fill="#c98300"/>
+  <path d="M32 30 L47.16 38.75" stroke="#1c1b17" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="30" r="4" fill="#1c1b17"/>
+  <path d="M14 60 H50" stroke="#1c1b17" stroke-width="4" stroke-linecap="round"/>
+  <text x="70" y="42" font-family="IBM Plex Sans, system-ui, sans-serif" font-size="34" font-weight="700" letter-spacing="-0.6" fill="#1c1b17">DockClock</text>
+</svg>
