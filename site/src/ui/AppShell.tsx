@@ -64,6 +64,7 @@ function MobileNav() {
 export function AppShell() {
   return (
     <div className="shell">
+      <a className="skip" href="#main">Skip to content</a>
       <NavRail />
       <div className="content">
         <MobileNav />
@@ -101,7 +102,7 @@ export function Page({ crumbs, badges, actions, children }: { crumbs: Crumb[]; b
   return (
     <>
       <TopBar crumbs={crumbs} badges={badges} actions={actions} />
-      <main className="page">{children}</main>
+      <main className="page" id="main" tabIndex={-1}>{children}</main>
     </>
   );
 }

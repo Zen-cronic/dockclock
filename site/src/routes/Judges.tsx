@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { approvalWords, provedWords } from "../copy/provenance.js";
-import { FEATURED_LOAD, hasRecordedDetail, useLoad, useLoads, usePack } from "../model/client.js";
+import { FEATURED_LOAD, FEATURED_RCS_LOAD, useLoad, usePack } from "../model/client.js";
 import { flowNodes } from "../model/flow.js";
 import type { LoadDetail } from "../model/model.js";
 import { run } from "../engine.js";
@@ -95,9 +95,7 @@ export function Judges() {
   const [params, setParams] = useSearchParams();
   const nav = useNavigate();
   const lane = params.get("lane") === "rcs" ? "rcs" : "whatsapp";
-  const loads = useLoads();
-  const rcs = (loads.data?.data ?? []).filter((l) => l.channel === "rcs" && (l.source !== "fixture" || hasRecordedDetail(l.id)));
-  const rcsLoad = (rcs.find((l) => l.phase === "claim_filed") ?? rcs[0])?.id;
+  const rcsLoad = FEATURED_RCS_LOAD;
   const loadId = lane === "rcs" ? rcsLoad : (params.get("load") ?? FEATURED_LOAD);
   const q = useLoad(loadId);
   const load = q.data?.data;

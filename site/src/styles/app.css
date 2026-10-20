@@ -448,3 +448,6 @@ a { color: inherit; }
 .phototile figcaption { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .chat > * { flex-shrink: 0; }
 .table tbody tr.summary-only { cursor: default; opacity: 0.55; }
+.skip { position: absolute; left: 12px; top: -48px; z-index: 50; background: var(--safety); color: var(--ink); font-weight: 700; padding: 10px 14px; border-radius: var(--r-sm); text-decoration: none; }
+.skip:focus { top: 12px; }
+main.page:focus { outline: none; }

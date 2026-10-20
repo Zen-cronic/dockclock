@@ -80,7 +80,7 @@ White on safety yellow fails (1.4) and is never used.
 | AppShell, NavRail, TopBar, Page | `AppShell.tsx` | The sign-black rail (Overview, Messages, Loads, Judges path). Under 860 px the rail becomes a top bar with four equal tabs, all reachable at 390 px with no sideways scroll. The TopBar has the breadcrumb, quiet badges and at most two actions |
 | KpiTile | `KpiTile.tsx` | One label and one number. The top rule carries the meaning: hazard stripe = money, green = good |
 | DockClockBand | `DockClockBand.tsx` | **The signature visual.** A dot-matrix "at the dock" clock, free and billable minutes, and a track with free time as a dashed floor marking and billable time as a hazard stripe, with records pinned at their true times. Plays the replay |
-| ProvenanceBadge | `badges.tsx` | LIVE (green, pulsing) · REPLAY (ink) · FIXTURE · COMPUTED (pink) · TEST (outline) · RECORDED. Always present, never a paragraph |
+| ProvenanceBadge | `badges.tsx` | LIVE (green, pulsing) · RECORDED (responses recorded from the read API) · REPLAY (ink) · COMPUTED (pink) · TEST (outline). Always present, never a paragraph |
 | ChannelBadge, ChannelIcon | `badges.tsx` | WhatsApp, RCS, Email, SMS, with neutral line icons. SMS appears only when SMS records exist |
 | StatusPill | `badges.tsx` | accepted → sent → delivered → read, then failed / failover / received / not sent |
 | Stamp | `badges.tsx` | Stencil stamp, rotated −2°: Owed (green), Not owed (red), Review (dark yellow) |
@@ -95,13 +95,21 @@ White on safety yellow fails (1.4) and is never used.
 | TourCoach | `TourCoach.tsx` | A sign-black coach card with a yellow keyline, for guided steps |
 
 ## Data and provenance
-- **One view model.** Screens read the model in `src/data/model.ts`. Adapters turn the API, its fixtures and the bundled replays (`replay/*.json`) into it, and `src/data/client.ts` decides the source. If `/api` fails, the console falls back to the replays and shows REPLAY.
+- **One view model.** Screens read the model in `src/model/model.ts`. Adapters turn the read API (`src/api.ts`, `fromApi.ts`) and the bundled replays (`replay/*.json`, `fromReplay.ts`) into it, and `src/model/client.ts` decides the source: live `/api`, then the recorded responses in `fixtures/api/` (RECORDED), then the replays (REPLAY). `?data=live|fixtures|replay` overrides it for the session.
+- **Featured loads** live in `src/featured.ts`: one WhatsApp id for the judges default and the Overview clock, one RCS id for the RCS lane.
 - **Copy follows provenance** (`src/copy/provenance.ts`):
   - "WhatsApp server times" appears only for a real phone run; a test load says "Replayed test times".
   - "Dispatcher tapped Approve" appears only when an approval record says so; with no approval record a filed claim says "Approved by a test command".
   - `test/site.test.ts` renders every replay through these functions and fails otherwise.
 - **Never shown:** coordinates, phone numbers, BSUIDs, WhatsApp message ids, S3 keys, the KMS key ARN, the account id.
 - **Fictional names:** every company is fictional and labelled so.
+
+## Keyboard and motion
+- A "Skip to content" link is the first Tab stop on every page.
+- Every control shows a 2 px carbon-blue focus ring.
+- Table rows open with Enter. A drawer keeps Tab inside it, closes on Escape, and returns focus to its opener.
+- Switches are real checkboxes with `role="switch"`, toggled with Space.
+- Under `prefers-reduced-motion` no animation runs; replay playback is user-started and steps without transitions.
 
 ## Copy budget
 - The first viewport of each route stays under about 40 words.

@@ -10,13 +10,15 @@ import type { ReplaySnapshot, SignedPackInfo } from "../snapshot.js";
 import { detailFromApi, feedFromApi, overviewFromApi, summaryFromApi } from "./fromApi.js";
 import { detailFromReplay, feedFromDetails, overviewFromDetails } from "./fromReplay.js";
 import type { ConsoleEmail, FeedRow, LoadDetail, LoadSummary, Overview, Source } from "./model.js";
+import { FEATURED } from "../featured.js";
 
 const replayModules = import.meta.glob<ReplaySnapshot>("../../replay/*.json", { eager: true, import: "default" });
 const replays: ReplaySnapshot[] = Object.values(replayModules).sort((a, b) => (b.clock.arrivedAt ?? "").localeCompare(a.clock.arrivedAt ?? ""));
 const fixtureModules = import.meta.glob<unknown>("../../fixtures/api/**/*.json", { eager: true, import: "default" });
 const fixturePhotos = import.meta.glob<string>("../../fixtures/api/photos/*", { eager: true, query: "?url", import: "default" });
 
-export const FEATURED_LOAD = "SMOKE-mvh1bmmu";
+export const FEATURED_LOAD = FEATURED.whatsapp;
+export const FEATURED_RCS_LOAD = FEATURED.rcs;
 export const POLL_MS = 3000;
 
 type Mode = "live" | "fixtures" | "replay";
