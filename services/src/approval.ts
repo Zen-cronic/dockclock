@@ -64,7 +64,7 @@ export async function requestApproval(input: { loadId: string; token: string; am
   );
   // On a judge demo load the judge is the dispatcher too.
   const target = load.demo ? { address: load.address, driverKey: load.driverKey } : await dispatcherTarget(env.dispatcherPhone());
-  await send(target, approvalTemplate(load.loadId, nonce, summary, `$${input.amountUsd.toFixed(2)}`), "dispatch_approval", load.loadId);
+  await send(target, approvalTemplate(load.loadId, nonce, summary, `$${input.amountUsd.toFixed(2)}`), "dispatch_approval", load.loadId, { audience: load.demo ? "driver" : "dispatcher" });
   log("approval_requested", { loadId: load.loadId, confidence: pack?.confidence, photo });
 }
 
@@ -87,7 +87,7 @@ export async function handleApprovalTap(event: InboundEvent, payload: ButtonPayl
   const demoApprover = load?.demo === true && candidateKeys.includes(load.driverKey);
   const reply = async (text: string) => {
     if (demoApprover && load) await send({ address: load.address, driverKey: load.driverKey }, textMessage(text), "approval_reply", payload.loadId);
-    else if (from) await send(await dispatcherTarget(from), textMessage(text), "approval_reply", payload.loadId);
+    else if (from) await send(await dispatcherTarget(from), textMessage(text), "approval_reply", payload.loadId, { audience: "dispatcher" });
   };
   if (!demoApprover && (!from || from !== env.dispatcherPhone())) {
     log("approval_rejected", { loadId: payload.loadId, reason: "not the dispatcher" });

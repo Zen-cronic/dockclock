@@ -1,6 +1,6 @@
 import { PinpointSMSVoiceV2Client, SendRcsMessageCommand, type RcsMessageContent } from "@aws-sdk/client-pinpoint-sms-voice-v2";
 import { SendWhatsAppMessageCommand, SocialMessagingClient } from "@aws-sdk/client-socialmessaging";
-import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { encodeButtonPayload, encodeFlowToken, normalizeE164 } from "@dockclock/whatsapp";
 import { COPY, type Language } from "./messages.js";
 import { rcsDispatchCard } from "./rcs.js";
@@ -8,6 +8,7 @@ import type { Channel } from "@dockclock/evidence";
 import { ddb, type Address } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
+import { renderRcs, renderWhatsApp, sendRecord, type Audience, type SentMessage } from "./outbound.js";
 
 // Retries and timeouts keep one slow call from stalling a batch. Driver prompts are safe to
 // receive twice (a second location request or button changes nothing), so a retried send is
@@ -137,7 +138,8 @@ export async function isDemoEnrolled(driverKey: string): Promise<boolean> {
   return typeof out.Item?.expiresAt === "string" && Date.parse(out.Item.expiresAt) > Date.now();
 }
 
-type SendOptions = { ignoreOptOut?: boolean };
+// audience: who the message is for, by role (default the driver); recorded with the send.
+type SendOptions = { ignoreOptOut?: boolean; audience?: Audience };
 
 // The gates every driver message passes, whatever the channel, in order: replies enabled, the
 // allowlist (or a judge's 24-hour demo enrolment), and the driver's opt-out. Returns the canonical address that passed, or null.
@@ -159,16 +161,26 @@ async function cleared(target: Target, purpose: string, loadId: string, options:
 }
 
 // Records the send under End User Messaging's message id so receipts join back to the load.
-// Merge, never replace: a status event may already have written delivery fields.
-async function recordSend(messageId: string, loadId: string, purpose: string, channel: Channel): Promise<void> {
+// Merge, never replace: a status event may already have written delivery fields. The load's own
+// partition also gets what the recipient saw (SEND#), without the recipient. That copy is evidence
+// for the timeline, not control state, so a failure to write it is logged and never fails the send:
+// a thrown error here would make the outbox send the message again.
+async function recordSend(messageId: string, loadId: string, purpose: string, channel: Channel, message: SentMessage, audience: Audience): Promise<void> {
+  const acceptedAt = new Date().toISOString();
   await ddb.send(
     new UpdateCommand({
       TableName: env.table(),
       Key: keys.receipt(messageId),
       UpdateExpression: "SET loadId = :l, purpose = :p, channel = :c, acceptedAt = if_not_exists(acceptedAt, :a)",
-      ExpressionAttributeValues: { ":l": loadId, ":p": purpose, ":c": channel, ":a": new Date().toISOString() },
+      ExpressionAttributeValues: { ":l": loadId, ":p": purpose, ":c": channel, ":a": acceptedAt },
     }),
   );
+  if (loadId === "-") return;
+  try {
+    await ddb.send(new PutCommand({ TableName: env.table(), Item: sendRecord({ loadId, messageId, channel, purpose, audience, sentAt: acceptedAt, message }) }));
+  } catch (error) {
+    log("send_record_failed", { purpose, loadId, messageId, error: (error as Error).name });
+  }
 }
 
 // Sends one WhatsApp message to one driver. The recipient is taken from the very address that
@@ -185,7 +197,7 @@ export async function send(target: Target, body: Body, purpose: string, loadId: 
   );
   const messageId = out.messageId ?? null;
   log("send_accepted", { purpose, loadId, messageId, channel: "whatsapp" });
-  if (messageId) await recordSend(messageId, loadId, purpose, "whatsapp");
+  if (messageId) await recordSend(messageId, loadId, purpose, "whatsapp", renderWhatsApp(body), options.audience ?? "driver");
   return messageId;
 }
 
@@ -209,7 +221,7 @@ export async function sendRcs(target: Target, content: RcsMessageContent, purpos
   );
   const messageId = out.MessageId ?? null;
   log("send_accepted", { purpose, loadId, messageId, channel: "rcs" });
-  if (messageId) await recordSend(messageId, loadId, purpose, "rcs");
+  if (messageId) await recordSend(messageId, loadId, purpose, "rcs", renderRcs(content), options.audience ?? "driver");
   return messageId;
 }
 
