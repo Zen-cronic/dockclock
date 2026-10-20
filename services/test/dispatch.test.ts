@@ -73,9 +73,11 @@ describe("dispatch", () => {
 
   it("waits for arrival until two days after the appointment, not two days after dispatch", async () => {
     dynamo.on(GetCommand).resolves({});
-    await handler(input);
+    // An appointment three days out, so the test does not depend on today's date.
+    const appointmentAt = new Date(Date.now() + 3 * 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+    await handler({ ...input, appointmentAt });
     const started = JSON.parse(String(sfn.commandCalls(StartExecutionCommand)[0]?.args[0].input.input));
-    const expected = Math.ceil((Date.parse(input.appointmentAt) - Date.now()) / 1000) + 2 * 86_400;
+    const expected = Math.ceil((Date.parse(appointmentAt) - Date.now()) / 1000) + 2 * 86_400;
     expect(Math.abs(started.arrivalTimeoutSeconds - expected)).toBeLessThan(5);
   });
 
