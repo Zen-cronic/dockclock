@@ -11,7 +11,8 @@
   "workspaces": [
     "packages/*",
     "services",
-    "infra"
+    "infra",
+    "site"
   ],
   "scripts": {
     "typecheck": "tsc -b",

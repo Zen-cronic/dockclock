@@ -1,0 +1,22 @@
+{
+  "name": "@dockclock/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The DockClock judge desk: a static page that replays a recorded load, verifies its signed pack in the browser and re-runs the clause engine.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "shots": "node scripts/screenshots.mjs"
+  },
+  "dependencies": {
+    "@dockclock/clause-engine": "0.1.0"
+  },
+  "devDependencies": {
+    "@dockclock/evidence": "0.1.0",
+    "vite": "^7.3.7"
+  }
+}
