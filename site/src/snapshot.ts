@@ -183,6 +183,8 @@ export interface VerdictInfo {
     appointmentAt: string;
     arrived: { at: string; insideGeofence: boolean } | null;
     released: { at: string; insideGeofence: boolean } | null;
+    // checkIn/checkOut are ISO instants (the driver's written times on the facility's date), as the
+    // clause engine compares them with the pins.
     bol: { signed: boolean; checkIn: string | null; checkOut: string | null } | null;
     status214: boolean;
     noticeSentAt: string | null;
