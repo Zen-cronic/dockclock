@@ -17,9 +17,9 @@ export function runLabel(d: Pick<LoadDetail, "run" | "approval">): string {
     case "demo":
       return "Judge demo";
     case "operator":
-      return "Test driver · real tap";
+      return "Test driver ∙ real tap";
     default:
-      return d.approval ? "Test driver" : "Test driver · test approval";
+      return d.approval ? "Test driver" : "Test driver ∙ test approval";
   }
 }
 
@@ -40,7 +40,7 @@ export function provedWords(d: Pick<LoadDetail, "run" | "clock" | "verdict" | "s
 export function approvalWords(d: Pick<LoadDetail, "approval" | "run" | "claim">): Words {
   const a = d.approval;
   const secs = d.claim?.secondsAfterApproval;
-  const after = secs != null ? ` · emailed in ${Math.round(secs)} s` : "";
+  const after = secs != null ? ` ∙ emailed in ${Math.round(secs)} s` : "";
   if (a?.decision === "approve" && a.approver === "dispatcher")
     return { short: `Dispatcher tapped Approve${after}`, long: "The dispatcher tapped Approve on WhatsApp. Only the dispatcher, with that request's one-time code, can approve, and only once." };
   if (a?.decision === "approve" && a.approver === "demo_driver")

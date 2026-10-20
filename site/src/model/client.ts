@@ -43,8 +43,13 @@ function mode(): Mode {
 
 // Fixture lookup by API path: tries the likely file layouts under site/fixtures/api/.
 function fixtureFor(path: string): unknown {
-  const p = path.replace(/^\/api\//, "").replace(/\?.*$/, "");
-  const names = [p, p.replace(/\//g, "-"), p.replace(/^loads\/([^/]+)$/, "load-$1"), p.replace(/^loads\/([^/]+)\/(.+)$/, "$2-$1")];
+  const [route = "", query = ""] = path.replace(/^\/api\//, "").split("?");
+  const channel = new URLSearchParams(query).get("channel");
+  // site/fixtures/api layout: overview, loads, messages[.channel], loads/<id>[.pack|.emails.<id>]
+  const names = [
+    channel ? `${route}.${channel}` : route,
+    route.replace(/^loads\/([^/]+)\/(.+)$/, (_m, id: string, rest: string) => `loads/${id}.${rest.replace(/\//g, ".")}`),
+  ];
   for (const [key, value] of Object.entries(fixtureModules)) {
     const rel = key.replace(/^.*fixtures\/api\//, "").replace(/\.json$/, "");
     if (names.includes(rel)) return value;
@@ -59,11 +64,14 @@ function fixturePhotoUrl(u: string): string {
 }
 
 async function get<T>(path: string, m: Mode): Promise<Api.ApiResponse<T>> {
-  if (m === "fixtures") return fixtureFor(path) as Api.ApiResponse<T>;
-  const res = await fetch(path, { headers: { accept: "application/json" } });
-  const type = res.headers.get("content-type") ?? "";
-  if (!res.ok || !type.includes("json")) throw new Error(`${path}: HTTP ${res.status}`);
-  const body = (await res.json()) as Api.ApiResponse<T> | Api.ApiError;
+  let body: Api.ApiResponse<T> | Api.ApiError;
+  if (m === "fixtures") body = fixtureFor(path) as Api.ApiResponse<T> | Api.ApiError;
+  else {
+    const res = await fetch(path, { headers: { accept: "application/json" } });
+    const type = res.headers.get("content-type") ?? "";
+    if (!type.includes("json")) throw new Error(`${path}: HTTP ${res.status}`);
+    body = (await res.json()) as Api.ApiResponse<T> | Api.ApiError;
+  }
   if ("error" in body) throw new Error(body.error.message);
   if (body.schema !== "dockclock.api/1") throw new Error(`${path}: unexpected schema`);
   return body;
@@ -83,8 +91,9 @@ async function load<A, T>(path: string, fromApi: (r: Api.ApiResponse<A>, s: Sour
       const r = await get<A>(path, m);
       const source: Source = m === "fixtures" ? "fixture" : "live";
       return { data: fromApi(r, source), source, pollMs: r.pollMs };
-    } catch {
-      /* fall through to the replay */
+    } catch (error) {
+      // Fall back to the replay; say why in the console for whoever is debugging.
+      console.warn(`DockClock: ${path} unavailable (${(error as Error).message}); showing the replay`);
     }
   }
   return { data: fromReplay(), source: "replay", pollMs: null };

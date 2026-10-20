@@ -9,7 +9,7 @@ import { duration, minutesBetween, usd } from "../format.js";
 import { AgentFlow } from "../ui/AgentFlow.js";
 import { Page } from "../ui/AppShell.js";
 import { ProvenanceBadge, Stamp } from "../ui/badges.js";
-import { ConversationView } from "../ui/ConversationView.js";
+import { ConversationView, failoverMarkers } from "../ui/ConversationView.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
 import { EmptyState } from "../ui/EmptyState.js";
 import { useSignatureCheck } from "../ui/EvidencePanel.js";
@@ -32,7 +32,7 @@ function SignatureCard({ load, broken }: { load: LoadDetail; broken?: boolean })
         <span className="ic">{s === "valid" ? "✓" : s === "invalid" ? "✕" : "…"}</span>
         <div>
           <b>{s === "valid" ? "Signature valid" : s === "invalid" ? "Signature broken" : s === "error" ? "Couldn't check" : "Checking"}</b>
-          <span className="small">AWS KMS · checked in your browser</span>
+          <span className="small">AWS KMS ∙ checked in your browser</span>
         </div>
       </div>
       {broken && <ul className="diffs"><li>amount {usd(load.verdict?.amountUsd ?? 0)} → {usd(9999)}</li></ul>}
@@ -77,6 +77,19 @@ function ChangeIt({ load }: { load: LoadDetail }) {
   );
 }
 
+function PhotoTile({ photo }: { photo: LoadDetail["photos"][number] }) {
+  return (
+    <figure className="phototile">
+      {photo.url ? <img src={photo.url} alt="Bill of lading photo" /> : <div className="nophoto">no image</div>}
+      <figcaption>
+        <span className="badge fixture">{photo.badge}</span>
+        {photo.legible === false && <span className="small">not legible ∙ retake asked</span>}
+        {photo.matchesPack != null && <span className={photo.matchesPack ? "ok-text" : "bad-text"}>{photo.matchesPack ? "✓ sha256 matches the pack" : "✕ sha256 differs"}</span>}
+      </figcaption>
+    </figure>
+  );
+}
+
 export function Judges() {
   const { step: stepParam } = useParams();
   const [params, setParams] = useSearchParams();
@@ -114,7 +127,7 @@ export function Judges() {
             <dl className="facts">
               <div><dt>Facility</dt><dd>{load.summary.facility}</dd></div>
               <div><dt>Owed by</dt><dd>{load.summary.counterparty}</dd></div>
-              <div><dt>Contract</dt><dd>{duration(load.clause.freeTimeMinutes)} free · {usd(load.clause.ratePerHourUsd)}/h</dd></div>
+              <div><dt>Contract</dt><dd>{duration(load.clause.freeTimeMinutes)} free ∙ {usd(load.clause.ratePerHourUsd)}/h</dd></div>
               <div><dt>Driver on</dt><dd>{load.summary.channel === "rcs" ? "RCS" : "WhatsApp"}</dd></div>
             </dl>
           </>
@@ -124,7 +137,7 @@ export function Judges() {
       case "proved":
         title = "Proved";
         say = `${provedWords(load).short}. Paper and locations agree.`;
-        visual = <ConversationView messages={load.messages} timeZone={load.timeZone} party="driver" />;
+        visual = <ConversationView messages={load.messages} timeZone={load.timeZone} party="driver" markers={failoverMarkers(load.timeline)} />;
         link = [`/loads/${load.summary.id}/conversation`, "Conversation"];
         break;
       case "signed":
@@ -172,7 +185,7 @@ export function Judges() {
           {JUDGE_STEPS.map((s, n) => (
             <Link key={s} to={`/judges/${s}${params.toString() ? `?${params}` : ""}`} className={`${s === step ? "active" : ""} ${n < i ? "done" : ""}`} aria-current={s === step ? "step" : undefined} aria-label={LABELS[s]} title={LABELS[s]}>
               <span className="n">{n < i ? "✓" : n + 1}</span>
-              <span className={s === step ? "" : "lbl-off"}>{LABELS[s]}</span>
+              <span>{LABELS[s]}</span>
             </Link>
           ))}
         </nav>
@@ -190,6 +203,7 @@ export function Judges() {
               <>
                 <h1>{title}</h1>
                 <p className="say">{say}</p>
+                {step === "proved" && load.photos[0] && <PhotoTile photo={load.photos[0]} />}
                 <div className="acts">
                   {i > 0 && <button className="btn" onClick={() => go(JUDGE_STEPS[i - 1]!)}>Back</button>}
                   {i < JUDGE_STEPS.length - 1 && <button className="btn primary" onClick={() => go(JUDGE_STEPS[i + 1]!)}>{i === 0 ? "Start" : "Next"}</button>}

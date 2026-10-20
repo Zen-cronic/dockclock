@@ -8,7 +8,7 @@ import { clock, usd } from "../format.js";
 import { AgentFlow } from "../ui/AgentFlow.js";
 import { Page } from "../ui/AppShell.js";
 import { ChannelBadge, ProvenanceBadge, Stamp } from "../ui/badges.js";
-import { ConversationView } from "../ui/ConversationView.js";
+import { ConversationView, failoverMarkers } from "../ui/ConversationView.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
 import { Drawer, Json } from "../ui/Drawer.js";
 import { EmailBody } from "../ui/EmailView.js";
@@ -66,10 +66,11 @@ export function LoadHeader({ load }: { load: LoadDetail }) {
     <div className="loadhead">
       <div>
         <div className="page-head" style={{ margin: 0 }}>
-          <h1 className="loadid">{load.summary.id}</h1>
+          <h1>{load.summary.facility.split(",")[0]}</h1>
         </div>
         <div className="meta">
-          <span>{load.summary.facility}</span>
+          <span className="mono">{load.summary.id}</span>
+          <span>{load.summary.counterparty}</span>
           <ChannelBadge channel={load.summary.channel} />
           <span className="badge test" title={load.run.summary}>{runLabel(load)}</span>
         </div>
@@ -133,7 +134,7 @@ export function LoadDetailRoute() {
                 <button aria-pressed={party === "dispatcher"} onClick={() => setParty("dispatcher")}>Dispatcher</button>
               </div>
             )}
-            <ConversationView messages={load.messages} timeZone={load.timeZone} party={party} />
+            <ConversationView messages={load.messages} timeZone={load.timeZone} party={party} markers={failoverMarkers(load.timeline)} />
           </div>
           <div className="card">
             <div className="card-head"><h2>Proof</h2></div>
@@ -153,7 +154,7 @@ export function LoadDetailRoute() {
               <button className="mailrow" key={e.id} onClick={() => setEmail(e)}>
                 <span className="k">{e.purpose === "dispatch_escalation" ? "Escalation" : e.purpose}</span>
                 <span className="s">{e.subject}</span>
-                <span className="small">{clock(e.sentAt, load.timeZone)} · {e.status === "not_sent" ? "not sent (test)" : e.status}</span>
+                <span className="small">{clock(e.sentAt, load.timeZone)} ∙ {e.status === "not_sent" ? "not sent (test)" : e.status}</span>
               </button>
             ))
           )}
@@ -163,7 +164,7 @@ export function LoadDetailRoute() {
         <div className="card">
           <div className="card-head">
             <h2>Workflow</h2>
-            <span className="small">from records · * policy inferred</span>
+            <span className="small">from records ∙ * policy inferred</span>
           </div>
           <div className="card-body">
             <AgentFlow nodes={flowNodes(load)} timeZone={load.timeZone} onOpen={setNode} />
@@ -174,7 +175,7 @@ export function LoadDetailRoute() {
       {tab === "whatif" && <WhatIfPanel load={load} />}
       {record && (
         <Drawer title={record.title} onClose={() => setRecord(null)}>
-          <p className="small">{clock(record.at, load.timeZone)} · {record.services.join(" → ")}</p>
+          <p className="small">{clock(record.at, load.timeZone)} ∙ {record.services.join(" → ")}</p>
           {record.detail && <p style={{ marginTop: 10 }}>{record.detail}</p>}
           {record.synthetic && <p className="small" style={{ marginTop: 10 }}>A replayed test message, not a phone.</p>}
           {record.record && <div style={{ marginTop: 14 }}><Json value={record.record} /></div>}
@@ -187,7 +188,7 @@ export function LoadDetailRoute() {
       )}
       {node && (
         <Drawer title={node.title} onClose={() => setNode(null)}>
-          <p className="small">{clock(node.at, load.timeZone)} · {node.services.join(" · ")}</p>
+          <p className="small">{clock(node.at, load.timeZone)} ∙ {node.services.join(" ∙ ")}</p>
           <div style={{ marginTop: 14 }}><Json value={node.raw} /></div>
         </Drawer>
       )}

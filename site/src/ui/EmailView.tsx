@@ -10,11 +10,11 @@ export function EmailView({ email, timeZone, body, note }: { email: ConsoleEmail
         <span>From</span>
         <b>{email.from}</b>
         <span>To</span>
-        <span style={{ color: "var(--ink)" }}>{email.to} <span className="small">· {email.toNote}</span></span>
+        <span style={{ color: "var(--ink)" }}>{email.to} <span className="small">∙ {email.toNote}</span></span>
         <span>Sent</span>
         <span style={{ color: "var(--ink)" }}>
           {clock(email.sentAt, timeZone)} {zoneName(email.sentAt, timeZone)}
-          {email.status === "delivered" ? " · delivered" : email.status === "bounced" ? " · bounced" : email.status === "not_sent" ? " · not sent (test)" : ""}
+          {email.status === "delivered" ? " ∙ delivered" : email.status === "bounced" ? " ∙ bounced" : email.status === "not_sent" ? " ∙ not sent (test)" : ""}
         </span>
         <span>Subject</span>
         <b>{email.subject}</b>

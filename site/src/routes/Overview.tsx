@@ -27,15 +27,15 @@ export function Overview() {
       ) : (
         <>
           <div className="kpis">
-            <KpiTile label="Claimed" value={usd(o.claimedUsd)} tone="money" />
-            <KpiTile label="Claims filed" value={o.claimsFiled} />
+            <KpiTile label="Claimed" value={usd(o.claimedUsd)} tone="money" note="emailed by the agent" />
+            <KpiTile label="Claims filed" value={o.claimsFiled} note={`of ${o.loads} loads`} />
             <KpiTile label="Delivered" value={o.deliveredPct ?? "—"} unit={o.deliveredPct != null ? "%" : ""} tone="ok" note={`of ${o.deliveryTracked} tracked`} />
-            <KpiTile label="Failovers" value={o.failovers} />
+            <KpiTile label="Failovers" value={o.failovers} note="WhatsApp → RCS" />
           </div>
           {load && (
             <div style={{ marginTop: 16 }}>
               <Link to={`/loads/${load.summary.id}`} style={{ textDecoration: "none", display: "block" }} aria-label={`Open load ${load.summary.id}`}>
-                <DockClockBand load={load} />
+                <DockClockBand load={load} title={`Featured load ∙ ${load.summary.facility.split(",")[0]}`} legend />
               </Link>
             </div>
           )}

@@ -418,3 +418,32 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Overrides: timeline reasons, dock band legend, pills, judges stage */
+.tl .why { font-size: var(--t-13); color: var(--stop); text-align: right; white-space: nowrap; }
+.dockband .bandlegend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; font-size: 11.5px; color: var(--nav-dim); }
+.dockband .bandlegend i { position: static; display: inline-block; transform: none; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; background: var(--nav-text); }
+.dockband .bandlegend i.money { background: var(--safety); }
+.dockband .bandlegend i.agent { background: #8aa4ff; }
+.dockband .bandlegend i.ok { background: #3fbf7a; }
+.dockband .bandlegend i.refused { background: transparent; box-shadow: inset 0 0 0 2px #ff6a5c; }
+.grid-2 { align-items: start; }
+.pill.accepted, .pill.sent, .pill.received, .pill.not_sent { background: transparent; box-shadow: inset 0 0 0 1px var(--rule-2); color: var(--ink-3); }
+.pill.delivered, .pill.read { background: var(--go-soft); box-shadow: none; color: var(--go); }
+.pill.failed, .pill.failover { background: var(--stop-soft); box-shadow: none; color: var(--stop); }
+.judge .stage { align-content: start; align-items: start; padding-bottom: 0; grid-template-columns: 460px minmax(0, 1fr); gap: var(--s6); }
+.judge { min-height: 0; }
+.steps { margin-bottom: var(--s6); }
+.richcard .hero { height: 44px; }
+@media (max-width: 1100px) { .judge .stage { grid-template-columns: 1fr; } }
+@media (max-width: 860px) {
+  .feed li { grid-template-columns: 18px minmax(0, 1fr); grid-template-rows: auto auto; row-gap: 2px; }
+  .feed li .ts { grid-column: 2; grid-row: 1; font-size: 11px; }
+  .feed li .dot { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
+  .feed li .t { grid-column: 2; grid-row: 2; white-space: normal; }
+}
+.phototile { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 14px; align-items: center; margin-top: 20px; padding: 12px; background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); }
+.phototile img { width: 120px; height: 120px; object-fit: cover; border-radius: 6px; }
+.phototile .nophoto { width: 120px; height: 120px; display: grid; place-items: center; background: var(--card-2); color: var(--ink-3); border-radius: 6px; font-size: 12px; }
+.phototile figcaption { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.chat > * { flex-shrink: 0; }

@@ -61,6 +61,7 @@ export function Messages() {
   }, [all]);
   const statusTest = STATUS_FILTERS.find(([n]) => n === status)?.[1] ?? (() => true);
   const rows = all.filter((m) => (!channel || m.channel === channel) && statusTest(m.status));
+  const manyLoads = new Set(rows.map((r) => r.loadId)).size > 1;
   const set = (k: string, v: string | null) => {
     const next = new URLSearchParams(params);
     if (v) next.set(k, v);
@@ -94,7 +95,7 @@ export function Messages() {
               <tr>
                 <th>Time</th>
                 <th>Channel</th>
-                <th className="hide-m">Load</th>
+                {manyLoads && <th className="hide-m">Load</th>}
                 <th className="hide-m">Party</th>
                 <th>What</th>
                 <th>Status</th>
@@ -106,9 +107,9 @@ export function Messages() {
                   <tr key={m.id} onClick={() => setOpen(m)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpen(m)}>
                     <td className="ts">{clock(m.at, tzOf(m.loadId))}</td>
                     <td><ChannelBadge channel={m.channel} /></td>
-                    <td className="id hide-m">{m.loadId}</td>
+                    {manyLoads && <td className="id hide-m">{m.loadId}</td>}
                     <td className="hide-m">{m.direction === "in" ? "from " : "to "}{m.party}</td>
-                    <td className="what">{purposeWords(m)}{m.synthetic ? <span className="small hide-m"> · test</span> : null}</td>
+                    <td className="what">{purposeWords(m)}</td>
                     <td><StatusPill status={m.status} /></td>
                   </tr>
                 );

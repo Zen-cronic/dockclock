@@ -4,7 +4,7 @@ import { IconPause, IconPlay } from "./icons.js";
 
 // DockClockBand: the signature visual. A dock-door sign at night: a dot-matrix clock, free time as
 // a dashed floor marking, billable time as a hazard stripe, every record pinned at its true time.
-export function DockClockBand({ load, cursor, playing, onPlay }: { load: LoadDetail; cursor?: string | null; playing?: boolean; onPlay?: () => void }) {
+export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: { load: LoadDetail; cursor?: string | null; playing?: boolean; onPlay?: () => void; title?: string; legend?: boolean }) {
   const c = load.clock;
   const tz = load.timeZone;
   const times = load.timeline.map((e) => Date.parse(e.at));
@@ -22,7 +22,7 @@ export function DockClockBand({ load, cursor, playing, onPlay }: { load: LoadDet
     <section className="dockband" aria-label="Dock clock">
       <div className="row1">
         <div>
-          <div className="lbl">At the dock</div>
+          <div className="lbl">{title ? `${title} ∙ at the dock` : "At the dock"}</div>
           <div className="led" aria-label={`${hmm(atDock)} hours and minutes at the dock`}>
             {hmm(atDock).split(":")[0]}
             <span className="colon">:</span>
@@ -76,6 +76,14 @@ export function DockClockBand({ load, cursor, playing, onPlay }: { load: LoadDet
             ))}
         </div>
       </div>
+      {legend && (
+        <div className="bandlegend" aria-hidden="true">
+          <span><i className="pin refused" />refused tap</span>
+          <span><i className="pin money" />money</span>
+          <span><i className="pin agent" />agent</span>
+          <span><i className="pin ok" />approved, delivered</span>
+        </div>
+      )}
     </section>
   );
 }

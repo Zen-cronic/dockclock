@@ -1,13 +1,24 @@
 import { clock } from "../format.js";
 import type { TimelineItem } from "../model/model.js";
 
+const OUTCOMES: Record<string, string> = {
+  REJECTED_OUT_OF_ORDER: "out of order",
+  IGNORED_DUPLICATE_TAP: "duplicate tap",
+  REJECTED_STALE_BUTTON: "old button",
+  RESENT_OVER_RCS: "resent on RCS",
+};
+
+export function outcomeWords(code: string): string {
+  return OUTCOMES[code] ?? code.toLowerCase().replace(/_/g, " ");
+}
+
 // Timeline: one row per record, title only; the record opens in a drawer.
 export function Timeline({ items, timeZone, upTo, current, onOpen }: { items: TimelineItem[]; timeZone: string; upTo?: number; current?: number; onOpen: (t: TimelineItem) => void }) {
   let group = "";
   return (
     <ol className="tl">
       {items.flatMap((t, i) => {
-        const g = t.synthetic ? "Driver · replayed" : "Workflow · agent · email";
+        const g = t.synthetic ? "Driver ∙ replayed" : "Workflow ∙ agent ∙ email";
         const rows = [];
         if (g !== group) {
           rows.push(<li className="grp" key={`g-${i}`}>{g}</li>);
@@ -19,7 +30,7 @@ export function Timeline({ items, timeZone, upTo, current, onOpen }: { items: Ti
               <span className="ts">{clock(t.at, timeZone)}</span>
               <span className={`dot ${t.tone}`} aria-hidden="true" />
               <span className="t">{t.title}</span>
-              <span className="tags">{t.tone === "refused" && t.outcome ? <span className="tag refused">{t.outcome}</span> : <span className="tag">{t.services[0] ?? ""}</span>}</span>
+              <span className="why">{t.tone === "refused" && t.outcome ? outcomeWords(t.outcome) : ""}</span>
             </button>
           </li>,
         );

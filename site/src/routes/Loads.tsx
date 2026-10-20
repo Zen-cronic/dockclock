@@ -34,7 +34,7 @@ export function Loads() {
                   <tr key={l.id} onClick={() => nav(`/loads/${l.id}`)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && nav(`/loads/${l.id}`)}>
                     <td className="id">{l.id}</td>
                     <td className="hide-m">{l.facility}</td>
-                    <td><ChannelBadge channel={l.channel} />{l.failover ? <span className="small"> · failover</span> : null}</td>
+                    <td><ChannelBadge channel={l.channel} />{l.failover ? <span className="small"> ∙ after failover</span> : null}</td>
                     <td className="hide-m"><span className="badge test">{l.runLabel ?? RUN_WORDS[l.runKind]}</span></td>
                     <td><Stamp verdict={l.verdict} /></td>
                     <td className="num">{usd(l.amountUsd)}</td>

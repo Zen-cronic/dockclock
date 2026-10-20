@@ -46,7 +46,7 @@ export function flowNodes(d: LoadDetail): FlowNode[] {
       raw: r,
     });
   const approvedAt = d.approval?.decidedAt ?? d.timeline.find((t) => /approv/i.test(t.title) && t.tone === "ok")?.at;
-  if (approvedAt) nodes.push({ id: "approval", at: approvedAt, title: approvalWords(d).short.split(" · ")[0] ?? "Approved", services: d.approval ? ["EUM Social", "Step Functions"] : ["DynamoDB"], tone: "ok", icon: "check", outcome: d.approval ? "one tap" : "test" });
+  if (approvedAt) nodes.push({ id: "approval", at: approvedAt, title: approvalWords(d).short.split(" ∙ ")[0] ?? "Approved", services: d.approval ? ["EUM Social", "Step Functions"] : ["DynamoDB"], tone: "ok", icon: "check", outcome: d.approval ? "one tap" : "test" });
   for (const e of d.emails.filter((x) => x.purpose === "claim"))
     nodes.push({ id: e.id, at: e.sentAt, title: "Claim emailed", services: ["SES"], tone: "ok", icon: "mail", outcome: e.deliveredAt ? "delivered" : "sent", raw: e });
   return nodes.sort((a, b) => a.at.localeCompare(b.at));

@@ -135,7 +135,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
           <span className="ic">{check.status === "valid" ? "✓" : check.status === "invalid" ? "✕" : "…"}</span>
           <div>
             <b>{check.status === "valid" ? "Signature valid" : check.status === "invalid" ? "Signature broken" : check.status === "error" ? "Couldn't check" : "Checking"}</b>
-            <span className="small">{check.status === "error" ? check.error : "KMS · checked in your browser"}</span>
+            <span className="small">{check.status === "error" ? check.error : "KMS ∙ checked in your browser"}</span>
           </div>
         </div>
         {diffs.length > 0 && (
@@ -157,7 +157,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
           <summary className="small" style={{ cursor: "pointer" }}>Check in a terminal</summary>
           <pre className="json" style={{ marginTop: 8 }}>npm run verify:pack -- {pack.packId}.pack.json</pre>
           <p className="small" style={{ marginTop: 6 }}>
-            <a href={`${import.meta.env.BASE_URL}${pack.publicKeyPath}`} download>Public key</a> · key {pack.spkiSha256.slice(0, 12)}…
+            <a href={`${import.meta.env.BASE_URL}${pack.publicKeyPath}`} download>Public key</a> ∙ key {pack.spkiSha256.slice(0, 12)}…
           </p>
         </details>
       </div>
