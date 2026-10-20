@@ -35,6 +35,13 @@ export function canonicalJson(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
 }
 
+// A message id as it appears in a pack: a short sha256 reference, never the raw id. A WhatsApp
+// wamid base64-encodes the sender's phone number, so a published pack must not carry it. Whoever
+// holds the full id (it stays in DynamoDB) can recompute the reference and match the two.
+export function messageRef(id: string): string {
+  return id.startsWith("msg-sha256:") ? id : `msg-sha256:${sha256Hex(id).slice(0, 16)}`;
+}
+
 export function buildPack(
   record: LoadRecord,
   corroboration: Corroboration,
@@ -51,16 +58,16 @@ export function buildPack(
     facility: { id: record.facility.id, name: record.facility.name },
     appointmentAt: record.appointmentAt,
     events: {
-      arrived: record.arrived && { serverAt: record.arrived.serverAt, messageId: record.arrived.messageId },
-      released: record.released && { serverAt: record.released.serverAt, messageId: record.released.messageId },
+      arrived: record.arrived && { serverAt: record.arrived.serverAt, messageId: messageRef(record.arrived.messageId) },
+      released: record.released && { serverAt: record.released.serverAt, messageId: messageRef(record.released.messageId) },
       bol: record.bol && {
         serverAt: record.bol.serverAt,
-        messageId: record.bol.messageId,
+        messageId: messageRef(record.bol.messageId),
         pageSha256s: record.bol.pageSha256s,
         cameraOnly: record.bol.cameraOnly,
         timesEdited: record.bol.timesEdited,
       },
-      notice: record.notice && { ...record.notice },
+      notice: record.notice && { ...record.notice, messageId: messageRef(record.notice.messageId) },
     },
     corroboration,
     evaluation,

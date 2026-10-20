@@ -12,6 +12,7 @@ import {
   KmsSigner,
   registerFacility,
   LocalSigner,
+  messageRef,
   packBytes,
   packDigest,
   sealPack,
@@ -200,5 +201,36 @@ describe("what a pack holds", () => {
     const [lon, lat] = load.arrived!.location as unknown as [number, number];
     expect(text).not.toContain(String(lon));
     expect(text).not.toContain(String(lat));
+  });
+});
+
+describe("message ids in a pack", () => {
+  // A real wamid is base64 of a structure that starts with the sender's phone number. These are built
+  // the same way from a 555 test number, so the test catches the leak a live pack would have.
+  const wamid = (n: number) => `wamid.${Buffer.from(`\u0018\u000b15550100001\u0015\u0002\u0000\u0012\u0018\u0014${n}ABCDEF0123456789`).toString("base64")}`;
+
+  // Every base64-looking run in the text, decoded, must not hold a 10+ digit number.
+  const decodesToPhone = (text: string) =>
+    (text.match(/[A-Za-z0-9+/=_-]{12,}/g) ?? []).some((run) => /\d{10,}/.test(Buffer.from(run.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("latin1")));
+
+  it("replaces every message id with a short sha256 reference", () => {
+    const base = record();
+    const load: LoadRecord = {
+      ...base,
+      arrived: { ...base.arrived!, messageId: wamid(1) },
+      released: { ...base.released!, messageId: wamid(2) },
+      bol: { ...base.bol!, messageId: wamid(3) },
+      notice: { sentAt: "2026-10-13T15:00:00.000Z", deliveredAt: null, messageId: "0100019a-ses-id" },
+    };
+    expect(decodesToPhone(JSON.stringify(load))).toBe(true);
+    const evaluation = evaluate(toLoadEvidence(load, "2026-10-13T18:00:00.000Z"), clauseById("lakeshore-foods"));
+    const pack = buildPack(load, corroborate(load), evaluation, "2026-10-13T18:00:00.000Z");
+    const text = JSON.stringify(pack);
+    expect(text).not.toContain("wamid.");
+    expect(decodesToPhone(text)).toBe(false);
+    expect(pack.events.arrived?.messageId).toBe(messageRef(wamid(1)));
+    expect(pack.events.arrived?.messageId).toMatch(/^msg-sha256:[0-9a-f]{16}$/);
+    expect(pack.events.notice?.messageId).toMatch(/^msg-sha256:[0-9a-f]{16}$/);
+    expect(messageRef(pack.events.bol!.messageId)).toBe(pack.events.bol!.messageId);
   });
 });
