@@ -7,6 +7,8 @@ import { describe, expect, it } from "vitest";
 import { approvalWords, provedWords, runLabel } from "../src/copy/provenance.js";
 import { detailFromReplay } from "../src/model/fromReplay.js";
 import { flowNodes } from "../src/model/flow.js";
+import { detailFromApi } from "../src/model/fromApi.js";
+import type { LoadView } from "../src/api.js";
 import { canonicalJson } from "../src/canonical.js";
 import { headline, recordedEvidence, run } from "../src/engine.js";
 import { createHash as shimHash } from "../src/shims/node-crypto.js";
@@ -105,5 +107,36 @@ describe.each(replays)("replay %s", (file) => {
   it("puts every agent run in the workflow graph, refusals included", () => {
     const nodes = flowNodes(d);
     expect(nodes.filter((n) => n.icon === "agent" || n.icon === "stop")).toHaveLength(s.agentRuns.length);
+  });
+});
+
+// The API fixtures (site/fixtures/api) through the same adapters and copy rules.
+const fxDir = new URL("../fixtures/api/loads/", import.meta.url);
+const fxLoads = readdirSync(fxDir).filter((f) => /^[A-Za-z0-9-]+\.json$/.test(f));
+
+describe.each(fxLoads)("API fixture %s", (file) => {
+  const body = JSON.parse(readFileSync(new URL(file, fxDir), "utf8")) as { data?: LoadView; error?: unknown };
+  const id = file.replace(/\.json$/, "");
+
+  it("adapts to the console model and keeps copy honest", () => {
+    if (!body.data) return;
+    const d = detailFromApi(body.data, "fixture");
+    expect(d.summary.id).toBe(id);
+    const words = [runLabel(d), provedWords(d).short, provedWords(d).long, approvalWords(d).short, approvalWords(d).long, ...flowNodes(d).map((n) => n.title)].join(" | ");
+    if (d.run.kind !== "phone" && d.run.kind !== "demo") expect(words).not.toMatch(/WhatsApp server times|RCS server times/);
+    if (!(d.approval?.decision === "approve" && d.approval.approver === "dispatcher")) expect(words).not.toMatch(/tapped/i);
+    for (const p of d.photos) expect(p.badge).not.toMatch(/real phone/);
+  });
+
+  it("verifies its signed pack when one is published", async () => {
+    let raw: string;
+    try {
+      raw = readFileSync(new URL(`${id}.pack.json`, fxDir), "utf8");
+    } catch {
+      return;
+    }
+    const r = JSON.parse(raw) as { data?: { pack: unknown; signatureBase64: string } };
+    if (!r.data) return;
+    expect((await verifyPack(r.data.pack, r.data.signatureBase64, pem)).valid).toBe(true);
   });
 });

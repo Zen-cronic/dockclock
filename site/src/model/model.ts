@@ -164,6 +164,9 @@ export interface Overview {
   // and sends with no delivery event yet are left out, so test data cannot drag the rate down.
   deliveredPct: number | null;
   deliveryTracked: number;
+  emailsDelivered: number;
+  emailsSent: number;
+  notSent: number;
   failovers: number;
   byChannel: Array<{ channel: Channel; outbound: number; inbound: number }>;
   activity: Array<{ id: string; at: string; loadId: string; title: string; tone: TimelineItem["tone"]; href: string }>;

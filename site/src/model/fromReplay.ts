@@ -147,6 +147,9 @@ export function overviewFromDetails(details: LoadDetail[], source: Source): Over
     messages: feed.length,
     deliveredPct: tracked.length ? Math.round((delivered / tracked.length) * 100) : null,
     deliveryTracked: tracked.length,
+    emailsDelivered: details.reduce((n, d) => n + d.emails.filter((e) => e.status === "delivered").length, 0),
+    emailsSent: details.reduce((n, d) => n + d.emails.filter((e) => e.status !== "not_sent").length, 0),
+    notSent: feed.filter((m) => m.status === "not_sent").length,
     failovers: details.filter((d) => d.summary.failover).length,
     byChannel: channels
       .map((channel) => ({ channel, outbound: feed.filter((m) => m.channel === channel && m.direction === "out").length, inbound: feed.filter((m) => m.channel === channel && m.direction === "in").length }))

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useLoad, useLoads, useMessages } from "../model/client.js";
+import { hasRecordedDetail, useLoad, useLoads, useMessages } from "../model/client.js";
 import type { Channel, FeedRow, MessageStatus } from "../model/model.js";
 import { clock } from "../format.js";
 import { Page } from "../ui/AppShell.js";
@@ -40,6 +40,15 @@ const PURPOSE: Record<string, string> = {
   outcome_filed: "Claim-filed message",
   dispatch_template: "Load dispatched",
   retake: "Clearer photo request",
+  photo: "Bill of lading photo",
+  offer_release: "Released button",
+  location_arrived: "Arrival location request",
+  location_released: "Release location request",
+  dispatch_card: "Load dispatched",
+  notice_sent: "Notice sent to driver",
+  tell_bol_photo_received: "Photo saved",
+  tell_bol_partial: "Paperwork incomplete",
+  tell_tap_arrived_first: "Tap Arrived first",
 };
 
 export function purposeWords(m: { purpose: string }): string {
@@ -104,7 +113,7 @@ export function Messages() {
             <tbody>
               {rows.map((m) => {
                 return (
-                  <tr key={m.id} onClick={() => setOpen(m)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpen(m)}>
+                  <tr key={m.id} className={q.data?.source !== "fixture" || hasRecordedDetail(m.loadId) ? "" : "summary-only"} onClick={() => (q.data?.source !== "fixture" || hasRecordedDetail(m.loadId)) && setOpen(m)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpen(m)}>
                     <td className="ts">{clock(m.at, tzOf(m.loadId))}</td>
                     <td><ChannelBadge channel={m.channel} /></td>
                     {manyLoads && <td className="id hide-m">{m.loadId}</td>}

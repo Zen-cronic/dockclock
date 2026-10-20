@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useLoads } from "../model/client.js";
+import { hasRecordedDetail, useLoads } from "../model/client.js";
 import { usd } from "../format.js";
 import { Page } from "../ui/AppShell.js";
 import { ChannelBadge, ProvenanceBadge, Stamp } from "../ui/badges.js";
@@ -30,8 +30,9 @@ export function Loads() {
             </thead>
             <tbody>
               {loads.map((l) => {
+                const open = l.source !== "fixture" || hasRecordedDetail(l.id);
                 return (
-                  <tr key={l.id} onClick={() => nav(`/loads/${l.id}`)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && nav(`/loads/${l.id}`)}>
+                  <tr key={l.id} className={open ? "" : "summary-only"} onClick={() => open && nav(`/loads/${l.id}`)} tabIndex={open ? 0 : -1} onKeyDown={(e) => open && e.key === "Enter" && nav(`/loads/${l.id}`)} title={open ? undefined : "Summary only in the recorded set"}>
                     <td className="id">{l.id}</td>
                     <td className="hide-m">{l.facility}</td>
                     <td><ChannelBadge channel={l.channel} />{l.failover ? <span className="small"> ∙ after failover</span> : null}</td>

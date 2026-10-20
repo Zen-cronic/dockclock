@@ -447,3 +447,4 @@ a { color: inherit; }
 .phototile .nophoto { width: 120px; height: 120px; display: grid; place-items: center; background: var(--card-2); color: var(--ink-3); border-radius: 6px; font-size: 12px; }
 .phototile figcaption { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .chat > * { flex-shrink: 0; }
+.table tbody tr.summary-only { cursor: default; opacity: 0.55; }

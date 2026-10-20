@@ -57,6 +57,12 @@ function fixtureFor(path: string): unknown {
   throw new Error(`no fixture for ${path}`);
 }
 
+// Whether a load's full record is available from the recorded responses (some loads are listed
+// with a summary only).
+export function hasRecordedDetail(loadId: string): boolean {
+  return Object.keys(fixtureModules).some((k) => k.endsWith(`/loads/${loadId}.json`));
+}
+
 function fixturePhotoUrl(u: string): string {
   const name = u.split("/").pop() ?? u;
   const hit = Object.entries(fixturePhotos).find(([k]) => k.endsWith(`/${name}`));
@@ -83,17 +89,19 @@ export interface Sourced<T> {
   pollMs: number | null;
 }
 
-// Fetch from the chosen source; on any failure fall back to the bundled replays.
+// Fetch from the chosen source. When /api is unreachable, fall back to the recorded API responses
+// in site/fixtures/api (badged RECORDED), then to the bundled replays (badged REPLAY).
 async function load<A, T>(path: string, fromApi: (r: Api.ApiResponse<A>, s: Source) => T, fromReplay: () => T): Promise<Sourced<T>> {
   const m = mode();
-  if (m !== "replay") {
+  const order: Mode[] = m === "live" ? ["live", "fixtures"] : m === "fixtures" ? ["fixtures"] : [];
+  for (const source of order) {
     try {
-      const r = await get<A>(path, m);
-      const source: Source = m === "fixtures" ? "fixture" : "live";
-      return { data: fromApi(r, source), source, pollMs: r.pollMs };
+      const r = await get<A>(path, source);
+      const s: Source = source === "fixtures" ? "fixture" : "live";
+      return { data: fromApi(r, s), source: s, pollMs: source === "live" ? r.pollMs : null };
     } catch (error) {
-      // Fall back to the replay; say why in the console for whoever is debugging.
-      console.warn(`DockClock: ${path} unavailable (${(error as Error).message}); showing the replay`);
+      // Say why in the console for whoever is debugging, then try the next source.
+      console.warn(`DockClock: ${path} from ${source} unavailable (${(error as Error).message})`);
     }
   }
   return { data: fromReplay(), source: "replay", pollMs: null };
