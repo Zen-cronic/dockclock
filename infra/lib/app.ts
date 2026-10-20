@@ -14,8 +14,8 @@ export function buildApp(config: DockClockConfig, app = new App()) {
   const agent = new AgentStack(app, "DockClockAgent", { env, config, core });
   // The lifecycle calls the agent's functions by name, so the agent deploys first.
   messaging.addDependency(agent);
-  // The judge desk: static, read-only, independent of every other stack.
-  const desk = new DeskStack(app, "DockClockDesk", { env });
+  // The console and judge desk: the static app plus the read-only API over the core table and buckets.
+  const desk = new DeskStack(app, "DockClockDesk", { env, core, config });
   Tags.of(app).add("project", "dockclock");
   return { app, core, messaging, email, agent, desk };
 }

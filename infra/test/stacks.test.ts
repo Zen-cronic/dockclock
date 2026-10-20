@@ -157,10 +157,29 @@ describe("stacks", () => {
     deskT.hasResourceProperties("AWS::S3::Bucket", {
       PublicAccessBlockConfiguration: { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true },
     });
-    deskT.resourceCountIs("AWS::CloudFront::OriginAccessControl", 1);
+    // One for the site bucket, one for the API's function URL.
+    deskT.resourceCountIs("AWS::CloudFront::OriginAccessControl", 2);
     deskT.hasResourceProperties("AWS::CloudFront::Distribution", {
       DistributionConfig: Match.objectLike({ DefaultRootObject: "index.html", DefaultCacheBehavior: Match.objectLike({ ViewerProtocolPolicy: "redirect-to-https" }) }),
     });
     deskT.hasOutput("DeskUrl", {});
+  });
+
+  it("serves the read-only console API at /api/* on the desk's own distribution", () => {
+    const deskT = Template.fromStack(desk);
+    deskT.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({ CacheBehaviors: [Match.objectLike({ PathPattern: "/api/*", AllowedMethods: ["GET", "HEAD"], ViewerProtocolPolicy: "redirect-to-https" })] }),
+    });
+    deskT.hasResourceProperties("AWS::Lambda::Url", { AuthType: "AWS_IAM" });
+    deskT.hasResourceProperties("AWS::Lambda::Function", {
+      ReservedConcurrentExecutions: 10,
+      Environment: { Variables: Match.objectLike({ TABLE_NAME: Match.anyValue(), EVIDENCE_BUCKET: Match.anyValue(), MEDIA_BUCKET: Match.anyValue(), EVIDENCE_SPKI_SHA256: Match.stringLikeRegexp("^[0-9a-f]{64}$") }) },
+    });
+    // The API's own role reads only (the site upload role is separate and writes the site bucket).
+    const apiPolicies = Object.entries(deskT.findResources("AWS::IAM::Policy")).filter(([id]) => id.startsWith("ReadApi"));
+    expect(apiPolicies).toHaveLength(1);
+    const apiPolicy = JSON.stringify(apiPolicies);
+    expect(apiPolicy).toContain("dynamodb:Query");
+    expect(apiPolicy).not.toMatch(/dynamodb:(Put|Update|Delete|Scan|BatchWrite)|s3:(Put|Delete)/);
   });
 });
