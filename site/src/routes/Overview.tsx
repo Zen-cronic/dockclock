@@ -18,7 +18,7 @@ export function Overview() {
       badges={ov.data && <ProvenanceBadge kind={ov.data.source} />}
       actions={
         <Link className="btn primary" to="/judges">
-          Start the judges path
+          Judges path
         </Link>
       }
     >
@@ -27,24 +27,24 @@ export function Overview() {
       ) : (
         <>
           <div className="kpis">
-            <KpiTile label="Claimed" value={usd(o.claimedUsd)} tone="money" note="emailed by the agent" />
+            <KpiTile label="Claimed" value={usd(o.claimedUsd)} tone="money" />
             <KpiTile label="Claims filed" value={o.claimsFiled} note={`of ${o.loads} loads`} />
-            <KpiTile label="Emails delivered" value={o.emailsDelivered} tone="ok" note={`SES delivery events ∙ ${o.emailsSent} sent`} />
+            <KpiTile label="Emails delivered" value={o.emailsDelivered} tone="ok" note={`of ${o.emailsSent} sent`} />
             <KpiTile label="Failovers" value={o.failovers} note="WhatsApp → RCS" />
           </div>
           {load && (
             <div style={{ marginTop: 16 }}>
               <Link to={`/loads/${load.summary.id}`} style={{ textDecoration: "none", display: "block" }} aria-label={`Open load ${load.summary.id}`}>
-                <DockClockBand load={load} title={`Featured load ∙ ${load.summary.facility.split(",")[0]}`} legend />
+                <DockClockBand load={load} title={load.summary.facility.split(",")[0] ?? load.summary.facility} legend />
               </Link>
             </div>
           )}
-          <div className="section-title">Activity</div>
+          <div style={{ height: 24 }} />
           <div className="grid-2">
             <div className="card">
               <div className="card-head">
                 <h2>Latest</h2>
-                <Link className="small" to="/messages">All messages ›</Link>
+                <Link className="small" to="/messages">All ›</Link>
               </div>
               <ul className="feed">
                 {o.activity.slice(0, 8).map((a) => (

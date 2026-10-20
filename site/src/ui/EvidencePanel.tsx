@@ -19,8 +19,8 @@ interface PackShape {
 type Tamper = { amount: boolean; release: boolean; check: boolean };
 const TAMPERS: Array<[keyof Tamper, string, string]> = [
   ["amount", "Amount", "→ $9,999.00"],
-  ["release", "Release time", "+30 min"],
-  ["check", "Failed check", "hide it"],
+  ["release", "Release", "+30 min"],
+  ["check", "Failed check", ""],
 ];
 
 function tampered(pack: PackShape, t: Tamper): PackShape {
@@ -109,10 +109,10 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
         </p>
         {photos.length > 0 && (
           <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-head"><h2>Bill of lading photo</h2></div>
+            <div className="card-head"><h2>Bill of lading</h2></div>
             {photos.map((ph) => (
               <div className="card-body photo-ev" key={ph.index}>
-                <img src={ph.url} alt={`Bill of lading page ${ph.index}`} />
+                {ph.url ? <img src={ph.url} alt={`Bill of lading page ${ph.index}`} /> : <div className="nophoto" aria-label="No image stored">—</div>}
                 <div>
                   <span className="badge fixture">{ph.badge}</span>
                   {ph.reading && (
@@ -135,7 +135,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
           <span className="ic">{check.status === "valid" ? "✓" : check.status === "invalid" ? "✕" : "…"}</span>
           <div>
             <b>{check.status === "valid" ? "Signature valid" : check.status === "invalid" ? "Signature broken" : check.status === "error" ? "Couldn't check" : "Checking"}</b>
-            <span className="small">{check.status === "error" ? check.error : "KMS ∙ checked in your browser"}</span>
+            <span className="small">{check.status === "error" ? check.error : "in your browser"}</span>
           </div>
         </div>
         {diffs.length > 0 && (
@@ -145,7 +145,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
             ))}
           </ul>
         )}
-        <div className="section-title">Try to change it</div>
+        <div className="section-title">Break it</div>
         {TAMPERS.map(([k, label, hint]) => (
           <label className="switch" key={k}>
             <input type="checkbox" role="switch" checked={t[k]} onChange={(e) => setT({ ...t, [k]: e.target.checked })} />
@@ -154,7 +154,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
           </label>
         ))}
         <details style={{ marginTop: 16 }}>
-          <summary className="small" style={{ cursor: "pointer" }}>Check in a terminal</summary>
+          <summary className="small" style={{ cursor: "pointer" }}>Terminal</summary>
           <pre className="json" style={{ marginTop: 8 }}>npm run verify:pack -- {pack.packId}.pack.json</pre>
           <p className="small" style={{ marginTop: 6 }}>
             <a href={`${import.meta.env.BASE_URL}${pack.publicKeyPath}`} download>Public key</a> ∙ key {pack.spkiSha256.slice(0, 12)}…

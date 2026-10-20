@@ -17,9 +17,9 @@ export function runLabel(d: Pick<LoadDetail, "run" | "approval">): string {
     case "demo":
       return "Judge demo";
     case "operator":
-      return "Test driver ∙ real tap";
+      return "Test load ∙ real tap";
     default:
-      return d.approval ? "Test driver" : "Test driver ∙ test approval";
+      return "Test load";
   }
 }
 

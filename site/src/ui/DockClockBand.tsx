@@ -9,11 +9,14 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: 
   const tz = load.timeZone;
   const times = load.timeline.map((e) => Date.parse(e.at));
   if (c.arrivedAt) times.push(Date.parse(c.arrivedAt));
+  // A load still at the dock: the clock runs to "as of", and the track ends there.
+  const now = !c.releasedAt && load.asOf ? load.asOf : null;
+  if (now) times.push(Date.parse(now));
   const start = Math.min(...times);
   const end = Math.max(...times);
   const pct = (iso: string) => (end === start ? 0 : ((Date.parse(iso) - start) / (end - start)) * 100);
   const limit = cursor ? Date.parse(cursor) : Number.POSITIVE_INFINITY;
-  const upTo = (iso: string | null) => (iso ? Math.min(Date.parse(iso), limit) : limit);
+  const upTo = (iso: string | null) => Math.min(Date.parse(iso ?? now ?? new Date(limit === Infinity ? Date.now() : limit).toISOString()), limit);
   const width = (from: string, to: string) => Math.max(0, pct(new Date(Math.min(Date.parse(to), limit)).toISOString()) - pct(from));
   const atDock = c.arrivedAt ? Math.max(0, (upTo(c.releasedAt) - Date.parse(c.arrivedAt)) / 60_000) : 0;
   const billable = c.freeTimeEndsAt ? Math.max(0, (upTo(c.releasedAt) - Date.parse(c.freeTimeEndsAt)) / 60_000) : 0;
@@ -63,9 +66,10 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: 
         <div className="bar">
           {early && c.arrivedAt && c.clockStartAt && <div className="seg early" style={{ left: `${pct(c.arrivedAt)}%`, width: `${width(c.arrivedAt, c.clockStartAt)}%` }} />}
           {c.clockStartAt && c.freeTimeEndsAt && <div className="seg free" style={{ left: `${pct(c.clockStartAt)}%`, width: `${width(c.clockStartAt, c.freeTimeEndsAt)}%` }} />}
-          {c.freeTimeEndsAt && c.releasedAt && Date.parse(c.releasedAt) > Date.parse(c.freeTimeEndsAt) && (
-            <div className="seg bill" style={{ left: `${pct(c.freeTimeEndsAt)}%`, width: `${width(c.freeTimeEndsAt, c.releasedAt)}%` }} />
+          {c.freeTimeEndsAt && (c.releasedAt ?? now) && Date.parse((c.releasedAt ?? now)!) > Date.parse(c.freeTimeEndsAt) && (
+            <div className="seg bill" style={{ left: `${pct(c.freeTimeEndsAt)}%`, width: `${width(c.freeTimeEndsAt, (c.releasedAt ?? now)!)}%` }} />
           )}
+          {now && <div className="seg cursor live" style={{ left: `${pct(now)}%` }} />}
           {cursor && <div className="seg cursor" style={{ left: `${pct(cursor)}%` }} />}
         </div>
         <div className="pins">
@@ -78,10 +82,10 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: 
       </div>
       {legend && (
         <div className="bandlegend" aria-hidden="true">
-          <span><i className="pin refused" />refused tap</span>
+          <span><i className="pin refused" />refused</span>
           <span><i className="pin money" />money</span>
           <span><i className="pin agent" />agent</span>
-          <span><i className="pin ok" />approved, delivered</span>
+          <span><i className="pin ok" />done</span>
         </div>
       )}
     </section>

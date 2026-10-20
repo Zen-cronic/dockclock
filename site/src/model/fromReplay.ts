@@ -103,6 +103,7 @@ export function detailFromReplay(s: ReplaySnapshot, source: Source): LoadDetail 
     run: s.run,
     timeZone: s.load.facility.timeZone,
     clock: s.clock,
+    asOf: null,
     clause: s.clause,
     verdict: s.verdict,
     pack: s.pack,

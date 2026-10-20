@@ -65,6 +65,26 @@ export function hasRecordedDetail(loadId: string): boolean {
   return Object.keys(fixtureModules).some((k) => k.endsWith(`/loads/${loadId}.json`));
 }
 
+// In-progress captures of a load, recorded from the read API while it ran
+// (site/fixtures/api/loads/live/<id>.<status>.json), oldest first.
+export interface Capture {
+  status: string;
+  asOf: string;
+  detail: LoadDetail;
+}
+
+export function recordedCaptures(loadId: string): Capture[] {
+  const out: Capture[] = [];
+  for (const [key, value] of Object.entries(fixtureModules)) {
+    const m = new RegExp(`/loads/live/${loadId.replace(/[^A-Za-z0-9-]/g, "")}\\.([a-z_]+)\\.json$`).exec(key);
+    if (!m) continue;
+    const r = value as Api.ApiResponse<Api.LoadView>;
+    if (!r.data) continue;
+    out.push({ status: m[1]!, asOf: r.data.clock.asOf, detail: detailFromApi(r.data, "fixture", fixturePhotoUrl) });
+  }
+  return out.sort((a, b) => a.asOf.localeCompare(b.asOf));
+}
+
 function fixturePhotoUrl(u: string): string {
   const name = u.split("/").pop() ?? u;
   const hit = Object.entries(fixturePhotos).find(([k]) => k.endsWith(`/${name}`));

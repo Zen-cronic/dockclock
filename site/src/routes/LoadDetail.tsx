@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { NavLink, useParams, useSearchParams } from "react-router-dom";
 import { approvalWords, provedWords, runLabel } from "../copy/provenance.js";
-import { useLoad, usePack } from "../model/client.js";
+import { recordedCaptures, useLoad, usePack } from "../model/client.js";
 import { flowNodes, type FlowNode } from "../model/flow.js";
 import type { ConsoleEmail, LoadDetail, TimelineItem } from "../model/model.js";
 import { clock, usd } from "../format.js";
@@ -61,6 +61,8 @@ export function usePlayback(load: LoadDetail | null | undefined) {
   return { step, cursor, playing, toggle };
 }
 
+const STATUS_WORDS: Record<string, string> = { waiting_for_arrival: "Waiting", at_dock: "At dock", paperwork: "Paperwork", sealing: "Sealing", awaiting_approval: "Approval", filing: "Filing", claim_filed: "Filed", held: "Held", not_billable: "Not owed", needs_human: "Review", closed: "Closed" };
+
 export function LoadHeader({ load }: { load: LoadDetail }) {
   return (
     <div className="loadhead">
@@ -70,14 +72,13 @@ export function LoadHeader({ load }: { load: LoadDetail }) {
         </div>
         <div className="meta">
           <span className="mono">{load.summary.id}</span>
-          <span>{load.summary.counterparty}</span>
           <ChannelBadge channel={load.summary.channel} />
           <span className="badge test" title={load.run.summary}>{runLabel(load)}</span>
         </div>
       </div>
       <div className="owed">
         <Stamp verdict={load.verdict?.verdict ?? null} />
-        <div className="num">{usd(load.verdict?.amountUsd ?? 0)}</div>
+        <div className="num">{load.verdict ? usd(load.verdict.amountUsd) : "—"}</div>
       </div>
     </div>
   );
@@ -94,6 +95,9 @@ export function LoadDetailRoute() {
   const [email, setEmail] = useState<ConsoleEmail | null>(null);
   const [node, setNode] = useState<FlowNode | null>(null);
   const [party, setParty] = useState<"driver" | "dispatcher">("driver");
+  const captures = useMemo(() => (id ? recordedCaptures(id) : []), [id]);
+  const [capture, setCapture] = useState<number | null>(null);
+  const shown = capture !== null ? captures[capture]?.detail : undefined;
   const pack = usePack(load);
   if (!load)
     return (
@@ -107,9 +111,20 @@ export function LoadDetailRoute() {
     <Page
       crumbs={[{ to: "/loads", label: "Loads" }, { label: load.summary.id }]}
       badges={q.data && <ProvenanceBadge kind={q.data.source} />}
-      actions={<Link className="btn hide-m" to={`/judges?load=${load.summary.id}`}>Judges path</Link>}
     >
-      <LoadHeader load={load} />
+      <LoadHeader load={shown ?? load} />
+      {captures.length > 0 && (
+        <div className="progress" role="group" aria-label="Recorded progress">
+          <ProvenanceBadge kind="recorded" />
+          {captures.map((c, i) => (
+            <button key={c.status} aria-pressed={capture === i} onClick={() => setCapture(capture === i ? null : i)} title={`As recorded at ${clock(c.asOf, load.timeZone)}`}>
+              <span className="dot" aria-hidden="true" />
+              {STATUS_WORDS[c.status] ?? c.status.replace(/_/g, " ")}
+            </button>
+          ))}
+          {capture !== null && <button className="linkbtn" onClick={() => setCapture(null)}>Now</button>}
+        </div>
+      )}
       <nav className="tabs" aria-label="Load sections">
         {TABS.map(([k, label]) => (
           <NavLink key={k} to={`/loads/${load.summary.id}/${k}`} className={() => (tab === k ? "active" : "")}>
@@ -119,9 +134,9 @@ export function LoadDetailRoute() {
       </nav>
       {tab === "timeline" && (
         <>
-          <DockClockBand load={load} cursor={play.cursor} playing={play.playing} onPlay={play.toggle} />
+          <DockClockBand load={shown ?? load} cursor={shown ? null : play.cursor} playing={play.playing} {...(shown ? {} : { onPlay: play.toggle })} />
           <div className="card" style={{ marginTop: 16 }}>
-            <Timeline items={load.timeline} timeZone={load.timeZone} {...(upTo !== undefined ? { upTo } : {})} {...(play.step !== null ? { current: play.step } : {})} onOpen={setRecord} />
+            <Timeline items={(shown ?? load).timeline} timeZone={load.timeZone} {...(upTo !== undefined ? { upTo } : {})} {...(play.step !== null ? { current: play.step } : {})} onOpen={setRecord} />
           </div>
         </>
       )}
@@ -134,7 +149,7 @@ export function LoadDetailRoute() {
                 <button aria-pressed={party === "dispatcher"} onClick={() => setParty("dispatcher")}>Dispatcher</button>
               </div>
             )}
-            <ConversationView messages={load.messages} timeZone={load.timeZone} party={party} markers={failoverMarkers(load.timeline)} />
+            <ConversationView messages={(shown ?? load).messages} timeZone={load.timeZone} party={party} markers={failoverMarkers((shown ?? load).timeline)} />
           </div>
           <div className="card">
             <div className="card-head"><h2>Proof</h2></div>

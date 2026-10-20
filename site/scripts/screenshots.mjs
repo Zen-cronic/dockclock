@@ -34,10 +34,14 @@ const routes = [
   ["load-agent", "/loads/SMOKE-mvh1bmmu/agent"],
   ["load-evidence", "/loads/SMOKE-mvh1bmmu/evidence"],
   ["load-whatif", "/loads/SMOKE-mvh1bmmu/whatif"],
+  ["load-progress", "/loads/SMOKE-mvh34j51"],
+  ["load-rcs-conversation", "/loads/SMOKE-RCS-mvh32fui/conversation"],
+  ["load-rcs-evidence", "/loads/SMOKE-RCS-mvh32fui/evidence"],
   ["judges-start", "/judges"],
   ["judges-proved", "/judges/proved"],
   ["judges-filed", "/judges/filed"],
   ["judges-break", "/judges/break"],
+  ["judges-rcs-proved", "/judges/proved?lane=rcs"],
 ];
 const viewports = [["1440", { width: 1440, height: 900 }], ["390", { width: 390, height: 844 }]];
 

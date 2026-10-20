@@ -451,3 +451,10 @@ a { color: inherit; }
 .skip { position: absolute; left: 12px; top: -48px; z-index: 50; background: var(--safety); color: var(--ink); font-weight: 700; padding: 10px 14px; border-radius: var(--r-sm); text-decoration: none; }
 .skip:focus { top: 12px; }
 main.page:focus { outline: none; }
+.steps a .n:empty::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--rule-2); }
+.steps a.active .n:empty::after { background: var(--ink); }
+.nophoto { width: 100%; aspect-ratio: 1; display: grid; place-items: center; background: var(--card-2); color: var(--ink-3); border-radius: 6px; }
+.progress { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -8px 0 18px; }
+.progress button:not(.linkbtn) { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--rule-2); background: var(--card); font-weight: 600; font-size: var(--t-13); color: var(--ink-2); cursor: pointer; }
+.progress button[aria-pressed="true"] { background: var(--side); border-color: var(--side); color: #fff; }
+.progress button .dot { width: 7px; height: 7px; background: var(--safety); box-shadow: none; }

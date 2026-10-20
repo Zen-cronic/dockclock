@@ -5,11 +5,12 @@ import { FEATURED_LOAD, FEATURED_RCS_LOAD, useLoad, usePack } from "../model/cli
 import { flowNodes } from "../model/flow.js";
 import type { LoadDetail } from "../model/model.js";
 import { run } from "../engine.js";
-import { duration, minutesBetween, usd } from "../format.js";
+import { duration, usd } from "../format.js";
 import { AgentFlow } from "../ui/AgentFlow.js";
 import { Page } from "../ui/AppShell.js";
 import { ProvenanceBadge, Stamp } from "../ui/badges.js";
 import { ConversationView, failoverMarkers } from "../ui/ConversationView.js";
+import { IconRcs, IconWhatsApp } from "../ui/icons.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
 import { EmptyState } from "../ui/EmptyState.js";
 import { useSignatureCheck } from "../ui/EvidencePanel.js";
@@ -17,7 +18,7 @@ import { recordedInput } from "../ui/WhatIfPanel.js";
 
 export const JUDGE_STEPS = ["start", "proved", "signed", "filed", "break", "change", "phone"] as const;
 type Step = (typeof JUDGE_STEPS)[number];
-const LABELS: Record<Step, string> = { start: "Load", proved: "Proved", signed: "Signed", filed: "Filed", break: "Break it", change: "Change a fact", phone: "Your phone" };
+const LABELS: Record<Step, string> = { start: "Load", proved: "Proved", signed: "Signed", filed: "Filed", break: "Break", change: "Change", phone: "Phone" };
 
 type PackLike = { evaluation?: { amountUsd?: number } };
 const raiseAmount = (p: PackLike): PackLike => ({ ...p, evaluation: { ...p.evaluation, amountUsd: 9999 } });
@@ -115,11 +116,10 @@ export function Judges() {
   let link: [string, string] | null = null;
   if (load) {
     const c = load.clock;
-    const wait = c.arrivedAt && c.releasedAt ? duration(minutesBetween(c.arrivedAt, c.releasedAt)) : "";
     switch (step) {
       case "start":
         title = `Owed ${usd(load.verdict?.amountUsd ?? 0)}`;
-        say = `A truck waited ${wait}. The contract pays for ${duration(c.billableMinutes)}.`;
+        say = `${duration(c.billableMinutes)} held past free time.`;
         visual = (
           <>
             <DockClockBand load={load} />
@@ -127,11 +127,11 @@ export function Judges() {
               <div><dt>Facility</dt><dd>{load.summary.facility}</dd></div>
               <div><dt>Owed by</dt><dd>{load.summary.counterparty}</dd></div>
               <div><dt>Contract</dt><dd>{duration(load.clause.freeTimeMinutes)} free ∙ {usd(load.clause.ratePerHourUsd)}/h</dd></div>
-              <div><dt>Driver on</dt><dd>{load.summary.channel === "rcs" ? "RCS" : "WhatsApp"}</dd></div>
+              <div><dt>Channel</dt><dd>{load.summary.channel === "rcs" ? "RCS" : "WhatsApp"}</dd></div>
             </dl>
           </>
         );
-        link = [`/loads/${load.summary.id}`, "Open the load"];
+        link = [`/loads/${load.summary.id}`, "Open load"];
         break;
       case "proved":
         title = "Proved";
@@ -165,12 +165,12 @@ export function Judges() {
         break;
       case "phone":
         title = "Try it on your phone";
-        say = "Text DEMO on WhatsApp to the number on our Devpost page. About 10 minutes.";
+        say = "Text DEMO on WhatsApp. Number on our Devpost page.";
         visual = (
           <div className="dockband">
             <div className="lbl">Text this</div>
             <div className="led" style={{ fontSize: 96, marginTop: 6 }}>DEMO</div>
-            <p className="small" style={{ color: "var(--nav-dim)", marginTop: 10 }}>RCS runs on a Google test agent: recorded only.</p>
+            <p className="small" style={{ color: "var(--nav-dim)", marginTop: 10 }}>RCS: recorded only (test agent).</p>
           </div>
         );
         break;
@@ -183,7 +183,7 @@ export function Judges() {
         <nav className="steps" aria-label="Steps">
           {JUDGE_STEPS.map((s, n) => (
             <Link key={s} to={`/judges/${s}${params.toString() ? `?${params}` : ""}`} className={`${s === step ? "active" : ""} ${n < i ? "done" : ""}`} aria-current={s === step ? "step" : undefined} aria-label={LABELS[s]} title={LABELS[s]}>
-              <span className="n">{n < i ? "✓" : n + 1}</span>
+              <span className="n" aria-hidden="true">{n < i ? "✓" : ""}</span>
               <span>{LABELS[s]}</span>
             </Link>
           ))}
@@ -192,8 +192,8 @@ export function Judges() {
           <div>
             {step === "start" && (
               <div className="segctl lane" role="group" aria-label="Driver's channel" style={{ marginBottom: 18 }}>
-                <button aria-pressed={lane === "whatsapp"} onClick={() => setLane("whatsapp")}>Driver on WhatsApp</button>
-                <button aria-pressed={lane === "rcs"} onClick={() => setLane("rcs")}>Driver on RCS</button>
+                <button aria-pressed={lane === "whatsapp"} aria-label="Driver on WhatsApp" onClick={() => setLane("whatsapp")}><IconWhatsApp />WhatsApp</button>
+                <button aria-pressed={lane === "rcs"} aria-label="Driver on RCS, no WhatsApp" onClick={() => setLane("rcs")}><IconRcs />RCS</button>
               </div>
             )}
             {!load ? (

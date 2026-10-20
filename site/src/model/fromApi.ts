@@ -50,7 +50,7 @@ export function summaryFromApi(l: Api.LoadSummary, source: Source): LoadSummary 
 export function photoBadge(source: Api.PhotoSource): string {
   if (source === "phone_camera") return "Fictional BOL, photographed on a real phone";
   if (source === "rendered_fictional_document") return "Rendered test document";
-  return "Test stand-in, not an image";
+  return "Test stand-in";
 }
 
 function photosFromApi(v: Api.LoadView, resolveUrl: (u: string) => string): Photo[] {
@@ -146,6 +146,7 @@ export function detailFromApi(v: Api.LoadView, source: Source, resolveUrl: (u: s
       billableMinutes: v.clock.billableMinutes,
       driverTimes: v.clock.driverTimes,
     },
+    asOf: v.summary.live ? v.clock.asOf : null,
     clause: v.clause,
     verdict: v.verdict,
     pack: null,

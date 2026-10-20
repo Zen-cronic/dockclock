@@ -139,6 +139,8 @@ export interface LoadDetail {
   run: ReplaySnapshot["run"];
   timeZone: string;
   clock: ReplaySnapshot["clock"];
+  // For a load still in progress: the moment the clock values are as of.
+  asOf: string | null;
   clause: ReplaySnapshot["clause"];
   verdict: ReplaySnapshot["verdict"] | null;
   // The full signed pack when it travels with the load (replays); otherwise fetched on demand.
