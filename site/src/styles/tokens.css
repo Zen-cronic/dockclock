@@ -1,0 +1,71 @@
+/* Door 05: the DockClock Console design tokens. See site/DESIGN.md for the story and contrast table. */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces: a white roll-up door, a black door sign, the bill-of-lading copies */
+  --ground: #eef0ee;
+  --card: #ffffff;
+  --card-2: #f6f7f6;
+  --side: #121316;
+  --side-2: #1c1e22;
+  --side-3: #2a2d33;
+  --canary: #fbf0b8;
+  --canary-rule: #e3d48a;
+
+  /* Ink */
+  --ink: #15171c;
+  --ink-2: #454b57;
+  --ink-3: #5e6573;
+  --rule: #d5d9de;
+  --rule-2: #c3c8cf;
+  --nav-text: #c9cdd3;
+  --nav-dim: #8b919c;
+  --form-ink: #1f2a55;
+
+  /* One meaning per accent */
+  --safety: #ffc400; /* money and billable time; ink text on it, never white */
+  --safety-soft: #fff1c2;
+  --safety-ink: #6b5300; /* safety meaning as text on light ground */
+  --go: #0f7543; /* valid, approved, delivered */
+  --go-soft: #dcefe3;
+  --stop: #c8261a; /* refused, changed, failed, not owed */
+  --stop-soft: #f8dedb;
+  --carbon: #2f55d4; /* the AI agent */
+  --carbon-soft: #e3e8fb;
+  --pink: #b0285e; /* COMPUTED: an edited copy, not the original */
+  --pink-soft: #f6dde7;
+
+  /* Type */
+  --display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+  --stencil: "Big Shoulders Stencil Display", "Big Shoulders Display", sans-serif;
+  --text: "Overpass", "Segoe UI", system-ui, sans-serif;
+  --mono: "Overpass Mono", ui-monospace, Menlo, monospace;
+  --led: "Doto", "Overpass Mono", monospace;
+
+  --t-11: 11.5px;
+  --t-13: 13px;
+  --t-14: 14px;
+  --t-16: 16px;
+  --t-20: 20px;
+  --t-28: 28px;
+  --t-40: 40px;
+  --t-56: 56px;
+
+  /* Space and shape */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --shadow: 0 1px 0 rgba(21, 23, 28, 0.04), 0 8px 24px -16px rgba(21, 23, 28, 0.25);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* The hazard stripe: safety yellow and sign black, as on a dock bumper */
+  --hazard: repeating-linear-gradient(-45deg, var(--safety) 0 10px, var(--side) 10px 20px);
+}

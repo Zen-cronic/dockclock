@@ -1,104 +1,108 @@
-# DockClock judge desk: design system
+# DockClock Console: design system "Door 05"
 
-"Dock ledger": a dispatcher's ledger under a dock clock. It uses warm paper, ink and monospace times, with one accent per meaning. Time is the main character. The money (billable minutes) is visible before any text is read.
+The console is where DockClock's messaging is monitored: WhatsApp, RCS and email, per load and across loads. Its `/judges` route walks a judge through one load: proved, signed, filed, then break the signature and change one fact.
 
-The page has three tabs, and each one carries a provenance badge:
-- **Watch the load** (REPLAY)
-- **Break the signature** (REPLAY data, checked in the browser)
-- **Change one fact** (COMPUTED)
+Rules:
+- It is an app, not a report. Each screen does one thing.
+- Dense detail (raw records, the pack JSON, email bodies, agent tool calls) sits behind a click, in a drawer or a tab.
 
-LIVE is reserved for a judge's own DEMO run. That mode is not built yet.
+## The story behind the palette
+**Door 05** is a loading-dock door at a distribution centre, the place a detention claim starts. A truck backs onto the door and waits.
 
-## Colour tokens (`src/styles.css` `:root`)
-The page is light only. The pack is drawn as a printout and a judge's visit is short, so a dark theme would add review surface without helping the reader. `color-scheme: light` is set.
+| Source | Becomes |
+|---|---|
+| The black door-number sign, framed in safety yellow | The navigation and the dock clock |
+| The roll-up door | The page ground |
+| Dock-light green and red | Delivered/valid and refused |
+| The three-part carbonless bill of lading (white original, canary copy, blue-black form ink) | Cards and the evidence pack |
 
-| Token | Value | Meaning; used only for this |
+The palette comes from photos of a dock wayfinding sign, a dock-number sign and a three-part bill of lading.
+
+## Colour (one meaning per accent)
+| Token | Hex | Meaning; used only for this |
 |---|---|---|
-| `--paper` / `--paper-2` | `#f3f0e8` / `#e9e4d6` | Page and hatching |
-| `--card` / `--printout` | `#fbfaf6` / `#fffef9` | Panels / the evidence pack |
-| `--ink` / `--ink-2` / `--ink-3` | `#1c1b17` / `#4f4c44` / `#6b675d` | Text, at 15:1 / 7.5:1 / 5:1 on paper |
-| `--rule` / `--rule-2` | `#d6d1c3` / `#c4bead` | Borders |
-| `--amber` (+`-soft`, `-ink`) | `#c98300` / `#f6e3b8` / `#6e4600` | **Billable time and money owed.** Amber text always uses `--amber-ink` (7:1); labels on the amber bar are ink (5.3:1), never white (3.1:1) |
-| `--green` (+`-soft`) | `#2a7449` / `#dcebdf` | **Verified, approved, sent** |
-| `--red` (+`-soft`) | `#a8261e` / `#f4dcd8` | **Refused, changed, not owed** |
-| `--blue` (+`-soft`) | `#2457a6` / `#dee7f4` | **The AI agent, and COMPUTED** |
-| `--wa-*` | WhatsApp-like greens and greys | Inside the phone frame only |
+| `--ground` | `#eef0ee` | Page, the roll-up door |
+| `--card` / `--card-2` | `#ffffff` / `#f6f7f6` | Cards (bill-of-lading original), table headers |
+| `--side` / `--side-2` / `--side-3` | `#121316` / `#1c1e22` / `#2a2d33` | Navigation and the dock clock (the door sign) |
+| `--canary` | `#fbf0b8` | The evidence pack only (the canary copy) |
+| `--ink` / `--ink-2` / `--ink-3` | `#15171c` / `#454b57` / `#5e6573` | Text |
+| `--form-ink` | `#1f2a55` | Text printed on the canary pack |
+| `--safety` | `#ffc400` | **Money and billable time.** Always with ink text, never white; the billable stretch of the clock uses the yellow-and-black hazard stripe |
+| `--safety-ink` | `#6b5300` | Safety meaning as text on a light ground |
+| `--go` | `#0f7543` | **Valid, approved, delivered** |
+| `--stop` | `#c8261a` | **Refused, changed, failed, not owed** |
+| `--carbon` | `#2f55d4` | **The AI agent** |
+| `--pink` | `#b0285e` | **COMPUTED**: an edited copy, not the original |
 
-## Type
-- **Fonts:** IBM Plex Sans (400–700) for words and IBM Plex Mono (400–600) for times, ids, amounts, digests and the clock. Both load from Google Fonts, with system fallbacks.
-- **Scale:**
-  - 12 px: labels (uppercase, 0.08em tracking)
-  - 13 px: secondary text
-  - 14 px: body
-  - 16 px: lede
-  - 20 px
-  - 28 px
-  - 40 px: hero (28 px on mobile)
-  - 46 px: dock clock (34 px on mobile)
-- **Numerals:** tabular in the clock and timeline.
+### Measured contrast (WCAG ratio)
+| Pair | Ratio |
+|---|---|
+| ink / ground | 15.7 |
+| ink-2 / ground | 7.7 |
+| ink-3 / ground | 5.1 |
+| ink-3 / card | 5.9 |
+| ink / safety | 11.2 |
+| safety / side | 11.6 |
+| go / ground | 5.0 |
+| go / card, white / go | 5.8 |
+| stop / card, white / stop | 5.6 |
+| carbon / card, white / carbon | 6.2 |
+| pink / card, white / pink | 6.3 |
+| form-ink / canary | 12.0 |
+| nav text / side | 11.6 |
+| nav dim / side | 5.9 |
+
+White on safety yellow fails (1.4) and is never used.
+
+## Type (all OFL, self-hosted from `@fontsource`, latin subsets)
+| Family | Role | Why |
+|---|---|---|
+| **Big Shoulders Display** 600/800 | Headings, KPI numbers, load ids | A condensed grotesque drawn for city signage; it reads like dock-door numbers |
+| **Big Shoulders Stencil Display** 800 | The OWED / NOT OWED stamp only | Stencilled crate and trailer markings |
+| **Overpass** 400/600/700 | All UI text | Descends from Highway Gothic, the US road-sign face; legible and not a default |
+| **Overpass Mono** 400/600 | Times, ids, digests, the pack, service tags | Overpass's own mono |
+| **Doto** 800 | The dock-clock digits only | A dot-matrix face, like a dock-door LED timer; the colon is set in Big Shoulders for legibility |
+
+**Scale:** 11.5 (uppercase labels, 0.1em tracking) · 13 · 14 (body) · 16 · 20 · 28 · 40 (page title) · 56 (KPI). The clock is 64 px (46 px on phones).
 
 ## Space, shape, motion
-- **Spacing:** 4 / 8 / 12 / 16 / 24 / 32 / 48. The page gutter is 28 px (16 px on mobile).
-- **Radii:** 3 px for controls and badges, 6 px for panels, 40 px for the phone.
-- **Borders and shadows:** 1 px rules everywhere. The only drop shadow is under the phone.
+- **Spacing:** 4 / 8 / 12 / 16 / 24 / 32 / 48.
+- **Radii:** 6 (controls), 10 (cards), 16 (dock clock, coach), 36 (phone).
+- **Shadow:** one soft card shadow.
 - **Motion:**
-  - opening sweep: 2.2 s cubic ease-out, the dock clock running from arrival to the claim;
-  - new chat bubble: 220 ms rise of 6 px;
-  - verdict stamp: lands in 160 ms, with no bounce.
-- **Reduced motion:** `prefers-reduced-motion` disables the sweep and all animation. Playback then steps without transitions.
+  - Drawers slide 180 ms.
+  - The stamp, the bubbles and the LIVE dot are the only other motion.
+  - Everything stops under `prefers-reduced-motion`.
 
-## Components
-| Component | Class | Notes |
+## Components (`src/ui/`)
+| Component | File | Notes |
 |---|---|---|
-| Proof step | `.proof .tick` | 1/2/3 in ink only. Colours stay reserved for their meanings |
-| Provenance badge | `.badge.replay/.live/.computed/.ghost` | Mono caps. Every surface carries one |
-| Dock clock band | `.band` | The signature element. Left: elapsed "h:mm at the dock". Track: early (unpaid, light hatch), free time (hatch), billable (amber), then a cursor. Marks show Arrived, Free time ends and Released at their true times. Pins for refused taps (red), money (amber), agent (blue) and approved (green). Right: play/pause, the record counter and the recorded zone, plus a scrubber |
-| Phone frame | `.phone` `.screen` `.msg` | WhatsApp-like, drawn from records. Driver/Dispatcher switch. Bubble tag line: test message / not sent · test driver / template · name / sent / received. Dashed bubbles were never sent. Locations show only "inside the facility area" |
-| Timeline row | `.row` `.grp` | Rows are grouped: replayed driver messages, then the workflow. A group shows its service route once; a row shows a route only when it differs. Outcome codes appear on refusals only, and a dot legend sits at the top. A click opens the record drawer |
-| Record drawer | `dialog.drawer` | Native `<dialog>`, so Escape closes it. Shows provenance in words, services, and the sanitized stored record as JSON |
-| Verdict stamp | `.stamp` | OWED (green), NOT OWED (red), NEEDS A PERSON (amber ink). Rotated −2° like a rubber stamp; the amount sits beside it in mono. On tab 1 it appears once, on the claim slip; the "Why it is owed" card below holds the clause terms in plain words and the math line |
-| Claim slip | `.slip` | Printout-white card in the hero: stamp, amount, owed by, approval, and a live in-browser signature check |
-| Mailbox | `.mail` | From, To (fictional name + "test mailbox" note), Sent (with seconds after Approve), Subject, body (fades, expands), attachment chips |
-| Agent trace | `.agentcard .trace` | Typed rows Task / Tool / Policy / Guard with ran / permit / match outcomes. An inferred Cedar decision is labelled "Inferred" |
-| Fan-fold pack | `.feed` | Continuous-feed paper with tractor holes and mono key/value rows. A changed value is highlighted red |
-| Verify result | `.vres.good/.bad/.wait` | One line of verdict, then the fingerprint |
-| Toggle | `.toggle` + `input[role=switch]` | A real checkbox. Disabled rows say why ("This contract does not require a notice") |
-| Scorecard | `.score` | Three numbers from the clause engine, computed in the browser, with the fixture hash |
+| AppShell, NavRail, TopBar, Page | `AppShell.tsx` | The sign-black rail (Overview, Messages, Loads, Judges path). Under 860 px the rail becomes a top bar with four equal tabs, all reachable at 390 px with no sideways scroll. The TopBar has the breadcrumb, quiet badges and at most two actions |
+| KpiTile | `KpiTile.tsx` | One label and one number. The top rule carries the meaning: hazard stripe = money, green = good |
+| DockClockBand | `DockClockBand.tsx` | **The signature visual.** A dot-matrix "at the dock" clock, free and billable minutes, and a track with free time as a dashed floor marking and billable time as a hazard stripe, with records pinned at their true times. Plays the replay |
+| ProvenanceBadge | `badges.tsx` | LIVE (green, pulsing) · REPLAY (ink) · FIXTURE · COMPUTED (pink) · TEST (outline) · RECORDED. Always present, never a paragraph |
+| ChannelBadge, ChannelIcon | `badges.tsx` | WhatsApp, RCS, Email, SMS, with neutral line icons. SMS appears only when SMS records exist |
+| StatusPill | `badges.tsx` | accepted → sent → delivered → read, then failed / failover / received / not sent |
+| Stamp | `badges.tsx` | Stencil stamp, rotated −2°: Owed (green), Not owed (red), Review (dark yellow) |
+| ConversationView | `ConversationView.tsx` | A neutral phone frame drawn from message records. On WhatsApp, buttons sit under the bubble. On RCS, a rich card with suggestion chips and a "Share location" chip. A failover shows as one chip: "WhatsApp failed → resent on RCS". Dashed bubbles were never sent. It copies neither app's branding |
+| EmailView | `EmailView.tsx` | From, To with its test-mailbox note, Sent, Subject, body, attachments with sha256 on hover |
+| AgentFlow | `AgentFlow.tsx` + `data/flow.ts` | The load's workflow as a vertical node graph built only from records: driver messages, notice, seal, **every agent run including refusals**, approval and claim email. Each node is tagged with its AWS services. An inferred Cedar decision is marked |
+| EvidencePanel | `EvidencePanel.tsx` | The pack as a canary carbon copy, the in-browser KMS signature check, three tamper switches with a was → now list, bill-of-lading photos with the agent's reading and the sha256 match, and the raw pack in a drawer |
+| WhatIfPanel | `WhatIfPanel.tsx` | The workflow's own clause engine, re-run with one fact changed: recorded vs computed stamps and the rule that failed |
+| Timeline | `Timeline.tsx` | One title row per record, grouped (driver replayed / workflow). The record opens in a drawer |
+| Drawer, Json | `Drawer.tsx` | A right-hand sheet. Escape closes it, and focus returns to the opener |
+| EmptyState | `EmptyState.tsx` | One line and an optional hint |
+| TourCoach | `TourCoach.tsx` | A sign-black coach card with a yellow keyline, for guided steps |
 
-## Logo
-- `public/logo-mark.svg`: a clock ring whose amber wedge is the billable time past the mark, an ink hand on the wedge's edge, and a dock-floor rule beneath.
-- `public/logo.svg`: the mark plus the "DockClock" wordmark (Plex Sans 700).
-- `public/favicon.svg`: the mark on a paper tile.
-- `public/avatar.svg`: an inverted mark for the chat header.
+## Data and provenance
+- **One view model.** Screens read the model in `src/data/model.ts`. Adapters turn the API, its fixtures and the bundled replays (`replay/*.json`) into it, and `src/data/client.ts` decides the source. If `/api` fails, the console falls back to the replays and shows REPLAY.
+- **Copy follows provenance** (`src/copy/provenance.ts`):
+  - "WhatsApp server times" appears only for a real phone run; a test load says "Replayed test times".
+  - "Dispatcher tapped Approve" appears only when an approval record says so; with no approval record a filed claim says "Approved by a test command".
+  - `test/site.test.ts` renders every replay through these functions and fails otherwise.
+- **Never shown:** coordinates, phone numbers, BSUIDs, WhatsApp message ids, S3 keys, the KMS key ARN, the account id.
+- **Fictional names:** every company is fictional and labelled so.
 
-The marks are original and generic, with no vehicle imagery.
-
-## Copy rules
-- Plain words in headings; no AWS or engine jargon in a title. Service names appear only in chips and the footer.
-- "Detention" and "bill of lading" are defined once, under the hero.
-- **Every time is in the facility's zone, with the zone named.** Every number comes from the snapshot or from the clause engine at runtime; none is typed into the page.
-- **Every company is fictional and says so.** The email goes to "our test mailbox, not a real company".
-- **Never shown:** coordinates, phone numbers, WhatsApp ids, S3 keys, the KMS key ARN, the account id.
-
-## The first 30 seconds
-1. **First viewport, before any click (1440×900).** On the left:
-   - REPLAY badge and the load line;
-   - "The contract owed **$90.99**. DockClock proved it, signed it and emailed the claim.";
-   - the wait in one sentence;
-   - one line defining detention and bill of lading.
-
-   On the right, the **claim slip**: OWED stamp, $90.99, who owes it, "Dispatcher tapped Approve; the AI agent emailed it 14 s later", and **Signature ✓ valid, checked in your browser just now**. That check is real; it runs on page load. Under it sits **Try to break the signature →**.
-
-   Below these: three neutral proof cells (Proved / Signed / Filed) with the what-was-real line as their caption, then the dock clock band with its single **Play the replay** control.
-
-   The band sweeps from arrival to the claim in 2.2 s, and the stamp lands.
-2. **First click, either:**
-   - Play: about 25 s, one record every 1.5 s, the phone switching between driver and dispatcher.
-   - Break the signature: one switch turns "valid" into "does not match".
-
-## Accessibility
-- The tabs use `role=tablist`; the toggles are real switches.
-- The scrubber is a labelled range input. Space plays and pauses, and the arrow keys step.
-- Focus rings are a 2 px ink outline.
-- Text contrast is at least 4.5:1, and stamps carry text, not colour alone.
-- The verify result is an `aria-live` region.
+## Copy budget
+- The first viewport of each route stays under about 40 words.
+- Headings are nouns or short verbs: Overview, Messages, Loads, Proved, Signed, Filed. Definitions and explanations live in drawers.
