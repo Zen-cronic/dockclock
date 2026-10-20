@@ -40,6 +40,11 @@ export function minutesBetween(fromIso: string, toIso: string): number {
   return (Date.parse(toIso) - Date.parse(fromIso)) / 60_000;
 }
 
+// "Judge demo yard (any location counts)" -> "Judge demo yard"; "Lakeshore DC, Columbus OH" -> "Lakeshore DC".
+export function placeName(facility: string): string {
+  return facility.split(/[,(]/)[0]!.trim();
+}
+
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

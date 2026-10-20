@@ -4,7 +4,7 @@ import { approvalWords, provedWords, testStrip } from "../copy/provenance.js";
 import { recordedCaptures, useLoad, usePack } from "../model/client.js";
 import { flowNodes, type FlowNode } from "../model/flow.js";
 import type { ConsoleEmail, LoadDetail, TimelineItem } from "../model/model.js";
-import { clock, usd } from "../format.js";
+import { clock, placeName, usd } from "../format.js";
 import { AgentFlow } from "../ui/AgentFlow.js";
 import { Page } from "../ui/AppShell.js";
 import { ChannelBadge, ProvenanceBadge, Stamp } from "../ui/badges.js";
@@ -68,7 +68,7 @@ export function LoadHeader({ load }: { load: LoadDetail }) {
     <div className="loadhead">
       <div>
         <div className="page-head" style={{ margin: 0 }}>
-          <h1>{load.summary.facility.split(",")[0]}</h1>
+          <h1>{placeName(load.summary.facility)}</h1>
         </div>
         <div className="meta">
           <span className="mono">{load.summary.id}</span>
@@ -77,7 +77,7 @@ export function LoadHeader({ load }: { load: LoadDetail }) {
       </div>
       <div className="owed">
         <Stamp verdict={load.verdict?.verdict ?? null} />
-        <div className="num">{load.verdict ? usd(load.verdict.amountUsd) : "—"}</div>
+        {load.verdict ? <div className="num">{usd(load.verdict.amountUsd)}</div> : <div className="small" style={{ marginTop: 10 }}>not sealed yet</div>}
       </div>
     </div>
   );

@@ -201,6 +201,6 @@ export function overviewFromApi(o: Api.Overview, source: Source, generatedAt: st
     byChannel: (Object.entries(o.messages.byChannel) as Array<[Api.Channel, { outbound: number; inbound: number }]>)
       .map(([channel, c]) => ({ channel, outbound: c.outbound, inbound: c.inbound }))
       .filter((c) => c.channel !== "sms" || c.outbound + c.inbound > 0),
-    activity: o.activity.filter((a) => !/\(not sent: test/i.test(a.title)).map((a) => ({ id: a.id, at: a.at, loadId: a.loadId, title: a.title, tone: a.tone, href: a.href.replace(/\?tab=([a-z]+)/, "/$1") })),
+    activity: o.activity.filter((a) => !/\(not sent\b/i.test(a.title)).map((a) => ({ id: a.id, at: a.at, loadId: a.loadId, title: a.title, tone: a.tone, href: a.href.replace(/\?tab=([a-z]+)/, "/$1") })),
   };
 }

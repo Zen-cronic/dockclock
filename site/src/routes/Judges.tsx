@@ -99,10 +99,10 @@ function NoPhoto({ lane }: { lane: "whatsapp" | "rcs" }) {
     <div className="phototile nophoto-tile">
       <div className="nophoto" aria-hidden="true">—</div>
       <div>
-        <b>No photo on this test run</b>
+        <b>No photo this run</b>
         {lane === "whatsapp" && (
           <p className="small" style={{ marginTop: 6 }}>
-            <Link to={`/judges/proved?${rcs}`}>See the RCS lane ›</Link>
+            <Link to={`/judges/proved?${rcs}`}>RCS lane ›</Link>
           </p>
         )}
       </div>
@@ -152,9 +152,9 @@ export function Judges() {
         break;
       case "proved":
         title = "Proved";
-        say = `${provedWords(load).short}. Paper and locations agree.`;
+        say = provedWords(load).short + ".";
         visual = <ConversationView messages={load.messages} timeZone={load.timeZone} party="driver" markers={failoverMarkers(load.timeline)} />;
-        link = [`/loads/${load.summary.id}/conversation`, "Conversation"];
+        link = [`/loads/${load.summary.id}/conversation`, "Chat"];
         break;
       case "signed":
         title = "Signed";

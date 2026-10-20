@@ -25,7 +25,7 @@ export function ConversationView({ messages, timeZone, party, upTo, title, marke
             <img src={`${import.meta.env.BASE_URL}avatar.svg`} alt="" />
             <div>
               <b>{title ?? "DockClock"}</b>
-              <span className="small">{party === "driver" ? "Driver" : "Dispatcher"}</span>
+              <span className="small">{party === "driver" ? "Driver" : "Dispatch"}</span>
             </div>
             <span className="chanbadge">{channelName(lane === "rcs" ? "rcs" : "whatsapp")}</span>
           </div>
@@ -49,7 +49,7 @@ export function ConversationView({ messages, timeZone, party, upTo, title, marke
           </div>
         </div>
       </div>
-      <p className="phonenote">From message records{shown.some((m) => m.status === "not_sent") ? " ∙ dashed = not sent" : ""}</p>
+      <p className="phonenote">From records{shown.some((m) => m.status === "not_sent") ? " ∙ dashed: not sent" : ""}</p>
     </div>
   );
 }

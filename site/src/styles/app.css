@@ -503,3 +503,4 @@ main.page:focus { outline: none; }
 }
 .table tr.group td { overflow-wrap: anywhere; }
 @media (max-width: 860px) { .table { table-layout: fixed; } .table th:first-child, .table td:first-child { width: 78px; } .table th:last-child, .table td:last-child { width: 92px; } }
+.facts { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }

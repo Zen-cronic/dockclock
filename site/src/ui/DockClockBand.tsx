@@ -12,6 +12,12 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: 
   // A load still at the dock: the clock runs to "as of", and the track ends there.
   const now = !c.releasedAt && load.asOf ? load.asOf : null;
   if (now) times.push(Date.parse(now));
+  // While the truck is still at the dock, keep the end of free time on the track.
+  if (now && c.freeTimeEndsAt) times.push(Date.parse(c.freeTimeEndsAt));
+  if (c.arrivedAt) {
+    const first = Math.min(...times);
+    if (Date.parse(c.arrivedAt) - first > 0 && !c.releasedAt) times.splice(0, times.length, ...times.filter((t) => t >= Date.parse(c.arrivedAt!)));
+  }
   const start = Math.min(...times);
   const end = Math.max(...times);
   const pct = (iso: string) => (end === start ? 0 : ((Date.parse(iso) - start) / (end - start)) * 100);

@@ -1,5 +1,6 @@
 // Renders the built console with system Chrome and saves screenshots of every route.
-// Usage: npm run build -w @dockclock/site && npm run shots -w @dockclock/site [-- <outDir>]
+// Usage: npm run build -w @dockclock/site && [API=https://<desk>] npm run shots -w @dockclock/site [-- <outDir>]
+// BASE=https://<desk> shoots a deployed console instead of the local build.
 import { createServer } from "node:http";
 import { mkdir, readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
@@ -10,8 +11,15 @@ const dist = fileURLToPath(new URL("../dist/", import.meta.url));
 const out = process.argv[2] ?? fileURLToPath(new URL("../shots/", import.meta.url));
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json", ".pem": "application/x-pem-file", ".woff2": "font/woff2", ".woff": "font/woff", ".png": "image/png", ".jpg": "image/jpeg" };
 
-// Like the CloudFront function: a path without an extension serves index.html.
+// Like the CloudFront function: a path without an extension serves index.html. With API=<url>,
+// /api/* is proxied there, so a local build can be shot on live data.
 const server = createServer(async (req, res) => {
+  if (process.env.API && (req.url ?? "").startsWith("/api/")) {
+    const r = await fetch(process.env.API + req.url);
+    res.writeHead(r.status, { "Content-Type": r.headers.get("content-type") ?? "application/json" });
+    res.end(Buffer.from(await r.arrayBuffer()));
+    return;
+  }
   const path = normalize(decodeURIComponent((req.url ?? "/").split("?")[0])).replace(/^(\.\.[/\\])+/, "");
   const file = extname(path) ? join(dist, path) : join(dist, "index.html");
   try {
