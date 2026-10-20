@@ -51,12 +51,17 @@ describe("outbound message records", () => {
       text: "Load 4471 is booked: Lakeshore DC, appointment Oct 17, 2:00 PM. When you are parked at the dock, tap Arrived and we will start the detention clock.",
       footer: "Reply STOP to stop load messages.",
       buttons: ["Arrived", "Talk to dispatch"],
+      actions: [
+        { type: "quick_reply", title: "Arrived" },
+        { type: "quick_reply", title: "Talk to dispatch" },
+      ],
     });
     expect(JSON.stringify(out)).not.toContain("nonce-secret");
   });
 
   it("renders text, buttons, location requests and the Flow call to action", () => {
     expect(renderWhatsApp(textMessage("hello"))).toEqual({ kind: "text", text: "hello" });
+    expect(renderWhatsApp(locationRequest("en_US", "arrived")).actions).toEqual([{ type: "send_location", title: "Send location" }]);
     const buttons = renderWhatsApp(releaseButtons("en_US", "4471", "n1", "Lakeshore DC", "14:02"));
     expect(buttons.kind).toBe("buttons");
     expect(buttons.buttons).toEqual(["Released", "Talk to dispatch"]);
@@ -75,7 +80,9 @@ describe("outbound message records", () => {
 
   it("renders RCS cards and location requests with their suggestion labels", () => {
     expect(renderRcs(rcsDispatchCard("en_US", "4471", "n1", "Lakeshore DC", "Oct 17, 2:00 PM"))).toMatchObject({ kind: "card", title: expect.stringContaining("4471"), buttons: expect.arrayContaining(["Talk to dispatch"]) });
-    expect(renderRcs(rcsLocationRequest("en_US", "released"))).toMatchObject({ kind: "location_request", buttons: [expect.any(String)] });
+    expect(renderRcs(rcsLocationRequest("en_US", "released"))).toMatchObject({ kind: "location_request", buttons: [expect.any(String)], actions: [{ type: "rcs_request_location" }] });
+    expect(renderRcs(rcsDispatchCard("en_US", "4471", "n1", "Lakeshore DC", "Oct 17")).actions?.map((a) => a.type)).toEqual(["rcs_reply", "rcs_reply"]);
+    expect(JSON.stringify(renderRcs(rcsDispatchCard("en_US", "4471", "nonce-secret", "Lakeshore DC", "Oct 17")))).not.toContain("nonce-secret");
   });
 
   it("writes SEND# into the load's partition without the recipient", async () => {

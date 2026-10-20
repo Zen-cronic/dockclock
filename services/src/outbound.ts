@@ -13,6 +13,13 @@ export interface SentMessage {
   footer?: string;
   buttons?: string[];
   flowCta?: string;
+  // Every button, chip or call to action by what it does (the button titles above, typed).
+  actions?: SentAction[];
+}
+
+export interface SentAction {
+  type: "quick_reply" | "flow_cta" | "send_location" | "rcs_reply" | "rcs_request_location" | "rcs_open_url" | "rcs_dial";
+  title: string;
 }
 
 // Whose phone the message went to, by role: the driver's, or the dispatcher's. On a judge demo load
@@ -52,7 +59,7 @@ export function renderWhatsApp(body: Json): SentMessage {
       template: { name, language },
       text: rendered?.body ?? "",
       ...(rendered?.footer ? { footer: rendered.footer } : {}),
-      ...(rendered?.buttons ? { buttons: rendered.buttons } : {}),
+      ...(rendered?.buttons ? { buttons: rendered.buttons, actions: rendered.buttons.map((title) => ({ type: "quick_reply" as const, title })) } : {}),
     };
   }
   if (body.type === "text") return { kind: "text", text: str(obj(body.text).body) };
@@ -62,31 +69,38 @@ export function renderWhatsApp(body: Json): SentMessage {
     const action = obj(interactive.action);
     if (interactive.type === "button") {
       const buttons = (Array.isArray(action.buttons) ? action.buttons : []).map((b) => str(obj(obj(b).reply).title));
-      return { kind: "buttons", text, buttons };
+      return { kind: "buttons", text, buttons, actions: buttons.map((title) => ({ type: "quick_reply", title })) };
     }
-    if (interactive.type === "location_request_message") return { kind: "location_request", text, buttons: ["Send location"] };
-    if (interactive.type === "flow") return { kind: "flow", text, flowCta: str(obj(action.parameters).flow_cta) };
+    if (interactive.type === "location_request_message") return { kind: "location_request", text, buttons: ["Send location"], actions: [{ type: "send_location", title: "Send location" }] };
+    if (interactive.type === "flow") {
+      const flowCta = str(obj(action.parameters).flow_cta);
+      return { kind: "flow", text, flowCta, actions: [{ type: "flow_cta", title: flowCta }] };
+    }
   }
   return { kind: "unknown", text: "" };
 }
 
-function suggestionText(action: RcsSuggestedAction): string {
+// One RCS suggestion by what it does. The postback data (which carries the load's nonce) is not kept.
+function suggestion(action: RcsSuggestedAction): SentAction {
   const a = action as { Reply?: { Text?: string }; RequestLocation?: { Text?: string }; OpenUrl?: { Text?: string }; DialPhone?: { Text?: string } };
-  return a.Reply?.Text ?? a.RequestLocation?.Text ?? a.OpenUrl?.Text ?? a.DialPhone?.Text ?? "";
+  if (a.RequestLocation) return { type: "rcs_request_location", title: a.RequestLocation.Text ?? "" };
+  if (a.OpenUrl) return { type: "rcs_open_url", title: a.OpenUrl.Text ?? "" };
+  if (a.DialPhone) return { type: "rcs_dial", title: a.DialPhone.Text ?? "" };
+  return { type: "rcs_reply", title: a.Reply?.Text ?? "" };
 }
 
 // An RCS message as sent: a rich card or a text, with its suggested replies and actions.
 export function renderRcs(content: RcsMessageContent): SentMessage {
-  const outer = (content.Suggestions ?? []).map(suggestionText);
+  const outer = (content.Suggestions ?? []).map(suggestion);
   const card = content.Content?.RichCard?.CardContent;
+  const typed = (actions: SentAction[]) => (actions.length ? { buttons: actions.map((x) => x.title), actions } : {});
   if (card) {
-    const buttons = [...(card.Suggestions ?? []).map(suggestionText), ...outer];
-    return { kind: "card", ...(card.Title ? { title: card.Title } : {}), text: card.Description ?? "", ...(buttons.length ? { buttons } : {}) };
+    return { kind: "card", ...(card.Title ? { title: card.Title } : {}), text: card.Description ?? "", ...typed([...(card.Suggestions ?? []).map(suggestion), ...outer]) };
   }
   const text = content.Content?.TextMessage?.Body;
   if (text !== undefined) {
-    const isLocation = (content.Suggestions ?? []).some((s) => "RequestLocation" in s && s.RequestLocation);
-    return { kind: isLocation ? "location_request" : "text", text, ...(outer.length ? { buttons: outer } : {}) };
+    const isLocation = outer.some((x) => x.type === "rcs_request_location");
+    return { kind: isLocation ? "location_request" : "text", text, ...typed(outer) };
   }
   return { kind: "unknown", text: "" };
 }
