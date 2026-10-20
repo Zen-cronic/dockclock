@@ -36,7 +36,7 @@ export function Loads() {
                     <td className="id">{l.id}</td>
                     <td className="hide-m">{l.facility}</td>
                     <td><ChannelBadge channel={l.channel} />{l.failover ? <span className="small"> ∙ after failover</span> : null}</td>
-                    <td className="hide-m"><span className="badge test">{l.runLabel ?? RUN_WORDS[l.runKind]}</span></td>
+                    <td className="hide-m small">{l.runLabel ?? RUN_WORDS[l.runKind]}</td>
                     <td><Stamp verdict={l.verdict} /></td>
                     <td className="num">{usd(l.amountUsd)}</td>
                   </tr>

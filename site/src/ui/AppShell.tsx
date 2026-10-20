@@ -98,10 +98,11 @@ export function TopBar({ crumbs, badges, actions }: { crumbs: Crumb[]; badges?: 
   );
 }
 
-export function Page({ crumbs, badges, actions, children }: { crumbs: Crumb[]; badges?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+export function Page({ crumbs, badges, actions, strip, children }: { crumbs: Crumb[]; badges?: ReactNode; actions?: ReactNode; strip?: ReactNode; children: ReactNode }) {
   return (
     <>
       <TopBar crumbs={crumbs} badges={badges} actions={actions} />
+      {strip && <div className="teststrip" role="note">{strip}</div>}
       <main className="page" id="main" tabIndex={-1}>{children}</main>
     </>
   );

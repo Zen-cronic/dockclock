@@ -29,7 +29,7 @@ export function Overview() {
           <div className="kpis">
             <KpiTile label="Claimed" value={usd(o.claimedUsd)} tone="money" />
             <KpiTile label="Claims filed" value={o.claimsFiled} note={`of ${o.loads} loads`} />
-            <KpiTile label="Emails delivered" value={o.emailsDelivered} tone="ok" note={`of ${o.emailsSent} sent`} />
+            <KpiTile label="Emails delivered" value={o.emailsDelivered} note={`of ${o.emailsSent} sent`} />
             <KpiTile label="Failovers" value={o.failovers} note="WhatsApp → RCS" />
           </div>
           {load && (

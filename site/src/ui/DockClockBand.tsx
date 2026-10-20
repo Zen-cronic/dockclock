@@ -38,6 +38,12 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: 
             <div className="lbl">Free</div>
             <b>{hmm(load.clause.freeTimeMinutes)}</b>
           </div>
+          {early && c.arrivedAt && c.clockStartAt && (
+            <div className="early">
+              <div className="lbl">Early</div>
+              <b>{hmm((Date.parse(c.clockStartAt) - Date.parse(c.arrivedAt)) / 60_000)}</b>
+            </div>
+          )}
           <div className="bill">
             <div className="lbl">Billable</div>
             <b>{hmm(billable)}</b>
@@ -80,12 +86,13 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: 
             ))}
         </div>
       </div>
-      {legend && (
+      {(legend ?? true) && (
         <div className="bandlegend" aria-hidden="true">
-          <span><i className="pin refused" />refused</span>
-          <span><i className="pin money" />money</span>
-          <span><i className="pin agent" />agent</span>
-          <span><i className="pin ok" />done</span>
+          {(["refused", "money", "agent", "ok"] as const)
+            .filter((t) => load.timeline.some((e) => e.tone === t))
+            .map((t) => (
+              <span key={t}><i className={`pin ${t}`} />{{ refused: "refused tap", money: "money", agent: "agent", ok: "approved, delivered" }[t]}</span>
+            ))}
         </div>
       )}
     </section>

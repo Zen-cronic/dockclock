@@ -24,7 +24,7 @@ export function ConversationView({ messages, timeZone, party, upTo, title, marke
           <div className="head">
             <img src={`${import.meta.env.BASE_URL}avatar.svg`} alt="" />
             <div>
-              <b>{title ?? "DockClock (test sender)"}</b>
+              <b>{title ?? "DockClock"}</b>
               <span className="small">{party === "driver" ? "Driver" : "Dispatcher"}</span>
             </div>
             <span className="chanbadge">{channelName(lane === "rcs" ? "rcs" : "whatsapp")}</span>
@@ -56,7 +56,7 @@ export function ConversationView({ messages, timeZone, party, upTo, title, marke
 
 function Bubble({ m, timeZone, switched }: { m: ConsoleMessage; timeZone: string; switched: boolean }) {
   const t = clock(m.at, timeZone);
-  const tag = m.synthetic ? "test message" : m.status === "not_sent" ? "not sent ∙ test driver" : m.title ?? (m.direction === "out" ? "sent" : "received");
+  const tag = m.status === "not_sent" ? "not sent" : m.synthetic ? "" : (m.title ?? "");
   const failover = m.failover ? <span className="failoverchip">{channelName(m.failover.from)} failed → resent on {channelName(m.failover.to)}</span> : switched ? <span className="failoverchip">Now on {channelName(m.channel)}</span> : null;
   const cls = `bub ${m.direction === "in" ? "in" : ""} ${m.status === "not_sent" ? "unsent" : ""}`;
   const ticks = m.status === "read" ? " ✓✓" : m.status === "delivered" ? " ✓✓" : m.status === "sent" ? " ✓" : "";
@@ -69,7 +69,7 @@ function Bubble({ m, timeZone, switched }: { m: ConsoleMessage; timeZone: string
         <div className={`richcard ${m.status === "not_sent" ? "unsent" : ""}`}>
           {m.kind !== "location_request" && <div className="hero" aria-hidden="true" />}
           <div className="rc-body">
-            <span className="rc-tag">{tag}</span>
+            {tag && <span className="rc-tag">{tag}</span>}
             {m.title && <b>{m.title}</b>}
             {m.body}
           </div>
@@ -121,7 +121,7 @@ function Bubble({ m, timeZone, switched }: { m: ConsoleMessage; timeZone: string
     <>
       {failover}
       <div className={cls}>
-        <span className="src">{tag}</span>
+        {tag && <span className="src">{tag}</span>}
         {inner}
         {m.kind === "location_request" && <div className="btns"><div>Send location</div></div>}
         {m.kind === "flow" && <div className="btns"><div>Open form</div></div>}

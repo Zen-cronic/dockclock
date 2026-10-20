@@ -17,11 +17,7 @@ export function AgentFlow({ nodes, timeZone, onOpen }: { nodes: FlowNode[]; time
             </span>
             <div>
               <div className="ti">{n.title}</div>
-              <div className="svc">
-                {n.services.map((s) => (
-                  <span className="tag" key={s}>{s}</span>
-                ))}
-              </div>
+              <div className="svcline">{n.services.join(" ∙ ")}</div>
             </div>
             <div className="when">
               {clock(n.at, timeZone)}

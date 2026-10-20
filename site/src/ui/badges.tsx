@@ -55,7 +55,12 @@ const STATUS_WORDS: Record<MessageStatus, string> = {
 };
 
 export function StatusPill({ status }: { status: MessageStatus }) {
-  return <span className={`pill ${status}`}>{STATUS_WORDS[status]}</span>;
+  return (
+    <span className={`pill ${status}`}>
+      <i aria-hidden="true" />
+      {STATUS_WORDS[status]}
+    </span>
+  );
 }
 
 export function Stamp({ verdict, large }: { verdict: "BILLABLE" | "NOT_BILLABLE" | "NEEDS_HUMAN" | null; large?: boolean }) {

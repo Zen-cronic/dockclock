@@ -90,7 +90,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
     <div className="grid-2">
       <div>
         <div className="printout">
-          <span className="copy">Canary copy</span>
+          
           <h3>Evidence pack</h3>
           <div className="small" style={{ color: "var(--form-ink)", opacity: 0.75 }}>{pack.packId}</div>
           <div className="kv">
@@ -105,7 +105,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
           </div>
         </div>
         <p style={{ marginTop: 10 }}>
-          <button className="linkbtn" onClick={() => setRaw(true)}>Raw pack</button>
+          <button className="linkbtn" onClick={() => setRaw(true)}>Raw</button>
         </p>
         {photos.length > 0 && (
           <div className="card" style={{ marginTop: 16 }}>
@@ -114,7 +114,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
               <div className="card-body photo-ev" key={ph.index}>
                 {ph.url ? <img src={ph.url} alt={`Bill of lading page ${ph.index}`} /> : <div className="nophoto" aria-label="No image stored">—</div>}
                 <div>
-                  <span className="badge fixture">{ph.badge}</span>
+                  {ph.url && <span className="small">{ph.badge}</span>}
                   {ph.reading && (
                     <dl className="kv-list">
                       <dt>Agent read in</dt><dd>{ph.reading.inTime ?? "not legible"}</dd>
@@ -145,7 +145,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
             ))}
           </ul>
         )}
-        <div className="section-title">Break it</div>
+        <div style={{ height: 16 }} />
         {TAMPERS.map(([k, label, hint]) => (
           <label className="switch" key={k}>
             <input type="checkbox" role="switch" checked={t[k]} onChange={(e) => setT({ ...t, [k]: e.target.checked })} />

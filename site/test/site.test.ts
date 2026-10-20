@@ -4,7 +4,7 @@ import { buildFixtures, fixtureHash } from "@dockclock/clause-engine";
 import { canonicalJson as evidenceCanonical } from "@dockclock/evidence";
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { approvalWords, provedWords, runLabel } from "../src/copy/provenance.js";
+import { approvalWords, provedWords, runLabel, testStrip } from "../src/copy/provenance.js";
 import { detailFromReplay } from "../src/model/fromReplay.js";
 import { flowNodes } from "../src/model/flow.js";
 import { detailFromApi } from "../src/model/fromApi.js";
@@ -99,7 +99,7 @@ describe.each(replays)("replay %s", (file) => {
   });
 
   it("never claims phone proof or a tap the records do not show", () => {
-    const words = [runLabel(d), provedWords(d).short, provedWords(d).long, approvalWords(d).short, approvalWords(d).long, ...flowNodes(d).map((n) => n.title)].join(" | ");
+    const words = [runLabel(d), testStrip(d) ?? "", provedWords(d).short, provedWords(d).long, approvalWords(d).short, approvalWords(d).long, ...flowNodes(d).map((n) => n.title)].join(" | ");
     if (s.run.kind !== "phone" && s.run.kind !== "demo") expect(words).not.toMatch(/WhatsApp server times|RCS server times/);
     if (!(s.approval?.decision === "approve" && s.approval.approver === "dispatcher")) expect(words).not.toMatch(/tapped/i);
   });
@@ -122,7 +122,7 @@ describe.each(fxLoads)("API fixture %s", (file) => {
     if (!body.data) return;
     const d = detailFromApi(body.data, "fixture");
     expect(d.summary.id).toBe(id);
-    const words = [runLabel(d), provedWords(d).short, provedWords(d).long, approvalWords(d).short, approvalWords(d).long, ...flowNodes(d).map((n) => n.title)].join(" | ");
+    const words = [runLabel(d), testStrip(d) ?? "", provedWords(d).short, provedWords(d).long, approvalWords(d).short, approvalWords(d).long, ...flowNodes(d).map((n) => n.title)].join(" | ");
     if (d.run.kind !== "phone" && d.run.kind !== "demo") expect(words).not.toMatch(/WhatsApp server times|RCS server times/);
     if (!(d.approval?.decision === "approve" && d.approval.approver === "dispatcher")) expect(words).not.toMatch(/tapped/i);
     for (const p of d.photos) expect(p.badge).not.toMatch(/real phone/);

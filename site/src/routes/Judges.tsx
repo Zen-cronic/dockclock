@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { approvalWords, provedWords } from "../copy/provenance.js";
+import { approvalWords, provedWords, testStrip } from "../copy/provenance.js";
 import { FEATURED_LOAD, FEATURED_RCS_LOAD, useLoad, usePack } from "../model/client.js";
 import { flowNodes } from "../model/flow.js";
 import type { LoadDetail } from "../model/model.js";
@@ -33,7 +33,7 @@ function SignatureCard({ load, broken }: { load: LoadDetail; broken?: boolean })
         <span className="ic">{s === "valid" ? "✓" : s === "invalid" ? "✕" : "…"}</span>
         <div>
           <b>{s === "valid" ? "Signature valid" : s === "invalid" ? "Signature broken" : s === "error" ? "Couldn't check" : "Checking"}</b>
-          <span className="small">AWS KMS ∙ checked in your browser</span>
+          <span className="small">KMS ∙ in your browser</span>
         </div>
       </div>
       {broken && <ul className="diffs"><li>amount {usd(load.verdict?.amountUsd ?? 0)} → {usd(9999)}</li></ul>}
@@ -83,7 +83,7 @@ function PhotoTile({ photo }: { photo: LoadDetail["photos"][number] }) {
     <figure className="phototile">
       {photo.url ? <img src={photo.url} alt="Bill of lading photo" /> : <div className="nophoto">no image</div>}
       <figcaption>
-        <span className="badge fixture">{photo.badge}</span>
+        <span className="small">{photo.badge}</span>
         {photo.legible === false && <span className="small">not legible ∙ retake asked</span>}
         {photo.matchesPack != null && <span className={photo.matchesPack ? "ok-text" : "bad-text"}>{photo.matchesPack ? "✓ sha256 matches the pack" : "✕ sha256 differs"}</span>}
       </figcaption>
@@ -115,23 +115,21 @@ export function Judges() {
   let visual: ReactNode = null;
   let link: [string, string] | null = null;
   if (load) {
-    const c = load.clock;
     switch (step) {
       case "start":
         title = `Owed ${usd(load.verdict?.amountUsd ?? 0)}`;
-        say = `${duration(c.billableMinutes)} held past free time.`;
+        say = "Paid only past free time.";
         visual = (
           <>
-            <DockClockBand load={load} />
+            <DockClockBand load={load} legend={false} />
             <dl className="facts">
               <div><dt>Facility</dt><dd>{load.summary.facility}</dd></div>
               <div><dt>Owed by</dt><dd>{load.summary.counterparty}</dd></div>
               <div><dt>Contract</dt><dd>{duration(load.clause.freeTimeMinutes)} free ∙ {usd(load.clause.ratePerHourUsd)}/h</dd></div>
-              <div><dt>Channel</dt><dd>{load.summary.channel === "rcs" ? "RCS" : "WhatsApp"}</dd></div>
             </dl>
           </>
         );
-        link = [`/loads/${load.summary.id}`, "Open load"];
+        link = null;
         break;
       case "proved":
         title = "Proved";
@@ -153,9 +151,9 @@ export function Judges() {
         break;
       case "break":
         title = "Break the signature";
-        say = "Raise the amount. The check fails.";
+        say = "Flip the switch.";
         visual = <BreakIt load={load} />;
-        link = [`/loads/${load.summary.id}/evidence`, "All switches"];
+        link = [`/loads/${load.summary.id}/evidence`, "More"];
         break;
       case "change":
         title = "Change one fact";
@@ -178,8 +176,12 @@ export function Judges() {
   }
 
   return (
-    <Page crumbs={[{ label: "Judges path" }]} badges={q.data && <ProvenanceBadge kind={q.data.source} />}>
+    <Page crumbs={[{ label: "Judges path" }]} badges={q.data && <ProvenanceBadge kind={q.data.source} />} strip={load ? testStrip(load) : null}>
       <div className="judge">
+        <div className="steps-m" aria-hidden="true">
+          <span className="mono">{i + 1} / {JUDGE_STEPS.length}</span> <b>{LABELS[step]}</b>
+          <span className="segs">{JUDGE_STEPS.map((s, n) => <i key={s} className={n < i ? "done" : n === i ? "current" : ""} />)}</span>
+        </div>
         <nav className="steps" aria-label="Steps">
           {JUDGE_STEPS.map((s, n) => (
             <Link key={s} to={`/judges/${s}${params.toString() ? `?${params}` : ""}`} className={`${s === step ? "active" : ""} ${n < i ? "done" : ""}`} aria-current={s === step ? "step" : undefined} aria-label={LABELS[s]} title={LABELS[s]}>

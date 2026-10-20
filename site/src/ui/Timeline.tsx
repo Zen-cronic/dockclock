@@ -29,8 +29,11 @@ export function Timeline({ items, timeZone, upTo, current, onOpen }: { items: Ti
             <button className={upTo !== undefined && Date.parse(t.at) > upTo ? "future" : ""} aria-current={current === i ? "step" : undefined} onClick={() => onOpen(t)}>
               <span className="ts">{clock(t.at, timeZone)}</span>
               <span className={`dot ${t.tone}`} aria-hidden="true" />
-              <span className="t">{t.title}</span>
-              <span className="why">{t.tone === "refused" && t.outcome ? outcomeWords(t.outcome) : ""}</span>
+              <span className="t">
+                {t.title}
+                {t.tone === "refused" && t.outcome ? <span className="why"> ∙ {outcomeWords(t.outcome)}</span> : null}
+              </span>
+              <span />
             </button>
           </li>,
         );

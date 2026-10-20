@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useParams, useSearchParams } from "react-router-dom";
-import { approvalWords, provedWords, runLabel } from "../copy/provenance.js";
+import { approvalWords, provedWords, testStrip } from "../copy/provenance.js";
 import { recordedCaptures, useLoad, usePack } from "../model/client.js";
 import { flowNodes, type FlowNode } from "../model/flow.js";
 import type { ConsoleEmail, LoadDetail, TimelineItem } from "../model/model.js";
@@ -73,7 +73,6 @@ export function LoadHeader({ load }: { load: LoadDetail }) {
         <div className="meta">
           <span className="mono">{load.summary.id}</span>
           <ChannelBadge channel={load.summary.channel} />
-          <span className="badge test" title={load.run.summary}>{runLabel(load)}</span>
         </div>
       </div>
       <div className="owed">
@@ -111,18 +110,20 @@ export function LoadDetailRoute() {
     <Page
       crumbs={[{ to: "/loads", label: "Loads" }, { label: load.summary.id }]}
       badges={q.data && <ProvenanceBadge kind={q.data.source} />}
+      strip={testStrip(load)}
     >
       <LoadHeader load={shown ?? load} />
       {captures.length > 0 && (
         <div className="progress" role="group" aria-label="Recorded progress">
-          <ProvenanceBadge kind="recorded" />
-          {captures.map((c, i) => (
-            <button key={c.status} aria-pressed={capture === i} onClick={() => setCapture(capture === i ? null : i)} title={`As recorded at ${clock(c.asOf, load.timeZone)}`}>
-              <span className="dot" aria-hidden="true" />
-              {STATUS_WORDS[c.status] ?? c.status.replace(/_/g, " ")}
-            </button>
-          ))}
-          {capture !== null && <button className="linkbtn" onClick={() => setCapture(null)}>Now</button>}
+          {captures.map((c, i) => {
+            const current = capture ?? captures.length - 1;
+            const state = i < current ? "done" : i === current ? "current" : "next";
+            return (
+              <button key={c.status} className={state} aria-pressed={capture === i} aria-current={i === current ? "step" : undefined} onClick={() => setCapture(i === captures.length - 1 ? null : i)} title={`As recorded at ${clock(c.asOf, load.timeZone)}`}>
+                {STATUS_WORDS[c.status] ?? c.status.replace(/_/g, " ")}
+              </button>
+            );
+          })}
         </div>
       )}
       <nav className="tabs" aria-label="Load sections">

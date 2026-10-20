@@ -51,6 +51,13 @@ export function approvalWords(d: Pick<LoadDetail, "approval" | "run" | "claim">)
   return { short: "Awaiting approval", long: note ?? "No approval recorded yet." };
 }
 
+// One line for the test strip under the top bar, or null for a real run.
+export function testStrip(d: Pick<LoadDetail, "run" | "clock" | "approval" | "claim">): string | null {
+  if (isRealPhoneRun(d)) return null;
+  const approval = d.approval ? "" : d.claim?.status === "sent" ? " ∙ test approval" : "";
+  return `Test load ∙ replayed driver${approval} ∙ AWS live`;
+}
+
 export function photoBadge(isFixture: boolean, realPhone: boolean): string {
   if (isFixture || !realPhone) return "Rendered test document";
   return "Fictional BOL, photographed on a real phone";
