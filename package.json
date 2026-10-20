@@ -30,6 +30,7 @@
     "demo:facility": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/demo-facility.ts",
     "rcs:two-way": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/rcs-two-way.ts",
     "smoke:rcs": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/smoke-rcs.ts",
+    "smoke:demo": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/smoke-demo.ts",
     "bol:photos": "node --conditions=source --import tsx scripts/bol-photos.ts",
     "diagram": "node --import tsx scripts/render-architecture.ts",
     "verify:pack": "node --conditions=source --import tsx scripts/verify-pack.ts",

@@ -1,6 +1,7 @@
 // Watches one load through the read API handler (in process, against the deployed table) and keeps
 // the first view at each new status, to show a load moving through its phases and to capture
 // in-progress fixtures. Usage: npm run api:watch -- <loadId> <outDir> [seconds]
+// With API_BASE=https://<desk> it polls the deployed API through CloudFront instead.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const outputs = JSON.parse(readFileSync(new URL("../.cdk-outputs.json", import.meta.url), "utf8")) as Record<string, Record<string, string>>;
@@ -21,7 +22,9 @@ mkdirSync(outDir, { recursive: true });
 const seen = new Set<string>();
 const until = Date.now() + Number(seconds) * 1000;
 while (Date.now() < until) {
-  const res = await handler({ rawPath: `/api/loads/${loadId}`, requestContext: { http: { method: "GET" } } });
+  const res = process.env.API_BASE
+    ? await fetch(`${process.env.API_BASE}/api/loads/${loadId}`).then(async (r) => ({ statusCode: r.status, body: await r.text() }))
+    : await handler({ rawPath: `/api/loads/${loadId}`, requestContext: { http: { method: "GET" } } });
   if (res.statusCode === 200) {
     const body = JSON.parse(res.body) as { data: { summary: { status: string; phase: string; live: boolean } } };
     const { status, phase, live } = body.data.summary;
@@ -32,5 +35,5 @@ while (Date.now() < until) {
     }
     if (!live) break;
   } else console.log(`${new Date().toISOString()} ${loadId}: HTTP ${res.statusCode}`);
-  await new Promise((r) => setTimeout(r, 1500));
+  await new Promise((r) => setTimeout(r, 3000));
 }
