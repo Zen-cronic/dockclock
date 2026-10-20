@@ -257,7 +257,7 @@ function agentCard(): string {
   if (r.guard)
     rows.push(`<li><span class="k">Guard</span><span>Amount ${usd(r.guard.amountCentsSent / 100)} and pack digest <code>${h(r.guard.digestSent.slice(0, 12))}…</code> equal the sealed ones</span><span class="${r.guard.match ? "ok" : "no"}">${r.guard.match ? "match" : "refused"}</span></li>`);
   return `<div class="panel agentcard">
-    <div class="colh" style="margin:0"><span class="label">How the AI agent filed it</span><span class="aside">${h(r.model)}</span></div>
+    <div class="label">How the AI agent filed it</div><div class="small" style="margin-top:2px">${h(r.model)}</div>
     <ul class="trace">${rows.join("")}</ul>
     <p class="small" style="margin-top:10px">The model writes the email. It cannot pick the amount: the email tool refuses anything but the sealed amount and digest.</p>
   </div>`;
@@ -433,10 +433,16 @@ async function runVerify(): Promise<void> {
     }
     const { valid, digest } = await verifyPack(tamperedPack(), snap.pack.signatureBase64, state.publicKeyPem);
     const changes = [state.tamper.amount && "amount", state.tamper.release && "release time", state.tamper.photo && "failed check"].filter(Boolean).join(", ");
+    const orig = snap.pack.pack as PackShape;
+    const now = tamperedPack();
+    const diffs: string[] = [];
+    if (state.tamper.amount) diffs.push(`amount owed <s>${usd(orig.evaluation?.amountUsd ?? 0)}</s> → <b>${usd(now.evaluation?.amountUsd ?? 0)}</b>`);
+    if (state.tamper.release && orig.events?.released?.serverAt && now.events?.released?.serverAt) diffs.push(`released <s>${at(orig.events.released.serverAt)}</s> → <b>${at(now.events.released.serverAt)}</b>`);
+    if (state.tamper.photo) diffs.push(`evidence confidence <s>${h(orig.corroboration?.confidence ?? "")}</s> → <b>${h(now.corroboration?.confidence ?? "")}</b>`);
     box.className = `vres ${valid ? "good" : "bad"}`;
     box.innerHTML = valid
       ? `<div class="ic">✓</div><div><b>Signature valid</b><span>This is the pack DockClock sealed. Fingerprint <span class="mono">${digest.slice(0, 16)}…</span> matches the one in the claim email.</span></div>`
-      : `<div class="ic">✕</div><div><b>Signature does not match</b><span>The pack was changed after sealing (${h(changes)}). Its fingerprint is now <span class="mono">${digest.slice(0, 16)}…</span></span></div>`;
+      : `<div class="ic">✕</div><div><b>Signature does not match</b><span>The pack was changed after sealing (${h(changes)}). Its fingerprint is now <span class="mono">${digest.slice(0, 16)}…</span></span><ul class="diffs">${diffs.map((d) => `<li>${d}</li>`).join("")}</ul></div>`;
   } catch (error) {
     box.className = "vres wait";
     box.innerHTML = `<div class="ic">!</div><div><b>Could not run the check</b><span>${h((error as Error).message)}. Use the terminal command below instead.</span></div>`;
@@ -527,7 +533,7 @@ function whatifTab(): string {
   <section class="hero" style="grid-template-columns:1fr">
     <div>
       <div class="eyebrow"><span class="badge computed">Computed</span><span>The real clause engine, running in your browser on this load's inputs. Nothing is sent and no load is created.</span></div>
-      <h1 style="max-width:30ch">Change one fact. The contract decides again.</h1>
+      <h1 style="max-width:none">Change one fact. The contract decides again.</h1>
       <p class="lede">Claims are lost for reasons the contract spells out. Flip a switch and watch the same code the workflow runs give its verdict and its reason.</p>
     </div>
   </section>
@@ -541,7 +547,7 @@ function whatifTab(): string {
         .join("")}
       ${any ? `<p style="margin-top:10px"><button class="linkish" data-act="reset-whatif">Back to what was recorded</button></p>` : ""}
     </div>
-    <div>
+    <div class="wiverdict">
       <div class="label" style="margin-bottom:8px">Verdict</div>
       <div class="compare">
         <div class="panel mini"><span class="badge replay">Recorded</span><div style="margin-top:12px"><span class="stamp ${rc}" style="font-size:16px">${rs}</span></div><div class="amount">${usd(recorded.amountUsd)}</div></div>
@@ -554,6 +560,7 @@ function whatifTab(): string {
             : `<div class="reason okay">Still owed: ${usd(computed.amountUsd)}.</div>`
           : `<div class="reason okay">As recorded: ${duration(recorded.billableMinutes)} past free time, so ${usd(recorded.amountUsd)} is owed.</div>`
       }
+      ${clauseRules(reasons)}
       <p class="note" style="margin-top:12px">The usual shortcut, "bill every stop over 2 hours", would ${ask.filed ? `ask for <b>${usd(ask.amountUsd)}</b> here` : "ask for nothing here"}${ask.filed && computed.verdict !== "BILLABLE" ? ", and the shipper could refuse every cent of it" : ""}.</p>
     </div>
   </div>
@@ -563,6 +570,25 @@ function whatifTab(): string {
     <div><div class="label">The 2-hour shortcut asks for</div><div class="big">${usd(hl.baselineAskUsd)}</div><p><b style="color:var(--red)">${usd(hl.baselineRefusableUsd)} (${hl.baselineRefusablePct}%)</b> of it the contract denies, overpays or cannot prove</p></div>
     <div class="foot"><span class="badge computed">Computed</span> Recomputed in your browser by the same engine from the ${hl.loads} hand-labelled test loads (fixture sha256 <span class="mono">${hl.fixtureSha256.slice(0, 8)}…</span>). We wrote the expected answers from each clause's text, so this is a consistency check, not field data.</div>
   </section>`;
+}
+
+// The contract's rules, with the ones the computed verdict failed marked.
+function clauseRules(reasons: string[]): string {
+  const c = snap.clause;
+  const rules: Array<[string, string, string[]]> = [
+    ["Free time", `${duration(c.freeTimeMinutes)}; only time after it is paid`, ["WITHIN_FREE_TIME"]],
+    ["On time", c.requireOnTimeArrival ? "the truck must arrive by the appointment" : "not required", ["LATE_ARRIVAL"]],
+    ["Proof", c.acceptedRecords.includes("signed_bol_times") ? "a signed bill of lading with both times" : "location records", ["NO_STATEMENT_OF_RECORD"]],
+    ["Paper vs phone", "written times within 15 minutes of the locations", ["BOL_TIMESTAMP_CONFLICT", "PIN_OUTSIDE_GEOFENCE"]],
+    ["Notice", c.noticeLeadMinutes === null ? "not required" : "emailed before free time ends", ["NOTICE_MISSING", "NOTICE_LATE"]],
+    ["Claim window", `${c.claimWindowHours % 24 === 0 ? `${c.claimWindowHours / 24} days` : `${c.claimWindowHours} hours`} after release`, ["CLAIM_WINDOW_EXPIRED"]],
+  ];
+  return `<div class="panel rules"><div class="label">The contract's rules</div><ul>${rules
+    .map(([k, v, codes]) => {
+      const failed = codes.some((x) => reasons.includes(x));
+      return `<li class="${failed ? "failed" : ""}"><span class="mk" aria-hidden="true">${failed ? "✕" : "✓"}</span><b>${h(k)}</b><span>${h(v)}</span>${failed ? '<span class="vh">failed</span>' : ""}</li>`;
+    })
+    .join("")}</ul></div>`;
 }
 
 // Shell
