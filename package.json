@@ -38,7 +38,8 @@
     "desk:snapshot": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/desk-snapshot.ts",
     "backfill:workspace": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/backfill-workspace.ts",
     "api:fixtures": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/api-fixtures.ts",
-    "api:watch": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/api-watch.ts"
+    "api:watch": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/api-watch.ts",
+    "api:check": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/api-check.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-lambda": "^3.1152.0",
