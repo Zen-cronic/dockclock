@@ -18,7 +18,8 @@
 //   /api/messages?channel=&status=&direction=&loadId=&limit=&cursor=   MessageFeed
 //   /api/loads/:id/pack                        SignedPackInfo (the exact signed object)
 //   /api/loads/:id/emails/:emailId             EmailView (emailId: notice | claim | escalation-<n>)
-//   /api/loads/:id/photos/:n                   image/jpeg or image/png bytes, metadata stripped
+//   /api/loads/:id/photos/:n                   image/jpeg or image/png bytes, metadata stripped;
+//                                              header x-dockclock-original-sha256 is the pack's hash
 //
 // SMS is in the channel enum so filters and badges have a slot for it, but DockClock does not send
 // or receive SMS today; no record will carry it. Show the SMS filter only when a record exists.
@@ -40,19 +41,22 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-// Every error response (404 for an unknown or non-demo load, 400 for a bad parameter, 500 when the
-// response failed its sanitization check or a read failed).
+// Every error response: 404 for an unknown or non-demo load (or a missing pack, email or photo),
+// 400 for a bad parameter, 415 for a stored photo that is not a JPEG or PNG, and 500 when a read
+// failed or the response failed its sanitization check.
 export interface ApiError {
   schema: typeof API_SCHEMA;
-  error: { status: 400 | 404 | 500; code: "bad_request" | "not_found" | "internal"; message: string };
+  error: { status: 400 | 404 | 415 | 500; code: "bad_request" | "not_found" | "unsupported_media" | "internal"; message: string };
 }
 
 export type Channel = "whatsapp" | "rcs" | "sms" | "email";
 export type DriverChannel = "whatsapp" | "rcs";
 
 // Delivery state of one message. Outbound: accepted -> sent -> delivered -> read, or failed.
-// Inbound: received. Email: sent -> delivered, or bounced.
-export type MessageStatus = "accepted" | "sent" | "delivered" | "read" | "failed" | "received" | "bounced";
+// Inbound: received. Email: sent -> delivered, or bounced. not_sent: DockClock composed the message
+// but its send gate stopped it (a test number, replies off, or the driver replied STOP); the
+// reason is in notSentReason. Test loads show their whole conversation this way.
+export type MessageStatus = "accepted" | "sent" | "delivered" | "read" | "failed" | "received" | "bounced" | "not_sent";
 
 // The workflow phase as stored on the load.
 export type Phase = "dispatched" | "awaiting_arrival_pin" | "at_dock" | "awaiting_release_pin" | "awaiting_bol" | "documented" | "sealed" | "closed";
@@ -253,6 +257,7 @@ export interface ApiMessage {
   // Inbound photo: links into LoadView.photos.
   photoId?: string;
   status: MessageStatus;
+  notSentReason?: string;
   receipts?: { acceptedAt?: string; sentAt?: string; deliveredAt?: string; readAt?: string; failedAt?: string };
   // On a failed WhatsApp send that switched the load to RCS (or, failing twice, to dispatch).
   failover?: { at: string; action: "rerouted_to_rcs" | "escalated_to_dispatch" };
@@ -284,7 +289,8 @@ export interface ApiTimelineEvent {
 //   rendered_fictional_document  a generated bill of lading (scripts/bol-photos.ts, footer says
 //                                fictional) fed in by a test or a demo; not a phone photo
 //   test_bytes                   a stand-in object that is not an image; it has no url
-export type PhotoSource = "phone_camera" | "rendered_fictional_document" | "test_bytes";
+//   not_stored                   the photo was received but could not be downloaded; no url, no hash
+export type PhotoSource = "phone_camera" | "rendered_fictional_document" | "test_bytes" | "not_stored";
 
 export interface PhotoInfo {
   id: string; // p1, p2, ...
@@ -294,7 +300,7 @@ export interface PhotoInfo {
   mimeType: string;
   // sha256 of the stored original, the value in the signed pack (pack.events.bol.pageSha256s).
   sha256: string | null;
-  matchesPack: boolean | null; // null before sealing
+  matchesPack: boolean | null; // null before sealing, or with no stored photo
   // GET /api/loads/:id/photos/:n. Null when the object is missing or is not an image. In fixtures,
   // a path relative to site/fixtures/api/.
   url: string | null;
@@ -315,7 +321,9 @@ export interface EmailInfo {
   id: string; // notice | claim | escalation-1, escalation-2, ...
   purpose: "notice" | "claim" | "dispatch_escalation";
   sentAt: string;
-  status: "sent" | "delivered" | "bounced";
+  // not_sent: composed but not emailed (a test load never emails dispatch); see notSentReason.
+  status: "sent" | "delivered" | "bounced" | "not_sent";
+  notSentReason?: string;
   deliveredAt?: string;
   bouncedAt?: string;
   from: string;
@@ -323,7 +331,8 @@ export interface EmailInfo {
   to: { name: string; role: "shipper" | "broker" | "dispatch"; note: string };
   subject: string;
   attachments: Array<{ name: string; contentType: string; sha256?: string; note?: string }>;
-  // Whether the sent bytes were kept (from 2026-10-20 on); without them only the subject is known.
+  // Whether the body can be shown: the sent bytes (notice, claim; kept from 2026-10-20 on) or, for
+  // a dispatch escalation, the composed text with the driver's contact removed.
   bodyStored: boolean;
   provenance: Provenance;
 }
