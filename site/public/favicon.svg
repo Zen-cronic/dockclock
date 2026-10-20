@@ -1,13 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="t">
-  <title id="t">DockClock</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="dc-t">
+  <title id="dc-t">DockClock</title>
   <defs>
-    <pattern id="hz" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
-      <rect width="4" height="8" fill="#ffc400"/><rect x="4" width="4" height="8" fill="#121316"/>
-    </pattern>
+    <clipPath id="dc-bumper"><rect x="15" y="42" width="34" height="9"/></clipPath>
   </defs>
-  <rect width="64" height="64" rx="12" fill="#121316"/>
-  <rect x="6.5" y="6.5" width="51" height="51" rx="7" fill="none" stroke="#ffc400" stroke-width="3"/>
-  <rect x="16" y="15" width="32" height="27" rx="1.5" fill="#ffffff"/>
-  <path d="M16 22h32M16 29h32M16 36h32" stroke="#121316" stroke-width="2"/>
-  <rect x="16" y="42" width="32" height="7" fill="url(#hz)"/>
+  <rect width="64" height="64" rx="13" fill="#ffc400"/>
+  <rect x="4.5" y="4.5" width="55" height="55" rx="9" fill="#121316"/>
+  <rect x="15" y="13" width="34" height="29" rx="1.5" fill="#ffffff"/>
+  <path d="M15 20.5h34M15 27.5h34M15 34.5h34" stroke="#121316" stroke-width="2.5"/>
+  <g clip-path="url(#dc-bumper)">
+    <rect x="15" y="42" width="34" height="9" fill="#ffc400"/>
+    <path d="M14 51l9-9h6l-9 9zM26 51l9-9h6l-9 9zM38 51l9-9h6l-9 9z" fill="#121316"/>
+  </g>
 </svg>

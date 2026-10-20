@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
-    "shots": "node scripts/screenshots.mjs"
+    "shots": "node scripts/screenshots.mjs",
+    "brand": "node scripts/brand.mjs"
   },
   "dependencies": {
     "@dockclock/clause-engine": "0.1.0",

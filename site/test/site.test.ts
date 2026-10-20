@@ -32,6 +32,13 @@ describe("judge desk", () => {
     expect((await verifyPack(changed, snap.pack.signatureBase64, pem)).valid).toBe(false);
   });
 
+  it("uses one brand mark everywhere", () => {
+    const master = readFileSync(new URL("../public/brand-mark.svg", import.meta.url), "utf8");
+    expect(readFileSync(new URL("../public/favicon.svg", import.meta.url), "utf8")).toBe(master);
+    const pub = readdirSync(new URL("../public/", import.meta.url));
+    expect(pub.filter((f) => f.endsWith(".svg")).sort()).toEqual(["brand-mark.svg", "favicon.svg", "logo.svg"]);
+  });
+
   it("serves the same public key the repository publishes", () => {
     expect(pem).toBe(readFileSync(new URL("../../docs/evidence/public-key.pem", import.meta.url), "utf8"));
   });

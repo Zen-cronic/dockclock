@@ -74,6 +74,16 @@ White on safety yellow fails (1.4) and is never used.
   - The stamp, the bubbles and the LIVE dot are the only other motion.
   - Everything stops under `prefers-reduced-motion`.
 
+## Brand mark
+- **One master mark:** `public/brand-mark.svg`. A black door sign framed in safety yellow, holding a white roll-up dock door with a yellow-and-black hazard bumper. The yellow frame is the outer edge, so the mark reads the same on the black nav and in a light browser tab.
+- **Generated from it**, by `npm run brand -w @dockclock/site` (`scripts/brand.mjs`):
+  - `favicon.svg`: a byte-identical copy;
+  - `logo.svg`: the mark plus the DOCKCLOCK wordmark;
+  - `favicon-32.png` and `apple-touch-icon.png`: raster fallbacks.
+- **Where it appears:** the nav logo and the phone-frame sender avatar both use `brand-mark.svg`.
+- **Cache-busting:** icon links carry `?v=door05`, so browsers that cached an older mark refetch it.
+- **Guard:** a site test fails if `favicon.svg` and the master ever differ.
+
 ## Components (`src/ui/`)
 | Component | File | Notes |
 |---|---|---|

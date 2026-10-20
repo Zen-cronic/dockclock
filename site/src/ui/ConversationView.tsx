@@ -22,7 +22,7 @@ export function ConversationView({ messages, timeZone, party, upTo, title, marke
       <div className="phone">
         <div className={`screen ${lane === "rcs" ? "rcs" : ""}`}>
           <div className="head">
-            <img src={`${import.meta.env.BASE_URL}avatar.svg`} alt="" />
+            <img src={`${import.meta.env.BASE_URL}brand-mark.svg`} alt="" />
             <div>
               <b>{title ?? "DockClock"}</b>
               <span className="small">{party === "driver" ? "Driver" : "Dispatch"}</span>
