@@ -1,18 +1,19 @@
-// Renders the built judge desk with system Chrome and saves screenshots for review.
+// Renders the built console with system Chrome and saves screenshots of every route.
 // Usage: npm run build -w @dockclock/site && npm run shots -w @dockclock/site [-- <outDir>]
 import { createServer } from "node:http";
-import { readFile, mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const dist = fileURLToPath(new URL("../dist/", import.meta.url));
 const out = process.argv[2] ?? fileURLToPath(new URL("../shots/", import.meta.url));
-const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json", ".pem": "application/x-pem-file" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json", ".pem": "application/x-pem-file", ".woff2": "font/woff2", ".woff": "font/woff", ".png": "image/png", ".jpg": "image/jpeg" };
 
+// Like the CloudFront function: a path without an extension serves index.html.
 const server = createServer(async (req, res) => {
   const path = normalize(decodeURIComponent((req.url ?? "/").split("?")[0])).replace(/^(\.\.[/\\])+/, "");
-  const file = join(dist, path.endsWith("/") ? `${path}index.html` : path);
+  const file = extname(path) ? join(dist, path) : join(dist, "index.html");
   try {
     const body = await readFile(file);
     res.writeHead(200, { "Content-Type": types[extname(file)] ?? "application/octet-stream" });
@@ -22,37 +23,42 @@ const server = createServer(async (req, res) => {
   }
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
-const base = `http://127.0.0.1:${server.address().port}/`;
+const base = `http://127.0.0.1:${server.address().port}`;
 
-const shots = [
-  ["01-first-viewport-1440", "", { width: 1440, height: 900 }, false],
-  ["02-replay-full-1440", "", { width: 1440, height: 900 }, true],
-  ["03-replay-midplay-1440", "?step=7", { width: 1440, height: 900 }, false],
-  ["04-verify-valid-1440", "?tab=verify", { width: 1440, height: 900 }, false],
-  ["05-verify-tampered-1440", "?tab=verify&tamper=amount", { width: 1440, height: 900 }, false],
-  ["06-whatif-1440", "?tab=whatif&whatif=early", { width: 1440, height: 900 }, true],
-  ["07-first-viewport-390", "", { width: 390, height: 844 }, false],
-  ["08-replay-full-390", "", { width: 390, height: 844 }, true],
-  ["09-verify-tampered-390", "?tab=verify&tamper=amount", { width: 390, height: 844 }, true],
-  ["10-whatif-390", "?tab=whatif&whatif=unsigned", { width: 390, height: 844 }, true],
+const routes = [
+  ["overview", "/"],
+  ["messages", "/messages"],
+  ["loads", "/loads"],
+  ["load-timeline", "/loads/SMOKE-mvh1bmmu"],
+  ["load-conversation", "/loads/SMOKE-mvh1bmmu/conversation"],
+  ["load-agent", "/loads/SMOKE-mvh1bmmu/agent"],
+  ["load-evidence", "/loads/SMOKE-mvh1bmmu/evidence"],
+  ["load-whatif", "/loads/SMOKE-mvh1bmmu/whatif"],
+  ["judges-start", "/judges"],
+  ["judges-proved", "/judges/proved"],
+  ["judges-filed", "/judges/filed"],
+  ["judges-break", "/judges/break"],
 ];
+const viewports = [["1440", { width: 1440, height: 900 }], ["390", { width: 390, height: 844 }]];
 
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({ channel: "chrome" });
 let failures = 0;
-for (const [name, query, viewport, fullPage] of shots) {
-  const page = await browser.newPage({ viewport, deviceScaleFactor: 2 });
-  const errors = [];
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto(`${base}${query}${query ? "&" : "?"}nointro`, { waitUntil: "networkidle" });
-  await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(400);
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  await page.screenshot({ path: join(out, `${name}.png`), fullPage });
-  console.log(`${name}  overflowX=${overflow}  consoleErrors=${errors.length}${errors.length ? `  ${errors.join(" | ")}` : ""}`);
-  if (overflow > 0 || errors.length) failures++;
-  await page.close();
+for (const [vw, viewport] of viewports) {
+  for (const [name, path] of routes) {
+    const page = await browser.newPage({ viewport, deviceScaleFactor: 2 });
+    const errors = [];
+    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto(`${base}${path}`, { waitUntil: "networkidle" });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(500);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    await page.screenshot({ path: join(out, `${name}-${vw}.png`), fullPage: false });
+    console.log(`${name}-${vw}  overflowX=${overflow}  consoleErrors=${errors.length}${errors.length ? `  ${errors.join(" | ")}` : ""}`);
+    if (overflow > 0 || errors.length) failures++;
+    await page.close();
+  }
 }
 await browser.close();
 server.close();

@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { buildFixtures, fixtureHash } from "@dockclock/clause-engine";
 import { canonicalJson as evidenceCanonical } from "@dockclock/evidence";
+import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { approvalWords, provedWords, runLabel } from "../src/copy/provenance.js";
+import { detailFromReplay } from "../src/model/fromReplay.js";
+import { flowNodes } from "../src/model/flow.js";
 import { canonicalJson } from "../src/canonical.js";
 import { headline, recordedEvidence, run } from "../src/engine.js";
 import { createHash as shimHash } from "../src/shims/node-crypto.js";
@@ -64,5 +68,42 @@ describe("judge desk", () => {
     expect(raw).not.toMatch(/\+?1?\d{10,}\b/); // no phone-number-like digit runs
     expect(raw).not.toMatch(/"keyId"/);
     for (const m of snap.messages) expect(m.id).toMatch(/^m\d+$/);
+  });
+});
+
+const replayDir = new URL("../replay/", import.meta.url);
+const replays = readdirSync(replayDir).filter((f) => f.endsWith(".json"));
+
+describe.each(replays)("replay %s", (file) => {
+  const text = readFileSync(new URL(file, replayDir), "utf8");
+  const s = JSON.parse(text) as ReplaySnapshot;
+  const d = detailFromReplay(s, "replay");
+
+  it("verifies its signed pack against the published key", async () => {
+    expect((await verifyPack(s.pack.pack, s.pack.signatureBase64, pem)).valid).toBe(true);
+  });
+
+  it("gets its recorded verdict back from the clause engine", () => {
+    const result = run(recordedEvidence(s));
+    expect(result.verdict).toBe(s.verdict.verdict);
+    expect(result.amountUsd).toBe(s.verdict.amountUsd);
+  });
+
+  it("publishes nothing private", () => {
+    expect(text).not.toMatch(/"(lat|lon)"\s*:/);
+    expect(text).not.toMatch(/wamid\.HB/);
+    expect(text).not.toMatch(/arn:aws|s3:\/\/|"s3Key"|"keyId"/);
+    expect(text).not.toMatch(/\+1\d{10}\b/);
+  });
+
+  it("never claims phone proof or a tap the records do not show", () => {
+    const words = [runLabel(d), provedWords(d).short, provedWords(d).long, approvalWords(d).short, approvalWords(d).long, ...flowNodes(d).map((n) => n.title)].join(" | ");
+    if (s.run.kind !== "phone" && s.run.kind !== "demo") expect(words).not.toMatch(/WhatsApp server times|RCS server times/);
+    if (!(s.approval?.decision === "approve" && s.approval.approver === "dispatcher")) expect(words).not.toMatch(/tapped/i);
+  });
+
+  it("puts every agent run in the workflow graph, refusals included", () => {
+    const nodes = flowNodes(d);
+    expect(nodes.filter((n) => n.icon === "agent" || n.icon === "stop")).toHaveLength(s.agentRuns.length);
   });
 });
