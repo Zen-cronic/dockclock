@@ -15,7 +15,7 @@
     "site"
   ],
   "scripts": {
-    "typecheck": "tsc -b && tsc -p scripts/tsconfig.json",
+    "typecheck": "tsc -b && tsc -p scripts/tsconfig.json && tsc -p services/api/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
     "scorecard": "node --conditions=source --import tsx packages/clause-engine/src/cli/scorecard.ts",
