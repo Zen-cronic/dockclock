@@ -17,3 +17,6 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run scorecard
+      - run: npm run typecheck -w @dockclock/site
+      - run: npm test -w @dockclock/site
+      - run: npm run build -w @dockclock/site
