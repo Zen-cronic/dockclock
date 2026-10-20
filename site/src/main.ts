@@ -193,7 +193,7 @@ function timeline(): string {
     const outcome = e.tone === "refused" && e.outcome ? `<span class="chip outcome">${h(e.outcome)}</span>` : "";
     return `<li><button class="row ${future ? "future" : ""}" data-ev="${i}" ${i === current ? 'aria-current="step"' : ""}>
       <span class="ts">${at(e.at)}</span><span class="dot ${e.tone}" aria-hidden="true"></span>
-      <span><span class="t">${h(e.title)}</span>${e.detail ? `<span class="d" style="display:block">${h(e.detail)}</span>` : ""}<span class="chips">${outcome}${test}${e.services.length ? `<span class="chip">${h(e.services.join(" → "))}</span>` : ""}</span></span>
+      <span><span class="t">${h(e.title)}</span>${e.detail ? `<span class="d" style="display:block">${h(e.detail)}</span>` : ""}<span class="chips">${outcome}${test}${e.services.length ? `<span class="chip svc">${h(e.services.join(" → "))}</span>` : ""}</span></span>
     </button></li>`;
   });
   return `<div><div class="colh"><span class="label">Everything that happened</span><span class="aside">${snap.timeline.length} records · times ${zone()} · click any row for the record</span></div>
