@@ -170,9 +170,9 @@ export function Judges() {
       <div className="judge">
         <nav className="steps" aria-label="Steps">
           {JUDGE_STEPS.map((s, n) => (
-            <Link key={s} to={`/judges/${s}${params.toString() ? `?${params}` : ""}`} className={`${s === step ? "active" : ""} ${n < i ? "done" : ""}`} aria-current={s === step ? "step" : undefined}>
+            <Link key={s} to={`/judges/${s}${params.toString() ? `?${params}` : ""}`} className={`${s === step ? "active" : ""} ${n < i ? "done" : ""}`} aria-current={s === step ? "step" : undefined} aria-label={LABELS[s]} title={LABELS[s]}>
               <span className="n">{n < i ? "✓" : n + 1}</span>
-              {LABELS[s]}
+              <span className={s === step ? "" : "lbl-off"}>{LABELS[s]}</span>
             </Link>
           ))}
         </nav>
