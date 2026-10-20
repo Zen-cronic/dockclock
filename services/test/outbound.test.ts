@@ -107,6 +107,16 @@ describe("outbound message records", () => {
     expect(JSON.stringify(items)).not.toContain("15550100001");
   });
 
+  it("records a blocked message as not sent, with the reason and no recipient", async () => {
+    const stranger = { address: { kind: "phone" as const, e164: "+15550100777" }, driverKey: "phone:z" };
+    expect(await sendRcs(stranger, rcsDispatchCard("en_US", "4471", "n1", "Lakeshore DC", "Oct 17"), "dispatch_card", "4471")).toBeNull();
+    const [item] = sendItems();
+    expect(item).toMatchObject({ channel: "rcs", purpose: "dispatch_card", status: "not_sent", message: { kind: "card" } });
+    expect(String(item?.notSentReason)).toMatch(/test number/);
+    expect(String(item?.messageId)).toMatch(/^not-sent-/);
+    expect(JSON.stringify(item)).not.toContain("15550100777");
+  });
+
   it("never records a send that belongs to no load, and never fails a send over the record", async () => {
     await send(driver, textMessage("stopped"), "opt_out", "-", { ignoreOptOut: true });
     expect(sendItems()).toHaveLength(0);

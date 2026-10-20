@@ -8,7 +8,8 @@ import type { Channel } from "@dockclock/evidence";
 import { ddb, type Address } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
-import { renderRcs, renderWhatsApp, sendRecord, type Audience, type SentMessage } from "./outbound.js";
+import { randomBytes } from "node:crypto";
+import { NOT_SENT, renderRcs, renderWhatsApp, sendRecord, type Audience, type SentMessage } from "./outbound.js";
 
 // Retries and timeouts keep one slow call from stalling a batch. Driver prompts are safe to
 // receive twice (a second location request or button changes nothing), so a retried send is
@@ -142,22 +143,35 @@ export async function isDemoEnrolled(driverKey: string): Promise<boolean> {
 type SendOptions = { ignoreOptOut?: boolean; audience?: Audience };
 
 // The gates every driver message passes, whatever the channel, in order: replies enabled, the
-// allowlist (or a judge's 24-hour demo enrolment), and the driver's opt-out. Returns the canonical address that passed, or null.
-async function cleared(target: Target, purpose: string, loadId: string, options: SendOptions): Promise<Address | null> {
+// allowlist (or a judge's 24-hour demo enrolment), and the driver's opt-out. Returns the canonical
+// address that passed, or the reason it did not.
+async function cleared(target: Target, purpose: string, loadId: string, options: SendOptions): Promise<{ address: Address } | { blocked: string }> {
   if (!env.driverReplies()) {
     log("send_skipped", { purpose, loadId, reason: "DRIVER_REPLIES off" });
-    return null;
+    return { blocked: NOT_SENT.repliesOff };
   }
   const address = canonical(target.address);
   if (!env.driverAllowlist().has(addressValue(address)) && !(await isDemoEnrolled(target.driverKey))) {
     log("send_blocked", { purpose, loadId, reason: "recipient not on DRIVER_ALLOWLIST", recipientKind: address.kind });
-    return null;
+    return { blocked: NOT_SENT.notAllowlisted };
   }
   if (!options.ignoreOptOut && (await isOptedOut(target.driverKey))) {
     log("send_blocked", { purpose, loadId, reason: "driver opted out" });
-    return null;
+    return { blocked: NOT_SENT.optedOut };
   }
-  return address;
+  return { address };
+}
+
+// A message the gates stopped is still recorded under its load, marked not sent with the reason,
+// so a test load's conversation shows what DockClock would have said. Best effort, like recordSend.
+async function recordBlocked(loadId: string, purpose: string, channel: Channel, message: SentMessage, audience: Audience, reason: string): Promise<void> {
+  if (loadId === "-") return;
+  try {
+    const messageId = `not-sent-${randomBytes(6).toString("hex")}`;
+    await ddb.send(new PutCommand({ TableName: env.table(), Item: sendRecord({ loadId, messageId, channel, purpose, audience, sentAt: new Date().toISOString(), message, notSentReason: reason }) }));
+  } catch (error) {
+    log("send_record_failed", { purpose, loadId, error: (error as Error).name });
+  }
 }
 
 // Records the send under End User Messaging's message id so receipts join back to the load.
@@ -186,8 +200,12 @@ async function recordSend(messageId: string, loadId: string, purpose: string, ch
 // Sends one WhatsApp message to one driver. The recipient is taken from the very address that
 // passed the gates.
 export async function send(target: Target, body: Body, purpose: string, loadId: string, options: SendOptions = {}): Promise<string | null> {
-  const address = await cleared(target, purpose, loadId, options);
-  if (!address) return null;
+  const gate = await cleared(target, purpose, loadId, options);
+  if ("blocked" in gate) {
+    await recordBlocked(loadId, purpose, "whatsapp", renderWhatsApp(body), options.audience ?? "driver", gate.blocked);
+    return null;
+  }
+  const address = gate.address;
   const out = await messaging.send(
     new SendWhatsAppMessageCommand({
       originationPhoneNumberId: env.originationPhoneId(),
@@ -206,8 +224,12 @@ export async function send(target: Target, body: Body, purpose: string, loadId: 
 export async function sendRcs(target: Target, content: RcsMessageContent, purpose: string, loadId: string, options: SendOptions = {}): Promise<string | null> {
   const rcs = env.rcs();
   if (!rcs) throw new Error("RCS is not configured (RCS_AGENT_ID, RCS_TOPIC_ARN)");
-  const address = await cleared(target, purpose, loadId, options);
-  if (!address) return null;
+  const gate = await cleared(target, purpose, loadId, options);
+  if ("blocked" in gate) {
+    await recordBlocked(loadId, purpose, "rcs", renderRcs(content), options.audience ?? "driver", gate.blocked);
+    return null;
+  }
+  const address = gate.address;
   if (address.kind !== "phone") throw new Error("RCS needs a phone number");
   const configurationSet = env.rcsConfigurationSet();
   const out = await sms.send(

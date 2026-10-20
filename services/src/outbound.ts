@@ -36,6 +36,9 @@ export interface SendRecord {
   audience: Audience;
   sentAt: string;
   message: SentMessage;
+  // A message DockClock composed but did not send, and why (a test number, replies off, STOP).
+  status?: "not_sent";
+  notSentReason?: string;
 }
 
 type Json = Record<string, unknown>;
@@ -105,7 +108,7 @@ export function renderRcs(content: RcsMessageContent): SentMessage {
   return { kind: "unknown", text: "" };
 }
 
-export function sendRecord(input: { loadId: string; messageId: string; channel: Channel; purpose: string; audience: Audience; sentAt: string; message: SentMessage }): SendRecord {
+export function sendRecord(input: { loadId: string; messageId: string; channel: Channel; purpose: string; audience: Audience; sentAt: string; message: SentMessage; notSentReason?: string }): SendRecord {
   return {
     ...keys.send(input.loadId, input.sentAt, input.messageId),
     kind: "send",
@@ -115,5 +118,13 @@ export function sendRecord(input: { loadId: string; messageId: string; channel: 
     audience: input.audience,
     sentAt: input.sentAt,
     message: input.message,
+    ...(input.notSentReason ? { status: "not_sent" as const, notSentReason: input.notSentReason } : {}),
   };
 }
+
+// Plain reasons for a message that was composed but not sent.
+export const NOT_SENT = {
+  repliesOff: "Not sent: driver messages are switched off in this deployment.",
+  notAllowlisted: "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
+  optedOut: "Not sent: the driver replied STOP.",
+} as const;
