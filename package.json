@@ -18,6 +18,7 @@
     "typecheck": "tsc -b && tsc -p scripts/tsconfig.json && tsc -p services/api/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run test -w @dockclock/site",
     "scorecard": "node --conditions=source --import tsx packages/clause-engine/src/cli/scorecard.ts",
     "fixtures:write": "node --conditions=source --import tsx packages/clause-engine/src/cli/write-fixtures.ts",
     "smoke:lifecycle": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/smoke-lifecycle.ts",
