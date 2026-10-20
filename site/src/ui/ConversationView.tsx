@@ -49,7 +49,7 @@ export function ConversationView({ messages, timeZone, party, upTo, title, marke
           </div>
         </div>
       </div>
-      <p className="phonenote">From records{shown.some((m) => m.status === "not_sent") ? " ∙ dashed: not sent" : ""}</p>
+      <p className="phonenote">{shown.some((m) => m.status === "not_sent") ? "Dashed: not sent" : "From records"}</p>
     </div>
   );
 }
@@ -123,9 +123,9 @@ function Bubble({ m, timeZone, switched }: { m: ConsoleMessage; timeZone: string
       <div className={cls}>
         {tag && <span className="src">{tag}</span>}
         {inner}
-        {m.kind === "location_request" && <div className="btns"><div>Send location</div></div>}
-        {m.kind === "flow" && <div className="btns"><div>Open form</div></div>}
-        {m.buttons && m.direction === "out" && (
+        {!m.buttons?.length && m.kind === "location_request" && <div className="btns"><div>Send location</div></div>}
+        {!m.buttons?.length && m.kind === "flow" && <div className="btns"><div>Open form</div></div>}
+        {m.buttons && m.buttons.length > 0 && m.direction === "out" && (
           <div className="btns">
             {m.buttons.map((b) => (
               <div key={b.title} className={b.tapped ? "tapped" : ""}>{b.title}</div>

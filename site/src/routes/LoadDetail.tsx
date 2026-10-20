@@ -117,7 +117,7 @@ export function LoadDetailRoute() {
       strip={testStrip(load)}
     >
       <LoadHeader load={shown ?? load} />
-      {captures.length > 0 && (
+      {captures.length > 0 && (tab === "timeline" || tab === "conversation") && (
         <div className="progress" role="group" aria-label="Recorded progress">
           {captures.map((c, i) => {
             const current = capture ?? captures.length - 1;

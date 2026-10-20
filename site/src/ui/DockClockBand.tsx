@@ -4,7 +4,7 @@ import { IconPause, IconPlay } from "./icons.js";
 
 // DockClockBand: the signature visual. A dock-door sign at night: a dot-matrix clock, free time as
 // a dashed floor marking, billable time as a hazard stripe, every record pinned at its true time.
-export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: { load: LoadDetail; cursor?: string | null; playing?: boolean; onPlay?: () => void; title?: string; legend?: boolean }) {
+export function DockClockBand({ load, cursor, playing, onPlay, title, legend, compact }: { load: LoadDetail; cursor?: string | null; playing?: boolean; onPlay?: () => void; title?: string; legend?: boolean; compact?: boolean }) {
   const c = load.clock;
   const tz = load.timeZone;
   const times = load.timeline.map((e) => Date.parse(e.at));
@@ -28,7 +28,7 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: 
   const billable = c.freeTimeEndsAt ? Math.max(0, (upTo(c.releasedAt) - Date.parse(c.freeTimeEndsAt)) / 60_000) : 0;
   const early = c.arrivedAt && c.clockStartAt && Date.parse(c.arrivedAt) < Date.parse(c.clockStartAt);
   return (
-    <section className="dockband" aria-label="Dock clock">
+    <section className={`dockband ${compact ? "compact" : ""}`} aria-label="Dock clock">
       <div className="row1">
         <div>
           <div className="lbl">{title ? `${title} ∙ at the dock` : "At the dock"}</div>
@@ -85,11 +85,19 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: 
           {cursor && <div className="seg cursor" style={{ left: `${pct(cursor)}%` }} />}
         </div>
         <div className="pins">
-          {load.timeline
-            .filter((e) => e.tone !== "neutral")
-            .map((e) => (
-              <span key={e.id} className={`pin ${e.tone} ${Date.parse(e.at) > limit ? "future" : ""}`} style={{ left: `${pct(e.at)}%` }} title={`${clock(e.at, tz)} ${e.title}`} />
-            ))}
+          {(() => {
+            // Pins closer than about 1% of the track stack into rows instead of overlapping.
+            const lastInRow: number[] = [];
+            return load.timeline
+              .filter((e) => e.tone !== "neutral")
+              .map((e) => {
+                const x = pct(e.at);
+                let row = lastInRow.findIndex((r) => x - r >= 1.2);
+                if (row < 0) row = lastInRow.length;
+                lastInRow[row] = x;
+                return <span key={e.id} className={`pin ${e.tone} ${Date.parse(e.at) > limit ? "future" : ""}`} style={{ left: `${x}%`, top: 52 + row * 11 }} title={`${clock(e.at, tz)} ${e.title}`} />;
+              });
+          })()}
         </div>
       </div>
       {(legend ?? true) && (
@@ -97,7 +105,7 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend }: 
           {(["refused", "money", "agent", "ok"] as const)
             .filter((t) => load.timeline.some((e) => e.tone === t))
             .map((t) => (
-              <span key={t}><i className={`pin ${t}`} />{{ refused: "refused tap", money: "money", agent: "agent", ok: "approved, delivered" }[t]}</span>
+              <span key={t}><i className={`pin ${t}`} />{{ refused: "refused", money: "money", agent: "agent", ok: "done" }[t]}</span>
             ))}
         </div>
       )}

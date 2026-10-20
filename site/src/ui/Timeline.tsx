@@ -14,16 +14,10 @@ export function outcomeWords(code: string): string {
 
 // Timeline: one row per record, title only; the record opens in a drawer.
 export function Timeline({ items, timeZone, upTo, current, onOpen }: { items: TimelineItem[]; timeZone: string; upTo?: number; current?: number; onOpen: (t: TimelineItem) => void }) {
-  let group = "";
   return (
     <ol className="tl">
       {items.flatMap((t, i) => {
-        const g = t.synthetic ? "Driver ∙ replayed" : "Workflow ∙ agent ∙ email";
         const rows = [];
-        if (g !== group) {
-          rows.push(<li className="grp" key={`g-${i}`}>{g}</li>);
-          group = g;
-        }
         rows.push(
           <li key={t.id}>
             <button className={upTo !== undefined && Date.parse(t.at) > upTo ? "future" : ""} aria-current={current === i ? "step" : undefined} onClick={() => onOpen(t)}>
@@ -33,7 +27,7 @@ export function Timeline({ items, timeZone, upTo, current, onOpen }: { items: Ti
                 {t.title}
                 {t.tone === "refused" && t.outcome ? <span className="why"> ∙ {outcomeWords(t.outcome)}</span> : null}
               </span>
-              <span />
+              <span className="src-tag">{t.synthetic ? "driver ∙ replayed" : ""}</span>
             </button>
           </li>,
         );

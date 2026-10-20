@@ -504,3 +504,31 @@ main.page:focus { outline: none; }
 .table tr.group td { overflow-wrap: anywhere; }
 @media (max-width: 860px) { .table { table-layout: fixed; } .table th:first-child, .table td:first-child { width: 78px; } .table th:last-child, .table td:last-child { width: 92px; } }
 .facts { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+/* Overrides: KPI accents, dock clock size, pin proof, judges facts */
+.kpi::before { background: transparent; }
+.kpi.money::before { background: var(--hazard); }
+.dockband .led { font-size: 112px; line-height: 0.9; }
+.dockband .row1 { align-items: flex-end; }
+.dockband .row1 > div:first-child { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+.dockband.compact .led { font-size: 64px; }
+.dockband.compact .track { height: 64px; margin-top: 12px; }
+.dockband .track { height: 84px; }
+.tl .src-tag { font: 500 11px var(--mono); color: var(--ink-3); white-space: nowrap; text-align: right; }
+.pinproof { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+.pinproof > div { display: grid; grid-template-columns: 22px 1fr; gap: 2px 10px; align-items: center; padding: 14px; background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); }
+.pinproof > div svg { width: 22px; height: 22px; grid-row: span 2; color: var(--go); }
+.pinproof > div b { font: 700 16px var(--text); }
+.pinproof > a { grid-column: 1 / -1; }
+.judge .facts { margin-top: 24px; }
+@media (max-width: 860px) {
+  .dockband .led { font-size: 64px; }
+  .phone { padding: 0; background: transparent; box-shadow: none; max-width: none; border-radius: 0; }
+  .phone .screen { border-radius: var(--r-md); border: 1px solid var(--rule); }
+  .tl .src-tag { display: none; }
+}
+.dockband .row1 > div:first-child { flex-direction: column; align-items: flex-start; gap: 8px; }
+.judge .facts { grid-template-columns: 1fr; }
+.judge .facts div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 12px 16px; }
+.judge .facts dd { margin-top: 0; text-align: right; }
+.dockband.compact .track { height: 84px; } .dockband .bandlegend { margin-top: 10px; }

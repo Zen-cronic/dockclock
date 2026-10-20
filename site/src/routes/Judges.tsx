@@ -5,12 +5,12 @@ import { FEATURED_LOAD, FEATURED_RCS_LOAD, useLoad, usePack } from "../model/cli
 import { flowNodes } from "../model/flow.js";
 import type { LoadDetail } from "../model/model.js";
 import { run } from "../engine.js";
-import { duration, usd } from "../format.js";
+import { clock, duration, placeName, usd } from "../format.js";
 import { AgentFlow } from "../ui/AgentFlow.js";
 import { Page } from "../ui/AppShell.js";
 import { ProvenanceBadge, Stamp } from "../ui/badges.js";
 import { ConversationView, failoverMarkers } from "../ui/ConversationView.js";
-import { IconRcs, IconWhatsApp } from "../ui/icons.js";
+import { IconPin, IconRcs, IconWhatsApp } from "../ui/icons.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
 import { EmptyState } from "../ui/EmptyState.js";
 import { useSignatureCheck } from "../ui/EvidencePanel.js";
@@ -91,22 +91,33 @@ function PhotoTile({ photo }: { photo: LoadDetail["photos"][number] }) {
   );
 }
 
-function NoPhoto({ lane }: { lane: "whatsapp" | "rcs" }) {
+// The proof this run has when no photo was stored: the two location pins.
+function PinProof({ load, lane }: { load: LoadDetail; lane: "whatsapp" | "rcs" }) {
   const [params] = useSearchParams();
   const rcs = new URLSearchParams(params);
   rcs.set("lane", "rcs");
+  const pins = load.messages.filter((m) => m.direction === "in" && m.kind === "location");
   return (
-    <div className="phototile nophoto-tile">
-      <div className="nophoto" aria-hidden="true">—</div>
-      <div>
-        <b>No photo this run</b>
-        {lane === "whatsapp" && (
-          <p className="small" style={{ marginTop: 6 }}>
-            <Link to={`/judges/proved?${rcs}`}>RCS lane ›</Link>
-          </p>
-        )}
-      </div>
+    <div className="pinproof">
+      {pins.slice(0, 2).map((p, i) => (
+        <div key={p.id}>
+          <IconPin />
+          <b>{i === 0 ? "In" : "Out"} {clock(p.at, load.timeZone)}</b>
+          <span className="small">{p.location?.insideGeofence === false ? "outside" : "in yard"}</span>
+        </div>
+      ))}
+      {lane === "whatsapp" && <Link className="small" to={`/judges/proved?${rcs}`}>Photo: RCS lane ›</Link>}
     </div>
+  );
+}
+
+function Facts({ load }: { load: LoadDetail }) {
+  return (
+    <dl className="facts">
+      <div><dt>Facility</dt><dd>{placeName(load.summary.facility)}</dd></div>
+      <div><dt>Owed by</dt><dd>{load.summary.counterparty}</dd></div>
+      <div><dt>Contract</dt><dd>{duration(load.clause.freeTimeMinutes)} free ∙ {usd(load.clause.ratePerHourUsd)}/h</dd></div>
+    </dl>
   );
 }
 
@@ -138,16 +149,7 @@ export function Judges() {
       case "start":
         title = `Owed ${usd(load.verdict?.amountUsd ?? 0)}`;
         say = "Paid only past free time.";
-        visual = (
-          <>
-            <DockClockBand load={load} legend={false} />
-            <dl className="facts">
-              <div><dt>Facility</dt><dd>{load.summary.facility}</dd></div>
-              <div><dt>Owed by</dt><dd>{load.summary.counterparty}</dd></div>
-              <div><dt>Contract</dt><dd>{duration(load.clause.freeTimeMinutes)} free ∙ {usd(load.clause.ratePerHourUsd)}/h</dd></div>
-            </dl>
-          </>
-        );
+        visual = <DockClockBand load={load} legend={false} />;
         link = null;
         break;
       case "proved":
@@ -198,7 +200,7 @@ export function Judges() {
     <Page crumbs={[{ label: "Judges path" }]} badges={q.data && <ProvenanceBadge kind={q.data.source} />} strip={load ? testStrip(load) : null}>
       <div className="judge">
         <div className="steps-m" aria-hidden="true">
-          <span className="mono">{i + 1} / {JUDGE_STEPS.length}</span> <b>{LABELS[step]}</b>
+          <span className="mono">{i + 1} / {JUDGE_STEPS.length}</span>
           <span className="segs">{JUDGE_STEPS.map((s, n) => <i key={s} className={n < i ? "done" : n === i ? "current" : ""} />)}</span>
         </div>
         <nav className="steps" aria-label="Steps">
@@ -223,7 +225,8 @@ export function Judges() {
               <>
                 <h1>{title}</h1>
                 <p className="say">{say}</p>
-                {step === "proved" && (load.photos.find((p) => p.url) ? <PhotoTile photo={load.photos.find((p) => p.url)!} /> : <NoPhoto lane={lane} />)}
+                {step === "proved" && (load.photos.find((p) => p.url) ? <PhotoTile photo={load.photos.find((p) => p.url)!} /> : <PinProof load={load} lane={lane} />)}
+                {step === "start" && <Facts load={load} />}
                 <div className="acts">
                   {i > 0 && <button className="btn" onClick={() => go(JUDGE_STEPS[i - 1]!)}>Back</button>}
                   {i < JUDGE_STEPS.length - 1 && <button className="btn primary" onClick={() => go(JUDGE_STEPS[i + 1]!)}>{i === 0 ? "Start" : "Next"}</button>}

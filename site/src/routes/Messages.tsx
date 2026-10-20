@@ -69,7 +69,11 @@ export function Messages() {
     return all.some((m) => m.channel === "sms") ? [...base, "sms" as Channel] : base;
   }, [all]);
   const statusTest = STATUS_FILTERS.find(([n]) => n === status)?.[1] ?? (() => true);
-  const rows = all.filter((m) => (!channel || m.channel === channel) && statusTest(m.status));
+  const filtered = all.filter((m) => (!channel || m.channel === channel) && statusTest(m.status));
+  // One block per load, newest load first; rows newest first inside it.
+  const latest = new Map<string, string>();
+  for (const m of filtered) if ((latest.get(m.loadId) ?? "") < m.at) latest.set(m.loadId, m.at);
+  const rows = [...filtered].sort((a, b) => (latest.get(b.loadId) ?? "").localeCompare(latest.get(a.loadId) ?? "") || a.loadId.localeCompare(b.loadId) || b.at.localeCompare(a.at));
 
   const set = (k: string, v: string | null) => {
     const next = new URLSearchParams(params);
