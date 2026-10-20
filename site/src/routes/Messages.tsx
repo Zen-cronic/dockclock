@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { allReplayDetails, useMessages } from "../model/client.js";
-import type { Channel, ConsoleMessage, MessageStatus } from "../model/model.js";
+import { useLoad, useLoads, useMessages } from "../model/client.js";
+import type { Channel, FeedRow, MessageStatus } from "../model/model.js";
 import { clock } from "../format.js";
 import { Page } from "../ui/AppShell.js";
 import { ChannelBadge, ChannelIcon, ProvenanceBadge, StatusPill, channelName } from "../ui/badges.js";
 import { ConversationView } from "../ui/ConversationView.js";
 import { Drawer } from "../ui/Drawer.js";
-import { EmailView } from "../ui/EmailView.js";
+import { EmailBody } from "../ui/EmailView.js";
 import { EmptyState } from "../ui/EmptyState.js";
 
 const STATUS_FILTERS: Array<[string, (s: MessageStatus) => boolean]> = [
@@ -42,14 +42,16 @@ const PURPOSE: Record<string, string> = {
   retake: "Clearer photo request",
 };
 
-export function purposeWords(m: ConsoleMessage): string {
+export function purposeWords(m: { purpose: string }): string {
   return PURPOSE[m.purpose] ?? m.purpose.replace(/_/g, " ");
 }
 
 export function Messages() {
   const q = useMessages();
   const [params, setParams] = useSearchParams();
-  const [open, setOpen] = useState<ConsoleMessage | null>(null);
+  const [open, setOpen] = useState<FeedRow | null>(null);
+  const loads = useLoads();
+  const tzOf = (id: string) => loads.data?.data.find((l) => l.id === id)?.timeZone ?? "America/New_York";
   const channel = (params.get("channel") as Channel | null) ?? null;
   const status = params.get("status") ?? "All";
   const all = q.data?.data ?? [];
@@ -65,8 +67,6 @@ export function Messages() {
     else next.delete(k);
     setParams(next, { replace: true });
   };
-  const details = allReplayDetails();
-  const detailOf = (m: ConsoleMessage) => details.find((d) => d.summary.id === m.loadId);
   return (
     <Page crumbs={[{ label: "Messages" }]} badges={q.data && <ProvenanceBadge kind={q.data.source} />}>
       <div className="toolbar">
@@ -102,10 +102,9 @@ export function Messages() {
             </thead>
             <tbody>
               {rows.map((m) => {
-                const d = detailOf(m);
                 return (
                   <tr key={m.id} onClick={() => setOpen(m)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpen(m)}>
-                    <td className="ts">{clock(m.at, d?.timeZone ?? "America/New_York")}</td>
+                    <td className="ts">{clock(m.at, tzOf(m.loadId))}</td>
                     <td><ChannelBadge channel={m.channel} /></td>
                     <td className="id hide-m">{m.loadId}</td>
                     <td className="hide-m">{m.direction === "in" ? "from " : "to "}{m.party}</td>
@@ -120,24 +119,29 @@ export function Messages() {
       </div>
       {open && (
         <Drawer title={purposeWords(open)} onClose={() => setOpen(null)}>
-          {(() => {
-            const d = detailOf(open);
-            if (!d) return <p className="small">Load not found.</p>;
-            if (open.channel === "email") {
-              const email = d.emails.find((e) => e.id === open.emailId);
-              return email ? <EmailView email={email} timeZone={d.timeZone} /> : <p className="small">Email not stored.</p>;
-            }
-            return (
-              <>
-                <ConversationView messages={d.messages} timeZone={d.timeZone} party={open.party === "dispatcher" ? "dispatcher" : "driver"} upTo={Date.parse(open.at)} />
-                <p style={{ marginTop: 14 }}>
-                  <Link className="btn small" to={`/loads/${d.summary.id}/conversation`}>Open load {d.summary.id}</Link>
-                </p>
-              </>
-            );
-          })()}
+          <FeedDetail row={open} />
         </Drawer>
       )}
     </Page>
+  );
+}
+
+function FeedDetail({ row }: { row: FeedRow }) {
+  const q = useLoad(row.loadId);
+  const d = q.data?.data;
+  if (q.isLoading) return <p className="small">Loading…</p>;
+  if (!d) return <p className="small">Load not found.</p>;
+  if (row.isEmail) {
+    const email = d.emails.find((e) => (e.id.split(":").pop() ?? e.id) === row.localId);
+    return email ? <EmailBody load={d} email={email} /> : <p className="small">Email not found.</p>;
+  }
+  const msg = d.messages.find((m) => (m.id.split(":").pop() ?? m.id) === row.localId);
+  return (
+    <>
+      <ConversationView messages={d.messages} timeZone={d.timeZone} party={msg?.party === "dispatcher" ? "dispatcher" : "driver"} upTo={Date.parse(row.at)} />
+      <p style={{ marginTop: 14 }}>
+        <Link className="btn small" to={`/loads/${d.summary.id}/conversation`}>Open load {d.summary.id}</Link>
+      </p>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 // Adapter: a sanitized replay snapshot (snapshot.ts) into the console's view model.
 import type { ReplaySnapshot } from "../snapshot.js";
-import type { AgentRun, ConsoleEmail, ConsoleMessage, LoadDetail, LoadSummary, Overview, Source, TimelineItem } from "./model.js";
+import type { AgentRun, ConsoleEmail, ConsoleMessage, FeedRow, LoadDetail, LoadSummary, Overview, Source, TimelineItem } from "./model.js";
 
 export function summaryFromReplay(s: ReplaySnapshot, source: Source): LoadSummary {
   return {
@@ -51,6 +51,8 @@ function emailsFromReplay(s: ReplaySnapshot): ConsoleEmail[] {
       loadId: s.load.loadId,
       purpose: e.purpose,
       sentAt: e.sentAt,
+      status: e.deliveredAt ? "delivered" : "sent",
+      bodyStored: Boolean(e.body),
       from: e.from,
       to: e.to.name,
       toNote: e.to.note,
@@ -73,8 +75,8 @@ function timelineFromReplay(s: ReplaySnapshot): TimelineItem[] {
   });
 }
 
-function agentRunsFromReplay(s: ReplaySnapshot): AgentRun[] {
-  return s.agentRuns.map((r) => {
+export function agentRunsFrom(runs: ReplaySnapshot["agentRuns"]): AgentRun[] {
+  return runs.map((r) => {
     const out: AgentRun = {
       id: r.id,
       task: r.task,
@@ -104,60 +106,38 @@ export function detailFromReplay(s: ReplaySnapshot, source: Source): LoadDetail 
     clause: s.clause,
     verdict: s.verdict,
     pack: s.pack,
+    packSummary: { packId: s.pack.packId, digestSha256: s.pack.digestSha256, sealedAt: s.pack.sealedAt, storage: s.pack.storage },
     approval: s.approval,
     claim: s.claim,
     messages: messagesFromReplay(s),
     emails: emailsFromReplay(s),
     timeline: timelineFromReplay(s),
-    agentRuns: agentRunsFromReplay(s),
+    agentRuns: agentRunsFrom(s.agentRuns),
     photos: [],
   };
 }
 
 // Messages across loads, emails included, newest first.
-export function feedFromDetails(details: LoadDetail[]): ConsoleMessage[] {
-  const all: ConsoleMessage[] = [];
+export function feedFromDetails(details: LoadDetail[]): FeedRow[] {
+  const rows: FeedRow[] = [];
   for (const d of details) {
-    all.push(...d.messages);
+    for (const m of d.messages)
+      rows.push({ id: m.id, at: m.at, loadId: d.summary.id, runKind: d.summary.runKind, channel: m.channel, direction: m.direction, party: m.party, purpose: m.purpose, preview: m.body, status: m.status, failover: Boolean(m.failover), synthetic: m.synthetic, localId: m.id.split(":").pop() ?? m.id, isEmail: false });
     for (const e of d.emails)
-      all.push({
-        id: e.id,
-        loadId: e.loadId,
-        at: e.sentAt,
-        channel: "email",
-        direction: "out",
-        party: "counterparty",
-        purpose: e.purpose,
-        kind: "email",
-        body: e.subject,
-        subject: e.subject,
-        emailId: e.id,
-        status: e.bouncedAt ? "failed" : e.deliveredAt ? "delivered" : "sent",
-        synthetic: false,
-        rebuilt: false,
-      });
+      rows.push({ id: e.id, at: e.sentAt, loadId: d.summary.id, runKind: d.summary.runKind, channel: "email", direction: "out", party: "counterparty", purpose: e.purpose, preview: e.subject, status: e.status === "bounced" ? "failed" : e.status, failover: false, synthetic: false, localId: e.id.split(":").pop() ?? e.id, isEmail: true });
   }
-  return all.sort((a, b) => b.at.localeCompare(a.at));
+  return rows.sort((a, b) => b.at.localeCompare(a.at));
 }
 
 export function overviewFromDetails(details: LoadDetail[], source: Source): Overview {
   const feed = feedFromDetails(details);
-  const channels = ["whatsapp", "rcs", "email", "sms"] as const;
-  const outbound = feed.filter((m) => m.direction === "out" && m.status !== "not_sent");
-  const delivered = outbound.filter((m) => m.status === "delivered" || m.status === "read").length;
+  const tracked = feed.filter((m) => m.direction === "out" && !m.synthetic && ["delivered", "read", "failed"].includes(m.status));
+  const delivered = tracked.filter((m) => m.status === "delivered" || m.status === "read").length;
   const activity = details
-    .flatMap((d) =>
-      d.timeline.map((t) => ({
-        id: `${d.summary.id}:${t.id}`,
-        at: t.at,
-        loadId: d.summary.id,
-        channel: (t.services.includes("SES") ? "email" : t.services.includes("EUM RCS") ? "rcs" : t.services.includes("EUM Social") ? "whatsapp" : "system") as Overview["activity"][number]["channel"],
-        title: t.title,
-        tone: t.tone,
-      })),
-    )
+    .flatMap((d) => d.timeline.map((t) => ({ id: `${d.summary.id}:${t.id}`, at: t.at, loadId: d.summary.id, title: t.title, tone: t.tone, href: `/loads/${d.summary.id}` })))
     .sort((a, b) => b.at.localeCompare(a.at))
     .slice(0, 20);
+  const channels = ["whatsapp", "rcs", "email", "sms"] as const;
   return {
     source,
     generatedAt: new Date().toISOString(),
@@ -165,20 +145,12 @@ export function overviewFromDetails(details: LoadDetail[], source: Source): Over
     claimsFiled: details.filter((d) => d.claim?.status === "sent").length,
     claimedUsd: details.reduce((n, d) => n + (d.claim?.status === "sent" ? d.claim.amountUsd : 0), 0),
     messages: feed.length,
-    deliveredPct: outbound.length ? Math.round((delivered / outbound.length) * 100) : null,
-    failovers: feed.filter((m) => m.failover).length,
+    deliveredPct: tracked.length ? Math.round((delivered / tracked.length) * 100) : null,
+    deliveryTracked: tracked.length,
+    failovers: details.filter((d) => d.summary.failover).length,
     byChannel: channels
-      .map((channel) => {
-        const ms = feed.filter((m) => m.channel === channel);
-        return {
-          channel,
-          sent: ms.filter((m) => m.direction === "out" && m.status !== "not_sent").length,
-          received: ms.filter((m) => m.direction === "in").length,
-          delivered: ms.filter((m) => m.status === "delivered" || m.status === "read").length,
-          failed: ms.filter((m) => m.status === "failed").length,
-        };
-      })
-      .filter((c) => c.channel !== "sms" || c.sent + c.received > 0),
+      .map((channel) => ({ channel, outbound: feed.filter((m) => m.channel === channel && m.direction === "out").length, inbound: feed.filter((m) => m.channel === channel && m.direction === "in").length }))
+      .filter((c) => c.channel !== "sms" || c.outbound + c.inbound > 0),
     activity,
   };
 }

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { approvalWords, provedWords } from "../copy/provenance.js";
-import { FEATURED_LOAD, useLoad, useLoads } from "../model/client.js";
+import { FEATURED_LOAD, useLoad, useLoads, usePack } from "../model/client.js";
 import { flowNodes } from "../model/flow.js";
 import type { LoadDetail } from "../model/model.js";
 import { run } from "../engine.js";
@@ -23,7 +23,8 @@ type PackLike = { evaluation?: { amountUsd?: number } };
 const raiseAmount = (p: PackLike): PackLike => ({ ...p, evaluation: { ...p.evaluation, amountUsd: 9999 } });
 
 function SignatureCard({ load, broken }: { load: LoadDetail; broken?: boolean }) {
-  const check = useSignatureCheck(load.pack, broken ? (raiseAmount as never) : undefined);
+  const pack = usePack(load);
+  const check = useSignatureCheck(pack.data ?? null, broken ? (raiseAmount as never) : undefined);
   const s = check.status;
   return (
     <div className="card verifycard">
@@ -35,7 +36,7 @@ function SignatureCard({ load, broken }: { load: LoadDetail; broken?: boolean })
         </div>
       </div>
       {broken && <ul className="diffs"><li>amount {usd(load.verdict?.amountUsd ?? 0)} → {usd(9999)}</li></ul>}
-      <p className="small mono" style={{ marginTop: 12 }}>{(check.digest ?? load.pack?.digestSha256 ?? "").slice(0, 32)}…</p>
+      <p className="small mono" style={{ marginTop: 12 }}>{(check.digest ?? load.packSummary?.digestSha256 ?? "").slice(0, 32)}…</p>
     </div>
   );
 }
@@ -107,7 +108,17 @@ export function Judges() {
       case "start":
         title = `Owed ${usd(load.verdict?.amountUsd ?? 0)}`;
         say = `A truck waited ${wait}. The contract pays for ${duration(c.billableMinutes)}.`;
-        visual = <DockClockBand load={load} />;
+        visual = (
+          <>
+            <DockClockBand load={load} />
+            <dl className="facts">
+              <div><dt>Facility</dt><dd>{load.summary.facility}</dd></div>
+              <div><dt>Owed by</dt><dd>{load.summary.counterparty}</dd></div>
+              <div><dt>Contract</dt><dd>{duration(load.clause.freeTimeMinutes)} free · {usd(load.clause.ratePerHourUsd)}/h</dd></div>
+              <div><dt>Driver on</dt><dd>{load.summary.channel === "rcs" ? "RCS" : "WhatsApp"}</dd></div>
+            </dl>
+          </>
+        );
         link = [`/loads/${load.summary.id}`, "Open the load"];
         break;
       case "proved":

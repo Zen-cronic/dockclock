@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useParams, useSearchParams } from "react-router-dom";
 import { approvalWords, provedWords, runLabel } from "../copy/provenance.js";
-import { useLoad } from "../model/client.js";
+import { useLoad, usePack } from "../model/client.js";
 import { flowNodes, type FlowNode } from "../model/flow.js";
 import type { ConsoleEmail, LoadDetail, TimelineItem } from "../model/model.js";
 import { clock, usd } from "../format.js";
@@ -11,7 +11,7 @@ import { ChannelBadge, ProvenanceBadge, Stamp } from "../ui/badges.js";
 import { ConversationView } from "../ui/ConversationView.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
 import { Drawer, Json } from "../ui/Drawer.js";
-import { EmailView } from "../ui/EmailView.js";
+import { EmailBody } from "../ui/EmailView.js";
 import { EmptyState } from "../ui/EmptyState.js";
 import { EvidencePanel } from "../ui/EvidencePanel.js";
 import { Timeline } from "../ui/Timeline.js";
@@ -93,6 +93,7 @@ export function LoadDetailRoute() {
   const [email, setEmail] = useState<ConsoleEmail | null>(null);
   const [node, setNode] = useState<FlowNode | null>(null);
   const [party, setParty] = useState<"driver" | "dispatcher">("driver");
+  const pack = usePack(load);
   if (!load)
     return (
       <Page crumbs={[{ to: "/loads", label: "Loads" }, { label: id ?? "" }]}>
@@ -152,7 +153,7 @@ export function LoadDetailRoute() {
               <button className="mailrow" key={e.id} onClick={() => setEmail(e)}>
                 <span className="k">{e.purpose === "dispatch_escalation" ? "Escalation" : e.purpose}</span>
                 <span className="s">{e.subject}</span>
-                <span className="small">{clock(e.sentAt, load.timeZone)}{e.deliveredAt ? " · delivered" : ""}</span>
+                <span className="small">{clock(e.sentAt, load.timeZone)} · {e.status === "not_sent" ? "not sent (test)" : e.status}</span>
               </button>
             ))
           )}
@@ -169,7 +170,7 @@ export function LoadDetailRoute() {
           </div>
         </div>
       )}
-      {tab === "evidence" && (load.pack ? <EvidencePanel pack={load.pack} timeZone={load.timeZone} photos={load.photos} /> : <EmptyState title="Not sealed yet" />)}
+      {tab === "evidence" && (pack.data ? <EvidencePanel pack={pack.data} timeZone={load.timeZone} photos={load.photos} /> : <EmptyState title={load.packSummary ? "Loading the pack" : "Not sealed yet"} />)}
       {tab === "whatif" && <WhatIfPanel load={load} />}
       {record && (
         <Drawer title={record.title} onClose={() => setRecord(null)}>
@@ -181,7 +182,7 @@ export function LoadDetailRoute() {
       )}
       {email && (
         <Drawer title={email.purpose === "claim" ? "Claim email" : email.purpose === "notice" ? "Notice email" : "Escalation"} onClose={() => setEmail(null)}>
-          <EmailView email={email} timeZone={load.timeZone} />
+          <EmailBody load={load} email={email} />
         </Drawer>
       )}
       {node && (

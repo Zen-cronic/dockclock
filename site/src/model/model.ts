@@ -45,9 +45,29 @@ export interface ConsoleMessage {
   photo?: Photo;
   emailId?: string;
   subject?: string;
+  notSentReason?: string;
   synthetic: boolean;
   // Text was rebuilt from a template because the sent body was not stored.
   rebuilt: boolean;
+}
+
+// One row of the channel monitor: a message or an email on any load.
+export interface FeedRow {
+  id: string;
+  at: string;
+  loadId: string;
+  runKind: RunKind;
+  channel: Channel;
+  direction: "in" | "out";
+  party: "driver" | "dispatcher" | "counterparty";
+  purpose: string;
+  preview: string;
+  status: MessageStatus;
+  failover: boolean;
+  synthetic: boolean;
+  // The load-local id of the message (m3) or email (claim), for opening it.
+  localId: string;
+  isEmail: boolean;
 }
 
 export interface ConsoleEmail {
@@ -55,6 +75,7 @@ export interface ConsoleEmail {
   loadId: string;
   purpose: "notice" | "claim" | "dispatch_escalation";
   sentAt: string;
+  status: "sent" | "delivered" | "bounced" | "not_sent";
   deliveredAt?: string;
   bouncedAt?: string;
   from: string;
@@ -62,6 +83,7 @@ export interface ConsoleEmail {
   toNote: string;
   subject: string;
   body?: string;
+  bodyStored: boolean;
   attachments: Array<{ name: string; sha256?: string }>;
 }
 
@@ -119,7 +141,9 @@ export interface LoadDetail {
   clock: ReplaySnapshot["clock"];
   clause: ReplaySnapshot["clause"];
   verdict: ReplaySnapshot["verdict"] | null;
+  // The full signed pack when it travels with the load (replays); otherwise fetched on demand.
   pack: ReplaySnapshot["pack"] | null;
+  packSummary: { packId: string; digestSha256: string; sealedAt: string; storage: string } | null;
   approval: ReplaySnapshot["approval"];
   claim: ReplaySnapshot["claim"];
   messages: ConsoleMessage[];
@@ -136,8 +160,11 @@ export interface Overview {
   claimsFiled: number;
   claimedUsd: number;
   messages: number;
+  // Delivered (or read) out of real sends whose outcome is known; test sends that were never sent
+  // and sends with no delivery event yet are left out, so test data cannot drag the rate down.
   deliveredPct: number | null;
+  deliveryTracked: number;
   failovers: number;
-  byChannel: Array<{ channel: Channel; sent: number; received: number; delivered: number; failed: number }>;
-  activity: Array<{ id: string; at: string; loadId: string; channel: Channel | "system"; title: string; tone: TimelineItem["tone"] }>;
+  byChannel: Array<{ channel: Channel; outbound: number; inbound: number }>;
+  activity: Array<{ id: string; at: string; loadId: string; title: string; tone: TimelineItem["tone"]; href: string }>;
 }
