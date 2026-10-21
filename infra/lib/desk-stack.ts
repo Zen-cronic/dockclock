@@ -57,6 +57,9 @@ export class DeskStack extends Stack {
       mediaBucket: props.core.mediaBucket,
       account: props.config.account,
       ...(props.config.demoFacility ? { demoFacility: props.config.demoFacility } : {}),
+      // Caps what judge polling can use, so the console can never crowd out the driver loop. The
+      // account limit is 1000 (quota L-B99A9384, granted 2026-10-20).
+      reservedConcurrency: 50,
     });
     this.distribution = new cloudfront.Distribution(this, "Desk", {
       comment: "DockClock judge desk",

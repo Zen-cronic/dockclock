@@ -37,9 +37,9 @@ export interface ReadApiProps {
 // The console read API: one Lambda behind a function URL that only CloudFront can call (origin
 // access control, IAM auth), served at /api/* on the desk's distribution. Its role can only read:
 // Query and BatchGetItem on the load table and its byWorkspace index, GetObject on packs and driver
-// media. Polling is absorbed by CloudFront's 3-second cache and a short timeout. Reserved concurrency
-// is an option (reservedConcurrency), but an account still on the default limit of 10 concurrent
-// executions cannot reserve any: Lambda keeps 10 unreserved.
+// media. Polling is absorbed by CloudFront's 3-second cache and a short timeout, and reservedConcurrency
+// caps the rest. An account still on the default limit of 10 concurrent executions cannot reserve any:
+// Lambda keeps 10 unreserved.
 export class ReadApi extends Construct {
   readonly fn: NodejsFunction;
   readonly url: lambda.FunctionUrl;
