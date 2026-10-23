@@ -70,7 +70,7 @@ const INTRO: Record<Language, string> = {
     "",
     "The contract and receiver are fictional. Emails go to our test mailbox, never to you; we tell you here what was sent.",
     `Send DEMO again to start over (${PER_SENDER_PER_DAY} a day per number, reset at 00:00 UTC).`,
-    "We keep your pins and photo with this demo. The signed pack records the times and the photo's hash, not your location.",
+    "We keep your pins and photo; DockClock's public console shows your demo without them, your number or typed text.",
   ].join("\n"),
   es_MX: [
     `Demo de DockClock, unos ${DEMO_MINUTES} minutos (${RETAKE_MINUTES} más si hay que repetir una foto). Usted es el chofer y el despachador.`,
@@ -81,7 +81,7 @@ const INTRO: Record<Language, string> = {
     "",
     "El contrato y el receptor son ficticios. Los correos llegan a nuestro buzón de prueba, nunca a usted; aquí le decimos qué se envió.",
     `Envíe DEMO otra vez para empezar de nuevo (${PER_SENDER_PER_DAY} al día por número, se reinicia a las 00:00 UTC).`,
-    "Guardamos sus ubicaciones y su foto con esta demo. El paquete firmado registra las horas y la huella de la foto, no su ubicación.",
+    "Guardamos sus ubicaciones y su foto; la consola pública de DockClock muestra su demo sin ellas, sin su número ni sus textos.",
   ].join("\n"),
   fr_CA: [
     `Démo DockClock, environ ${DEMO_MINUTES} minutes (${RETAKE_MINUTES} de plus s'il faut reprendre une photo). Vous êtes le chauffeur et le répartiteur.`,
@@ -92,7 +92,7 @@ const INTRO: Record<Language, string> = {
     "",
     "Le contrat et le destinataire sont fictifs. Les courriels vont à notre boîte de test, jamais à vous; nous vous disons ici ce qui a été envoyé.",
     `Envoyez DEMO de nouveau pour recommencer (${PER_SENDER_PER_DAY} par jour par numéro, remise à zéro à 00 h 00 UTC).`,
-    "Nous conservons vos positions et votre photo avec cette démo. Le dossier signé consigne les heures et l'empreinte de la photo, pas votre position.",
+    "Nous conservons vos positions et votre photo; la console publique de DockClock montre votre démo sans elles, ni votre numéro ni vos textes.",
   ].join("\n"),
 };
 

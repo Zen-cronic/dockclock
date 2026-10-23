@@ -81,6 +81,10 @@ describe("driver messages are phone-sized", () => {
     }
     expect(DEMO_INTRO.en_US).toContain("The contract and receiver are fictional");
     expect(DEMO_INTRO.en_US).toContain("test mailbox");
+    // The read API keeps a judge's number, location, typed text and photo off the public console.
+    expect(DEMO_INTRO.en_US).toContain("public console");
+    expect(DEMO_INTRO.es_MX).toContain("consola pública");
+    expect(DEMO_INTRO.fr_CA).toContain("console publique");
   });
 
   it("keeps internal terms out of what drivers and dispatchers read", () => {

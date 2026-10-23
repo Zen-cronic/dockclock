@@ -76,7 +76,7 @@ describe("judge demo", () => {
     expect([...items.keys()].some((k) => k.startsWith("DEMOUSER#"))).toBe(true);
     const sends = sentTexts();
     const intro: string = sends[0].text.body;
-    for (const disclosure of ["about 10 minutes", "You are the truck driver and the dispatcher", "Free time is 5 minutes", "never to you", "Send DEMO again to start over", "5 a day per number, reset at 00:00 UTC", "US Eastern time", "not your location"]) {
+    for (const disclosure of ["about 10 minutes", "You are the truck driver and the dispatcher", "Free time is 5 minutes", "never to you", "Send DEMO again to start over", "5 a day per number, reset at 00:00 UTC", "US Eastern time", "public console shows your demo without them, your number or typed text"]) {
       expect(intro).toContain(disclosure);
     }
     expect(sends[1].template.name).toBe("dockclock_load_dispatch");
