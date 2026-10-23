@@ -14,6 +14,8 @@ import { headline, recordedEvidence, run } from "../src/engine.js";
 import { createHash as shimHash } from "../src/shims/node-crypto.js";
 import type { ReplaySnapshot } from "../src/snapshot.js";
 import { derToRaw, verifyPack } from "../src/verify.js";
+import { filterFeed, orderFeed, parseSort } from "../src/model/feedOrder.js";
+import type { FeedRow } from "../src/model/model.js";
 
 const raw = readFileSync(new URL("../replay/example.json", import.meta.url), "utf8");
 const snap = JSON.parse(raw) as ReplaySnapshot;
@@ -208,5 +210,40 @@ describe("judges path", async () => {
     const shown = whatIfs(d).filter((w) => ["early", "noticeLate", "window"].includes(w.id) && w.applies);
     expect(shown.map((w) => w.id)).toEqual(["early", "noticeLate", "window"]);
     for (const w of shown) expect(run(w.apply(base)).verdict).toBe("NOT_BILLABLE");
+  });
+});
+
+describe("message monitor order", () => {
+  const row = (id: string, loadId: string, at: string, over: Partial<FeedRow> = {}): FeedRow => ({
+    id, at, loadId, runKind: "integration", channel: "whatsapp", direction: "out", party: "driver", purpose: "notice", preview: "", status: "delivered", failover: false, synthetic: false, localId: id, isEmail: false, ...over,
+  });
+  // Load names sort the opposite way to their activity: AAA is oldest, ZZZ newest.
+  const rows = [
+    row("a1", "AAA-old", "2026-10-21T14:00:00.000Z"),
+    row("z1", "ZZZ-new", "2026-10-23T19:37:00.000Z", { channel: "rcs", status: "not_sent" }),
+    row("m1", "MMM-mid", "2026-10-22T18:30:00Z"),
+    row("z2", "ZZZ-new", "2026-10-23T15:00:00.000Z", { channel: "email", status: "failed" }),
+    row("a2", "AAA-old", "2026-10-23T16:00:00.000Z", { status: "received", direction: "in" }),
+  ];
+  const ids = (r: FeedRow[]) => r.map((m) => m.id);
+
+  it("defaults to newest first, by time and not by load name", () => {
+    expect(parseSort(null)).toBe("newest");
+    expect(parseSort("nonsense")).toBe("newest");
+    expect(ids(orderFeed(rows, parseSort(null)))).toEqual(["z1", "a2", "z2", "m1", "a1"]);
+  });
+
+  it("reverses to oldest first", () => {
+    expect(ids(orderFeed(rows, parseSort("oldest")))).toEqual(["a1", "m1", "z2", "a2", "z1"]);
+  });
+
+  it("groups by load name, newest first inside each load", () => {
+    expect(ids(orderFeed(rows, parseSort("load")))).toEqual(["a2", "a1", "m1", "z1", "z2"]);
+  });
+
+  it("keeps the channel and status filters with any sort", () => {
+    expect(ids(orderFeed(filterFeed(rows, "whatsapp", "All"), "newest"))).toEqual(["a2", "m1", "a1"]);
+    expect(ids(orderFeed(filterFeed(rows, "whatsapp", "Delivered"), "oldest"))).toEqual(["a1", "m1"]);
+    expect(ids(orderFeed(filterFeed(rows, null, "Failed"), "newest"))).toEqual(["z2"]);
   });
 });

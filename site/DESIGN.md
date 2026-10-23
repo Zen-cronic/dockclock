@@ -5,6 +5,7 @@ The console is where DockClock's messaging is monitored: WhatsApp, RCS and email
 Rules:
 - It is an app, not a report. Each screen does one thing.
 - Dense detail (raw records, the pack JSON, email bodies, agent tool calls) sits behind a click, in a drawer or a tab.
+- Messages opens newest first: one chronological list with a date row at each change of day, and a load chip where each load's run of rows starts. "Oldest first" reverses it; "By load" groups rows under each load id in name order (a load on one day names the day in its header; one that spans days dates every row). The choice is `?sort=oldest|load` and combines with the channel and status filters.
 - Under 860 px, Loads, Messages and Emails are two-line rows, not squeezed tables; the load tabs scroll with the active tab brought into view and a fade at the cut edge.
 
 ## The story behind the palette

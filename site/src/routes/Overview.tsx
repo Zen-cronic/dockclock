@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { FEATURED_LOAD, useLoad, useOverview } from "../model/client.js";
-import { clock, dayShort, placeName, usd } from "../format.js";
+import { clock, dayLabel, dayShort, placeName, usd } from "../format.js";
 import { ChannelBadge, ProvenanceBadge, channelName } from "../ui/badges.js";
 import { Page } from "../ui/AppShell.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
@@ -48,12 +48,12 @@ export function Overview() {
                 <Link className="small golink" to="/messages">All<IconChevron className="go" /></Link>
               </div>
               <ul className="feed">
-                {o.activity.slice(0, 8).flatMap((a, i, all) => {
+                {[...o.activity].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 8).flatMap((a, i, all) => {
                   const tz = load?.timeZone ?? "America/New_York";
                   const day = dayShort(a.at, tz);
                   const rows = [];
                   if (i === 0 || dayShort(all[i - 1]!.at, tz) !== day)
-                    rows.push(<li key={`day-${day}`} className="day">{day === dayShort(new Date().toISOString(), tz) ? "Today" : day}</li>);
+                    rows.push(<li key={`day-${day}`} className="day">{dayLabel(a.at, tz)}</li>);
                   rows.push(
                     <li key={a.id}>
                       <span className="ts">{clock(a.at, tz)}</span>

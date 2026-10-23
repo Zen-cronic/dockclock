@@ -2,22 +2,15 @@ import { acceptsAnyLocation } from "../copy/provenance.js";
 import { Fragment, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { hasRecordedDetail, useLoad, useLoads, useMessages } from "../model/client.js";
-import type { Channel, FeedRow, MessageStatus } from "../model/model.js";
-import { clock } from "../format.js";
+import { FEED_SORTS, STATUS_FILTERS, filterFeed, orderFeed, parseSort } from "../model/feedOrder.js";
+import type { Channel, FeedRow } from "../model/model.js";
+import { clock, dayLabel, dayShort } from "../format.js";
 import { Page } from "../ui/AppShell.js";
 import { ChannelBadge, ChannelIcon, ProvenanceBadge, StatusPill, channelName } from "../ui/badges.js";
 import { ConversationView } from "../ui/ConversationView.js";
 import { Drawer } from "../ui/Drawer.js";
 import { EmailBody } from "../ui/EmailView.js";
 import { EmptyState } from "../ui/EmptyState.js";
-
-const STATUS_FILTERS: Array<[string, (s: MessageStatus) => boolean]> = [
-  ["All", () => true],
-  ["Delivered", (s) => s === "delivered" || s === "read"],
-  ["Received", (s) => s === "received"],
-  ["Failed", (s) => s === "failed" || s === "failover"],
-  ["Not sent", (s) => s === "not_sent"],
-];
 
 const PURPOSE: Record<string, string> = {
   tap_arrived: "Tapped Arrived",
@@ -50,6 +43,7 @@ const PURPOSE: Record<string, string> = {
   tell_bol_photo_received: "Photo saved",
   tell_bol_partial: "Paperwork incomplete",
   tell_tap_arrived_first: "Tap Arrived first",
+  tell_bol_received: "Bill of lading saved",
 };
 
 export function purposeWords(m: { purpose: string }): string {
@@ -64,23 +58,27 @@ export function Messages() {
   const tzOf = (id: string) => loads.data?.data.find((l) => l.id === id)?.timeZone ?? "America/New_York";
   const channel = (params.get("channel") as Channel | null) ?? null;
   const status = params.get("status") ?? "All";
+  const sort = parseSort(params.get("sort"));
+  const grouped = sort === "load";
   const all = q.data?.data ?? [];
   const channels = useMemo(() => {
     const base: Channel[] = ["whatsapp", "rcs", "email"];
     return all.some((m) => m.channel === "sms") ? [...base, "sms" as Channel] : base;
   }, [all]);
-  const statusTest = STATUS_FILTERS.find(([n]) => n === status)?.[1] ?? (() => true);
-  const filtered = all.filter((m) => (!channel || m.channel === channel) && statusTest(m.status));
-  // One block per load, newest load first; rows newest first inside it.
-  const latest = new Map<string, string>();
-  for (const m of filtered) if ((latest.get(m.loadId) ?? "") < m.at) latest.set(m.loadId, m.at);
-  const rows = [...filtered].sort((a, b) => (latest.get(b.loadId) ?? "").localeCompare(latest.get(a.loadId) ?? "") || a.loadId.localeCompare(b.loadId) || b.at.localeCompare(a.at));
+  const rows = orderFeed(filterFeed(all, channel, status), sort);
+  const now = new Date().toISOString();
+  const cols = grouped ? 5 : 6;
+  // By load: a load whose rows fall on one day names the day in its header; one that spans
+  // days puts the date on every row.
+  const days = new Map<string, Set<string>>();
+  if (grouped) for (const m of rows) days.set(m.loadId, (days.get(m.loadId) ?? new Set()).add(dayShort(m.at, tzOf(m.loadId))));
 
+  // Each choice is a history entry, so back and forward step through filters and sorts.
   const set = (k: string, v: string | null) => {
     const next = new URLSearchParams(params);
     if (v) next.set(k, v);
     else next.delete(k);
-    setParams(next, { replace: true });
+    setParams(next);
   };
   return (
     <Page crumbs={[{ label: "Messages" }]} badges={q.data && <ProvenanceBadge kind={q.data.source} />}>
@@ -99,17 +97,22 @@ export function Messages() {
             <button key={n} aria-pressed={status === n} onClick={() => set("status", n === "All" ? null : n)}>{n}</button>
           ))}
         </div>
+        <div className="segctl sortctl" role="group" aria-label="Sort">
+          {FEED_SORTS.map(([k, label]) => (
+            <button key={k} aria-pressed={sort === k} onClick={() => set("sort", k === "newest" ? null : k)}>{label}</button>
+          ))}
+        </div>
       </div>
       <div className="card">
         {rows.length === 0 ? (
           <EmptyState title="No messages">Try another filter.</EmptyState>
         ) : (
-          <table className="table msgs">
+          <table className={grouped ? "table msgs" : "table msgs flat"}>
             <thead>
               <tr>
                 <th>Time</th>
+                {!grouped && <th>Load</th>}
                 <th>Channel</th>
-                
                 <th className="hide-m">Party</th>
                 <th>What</th>
                 <th>Status</th>
@@ -117,18 +120,39 @@ export function Messages() {
             </thead>
             <tbody>
               {rows.map((m, i) => {
-                const head = i === 0 || rows[i - 1]!.loadId !== m.loadId;
+                const prev = rows[i - 1];
+                const tz = tzOf(m.loadId);
+                // By load: a header per load. By date: a date row at each change of day.
+                const head = grouped ? !prev || prev.loadId !== m.loadId : !prev || dayShort(prev.at, tzOf(prev.loadId)) !== dayShort(m.at, tz);
+                const opens = q.data?.source !== "fixture" || hasRecordedDetail(m.loadId);
                 return (
                   <Fragment key={m.id}>
-                  {head && (
+                  {head && grouped && (
                     <tr className="group">
-                      <td colSpan={5}><Link to={`/loads/${m.loadId}`} onClick={(e) => e.stopPropagation()}>{m.loadId}</Link></td>
+                      <td colSpan={cols}>
+                        <Link to={`/loads/${m.loadId}`} onClick={(e) => e.stopPropagation()}>{m.loadId}</Link>
+                        {days.get(m.loadId)?.size === 1 && <span className="gday">{dayLabel(m.at, tz, now)}</span>}
+                      </td>
                     </tr>
                   )}
-                  <tr className={q.data?.source !== "fixture" || hasRecordedDetail(m.loadId) ? "" : "summary-only"} onClick={() => (q.data?.source !== "fixture" || hasRecordedDetail(m.loadId)) && setOpen(m)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpen(m)}>
-                    <td className="ts">{clock(m.at, tzOf(m.loadId))}</td>
-                    <td><ChannelBadge channel={m.channel} /></td>
-                    
+                  {head && !grouped && (
+                    <tr className="group day">
+                      <td colSpan={cols}>{dayLabel(m.at, tz, now)}</td>
+                    </tr>
+                  )}
+                  <tr className={opens ? "" : "summary-only"} onClick={() => opens && setOpen(m)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpen(m)}>
+                    <td className="ts">{grouped && (days.get(m.loadId)?.size ?? 0) > 1 ? `${dayShort(m.at, tz)}, ${clock(m.at, tz)}` : clock(m.at, tz)}</td>
+                    {!grouped && (
+                      <td className="ld">
+                        {/* The chip marks where a load's run starts; rows that continue it name the load for screen readers only. */}
+                        {head || prev?.loadId !== m.loadId ? (
+                          <Link className="loadchip" to={`/loads/${m.loadId}`} onClick={(e) => e.stopPropagation()}>{m.loadId}</Link>
+                        ) : (
+                          <span className="sr-only">{m.loadId}</span>
+                        )}
+                      </td>
+                    )}
+                    <td className="ch"><ChannelBadge channel={m.channel} /></td>
                     <td className="hide-m">{m.direction === "in" ? "from " : "to "}{m.party}</td>
                     <td className="what">{purposeWords(m)}</td>
                     <td><StatusPill status={m.status} /></td>

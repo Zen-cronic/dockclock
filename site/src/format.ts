@@ -58,3 +58,9 @@ export function dayShort(iso: string, timeZone: string): string {
 export function clockOn(iso: string, timeZone: string, ref: string): string {
   return dayShort(iso, timeZone) === dayShort(ref, timeZone) ? clock(iso, timeZone) : `${dayShort(iso, timeZone)}, ${clock(iso, timeZone)}`;
 }
+
+// A day-separator label: "Today" for the viewer's current local day in that zone, else "Oct 22".
+export function dayLabel(iso: string, timeZone: string, now: string = new Date().toISOString()): string {
+  const day = dayShort(iso, timeZone);
+  return day === dayShort(now, timeZone) ? "Today" : day;
+}
