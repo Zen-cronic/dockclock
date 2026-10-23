@@ -183,7 +183,13 @@ export interface LoadView {
 export interface LiveClock {
   asOf: string;
   arrivedAt: string | null;
+  // When the clock stopped: the Released tap, or on loads before the tap was kept, the release pin.
   releasedAt: string | null;
+  // The release location pin that confirms the tap; null when there was no tap or no pin yet.
+  releasePinAt?: string | null;
+  // A closed load that arrived but was never released: when the clock stopped (the close). Null
+  // otherwise. Nothing past it is billed.
+  endedAt?: string | null;
   clockStartAt: string | null; // when free time starts counting, by clause
   freeTimeEndsAt: string | null;
   // Minutes so far (live) or final (sealed); billable is past free time.

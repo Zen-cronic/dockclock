@@ -1,3 +1,4 @@
+import { releaseLine } from "../copy/provenance.js";
 import { clock, hmm } from "../format.js";
 import type { LoadDetail } from "../model/model.js";
 import { IconPause, IconPlay } from "./icons.js";
@@ -9,14 +10,22 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
   const tz = load.timeZone;
   const times = load.timeline.map((e) => Date.parse(e.at));
   if (c.arrivedAt) times.push(Date.parse(c.arrivedAt));
+  if (c.releasePinAt) times.push(Date.parse(c.releasePinAt));
+  // When the clock stopped: the Released tap (an older load's pin), or the close of a load that
+  // ended without a release. Nothing past it is billed.
+  const stopAt = c.releasedAt ?? c.endedAt ?? null;
+  const ended = !c.releasedAt && Boolean(c.endedAt);
   // A load still at the dock: the clock runs to "as of", and the track ends there.
-  const now = !c.releasedAt && load.asOf ? load.asOf : null;
+  const now = !stopAt && load.asOf ? load.asOf : null;
   if (now) times.push(Date.parse(now));
+  // Neither live nor stopped (an older closed record): the clock ends at its last record, never today.
+  const lastRecord = load.timeline.map((e) => e.at).sort().at(-1) ?? c.arrivedAt;
+  const clockEnd = stopAt ?? now ?? lastRecord;
   // While the truck is still at the dock, keep the end of free time on the track.
   if (now && c.freeTimeEndsAt) times.push(Date.parse(c.freeTimeEndsAt));
   if (c.arrivedAt) {
     const first = Math.min(...times);
-    if (Date.parse(c.arrivedAt) - first > 0 && !c.releasedAt) times.splice(0, times.length, ...times.filter((t) => t >= Date.parse(c.arrivedAt!)));
+    if (Date.parse(c.arrivedAt) - first > 0 && !stopAt) times.splice(0, times.length, ...times.filter((t) => t >= Date.parse(c.arrivedAt!)));
   }
   let start = Math.min(...times);
   let end = Math.max(...times);
@@ -24,9 +33,9 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
   // squeeze the dock stay into a sliver. Scale the track to the stay plus a margin and park
   // anything later in a short "later" stub at the right end.
   let lateFrom = Number.POSITIVE_INFINITY;
-  if (c.arrivedAt && c.releasedAt) {
+  if (c.arrivedAt && stopAt) {
     const a = Date.parse(c.arrivedAt);
-    const r = Date.parse(c.releasedAt);
+    const r = Date.parse(stopAt);
     const pad = Math.max(10 * 60_000, (r - a) * 0.5);
     start = Math.max(start, a - pad);
     if (end > r + pad) {
@@ -45,10 +54,11 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
   // In and out a few percent apart would print over each other: one label then carries both.
   const merged = Boolean(c.arrivedAt && c.releasedAt && pct(c.releasedAt) - pct(c.arrivedAt) < 16);
   const limit = cursor ? Date.parse(cursor) : Number.POSITIVE_INFINITY;
-  const upTo = (iso: string | null) => Math.min(Date.parse(iso ?? now ?? new Date(limit === Infinity ? Date.now() : limit).toISOString()), limit);
+  const upTo = (iso: string | null) => Math.min(Date.parse(iso ?? new Date(limit === Infinity ? Date.now() : limit).toISOString()), limit);
   const width = (from: string, to: string) => Math.max(0, pct(new Date(Math.min(Date.parse(to), limit)).toISOString()) - pct(from));
-  const atDock = c.arrivedAt ? Math.max(0, (upTo(c.releasedAt) - Date.parse(c.arrivedAt)) / 60_000) : 0;
-  const billable = c.freeTimeEndsAt ? Math.max(0, (upTo(c.releasedAt) - Date.parse(c.freeTimeEndsAt)) / 60_000) : 0;
+  const atDock = c.arrivedAt ? Math.max(0, (upTo(clockEnd) - Date.parse(c.arrivedAt)) / 60_000) : 0;
+  const billable = c.freeTimeEndsAt ? Math.max(0, (upTo(clockEnd) - Date.parse(c.freeTimeEndsAt)) / 60_000) : 0;
+  const release = releaseLine(c, tz);
   const early = c.arrivedAt && c.clockStartAt && Date.parse(c.arrivedAt) < Date.parse(c.clockStartAt);
   return (
     <section className={`dockband ${compact ? "compact" : ""}`} aria-label="Dock clock">
@@ -109,6 +119,13 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
             )}
           </div>
         )}
+        {ended && c.endedAt && (
+          <div className={`mark ${pct(c.endedAt) > 80 ? "end" : ""}`} style={{ left: `${pct(c.endedAt)}%` }}>
+            {clock(c.endedAt, tz)}
+            <span>ended without a release</span>
+          </div>
+        )}
+        {c.releasePinAt && <div className="mark tick" style={{ left: `${pct(c.releasePinAt)}%` }} title={`Release pin ${clock(c.releasePinAt, tz)}`} />}
         {late && (
           <div className="mark later" style={{ left: "94%" }}>
             <span>later</span>
@@ -117,8 +134,8 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
         <div className="bar">
           {early && c.arrivedAt && c.clockStartAt && <div className="seg early" style={{ left: `${pct(c.arrivedAt)}%`, width: `${width(c.arrivedAt, c.clockStartAt)}%` }} />}
           {c.clockStartAt && c.freeTimeEndsAt && <div className="seg free" style={{ left: `${pct(c.clockStartAt)}%`, width: `${width(c.clockStartAt, c.freeTimeEndsAt)}%` }} />}
-          {c.freeTimeEndsAt && (c.releasedAt ?? now) && Date.parse((c.releasedAt ?? now)!) > Date.parse(c.freeTimeEndsAt) && (
-            <div className="seg bill" style={{ left: `${pct(c.freeTimeEndsAt)}%`, width: `${width(c.freeTimeEndsAt, (c.releasedAt ?? now)!)}%` }} />
+          {c.freeTimeEndsAt && clockEnd && Date.parse(clockEnd) > Date.parse(c.freeTimeEndsAt) && (
+            <div className="seg bill" style={{ left: `${pct(c.freeTimeEndsAt)}%`, width: `${width(c.freeTimeEndsAt, clockEnd)}%` }} />
           )}
           {now && <div className="seg cursor live" style={{ left: `${pct(now)}%` }} />}
           {late && <div className="brk" style={{ left: "88%" }} />}
@@ -140,6 +157,7 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
           })()}
         </div>
       </div>
+      {release && !compact && <p className="small bandnote">{release}</p>}
       {(legend ?? true) && (
         <div className="bandlegend" aria-hidden="true">
           {(["refused", "money", "agent", "ok"] as const)

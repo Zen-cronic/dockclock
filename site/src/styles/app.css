@@ -422,6 +422,7 @@ a { color: inherit; }
 /* Overrides: timeline reasons, dock band legend, pills, judges stage */
 .tl .why { font-size: var(--t-13); color: var(--stop); text-align: right; white-space: nowrap; }
 .dockband .bandlegend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; font-size: 11.5px; color: var(--nav-dim); }
+.dockband .bandnote { margin-top: 6px; font-size: 11.5px; color: var(--nav-dim); }
 .dockband .bandlegend i { position: static; display: inline-block; transform: none; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; background: var(--nav-text); }
 .dockband .bandlegend i.money { background: var(--safety); }
 .dockband .bandlegend i.agent { background: #8aa4ff; }

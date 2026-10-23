@@ -1,6 +1,7 @@
 // Copy follows provenance. Every claim the console makes about how a load was proved or approved
 // comes from these functions, which read the records instead of assuming the happy path. The site
 // tests render a test load through them and fail on "WhatsApp server times" or "tapped".
+import { clock } from "../format.js";
 import type { LoadDetail } from "../model/model.js";
 
 type Words = { short: string; long: string };
@@ -77,4 +78,13 @@ export function testStrip(d: Pick<LoadDetail, "run" | "clock" | "approval" | "cl
 export function photoBadge(isFixture: boolean, realPhone: boolean): string {
   if (isFixture || !realPhone) return "Rendered test document";
   return "Fictional BOL, photographed on a real phone";
+}
+
+// The release in one line. With a Released tap the clock stopped at the tap and the pin confirms
+// it; an older load's release is the pin alone. A closed load never released says so.
+export function releaseLine(c: Pick<LoadDetail["clock"], "releasedAt" | "releasePinAt" | "endedAt">, timeZone: string): string | null {
+  if (c.releasedAt && c.releasePinAt) return `Clock stopped at the Released tap ${clock(c.releasedAt, timeZone)}; pin confirmed ${clock(c.releasePinAt, timeZone)}`;
+  if (c.releasedAt) return null;
+  if (c.endedAt) return `Clock stopped at ${clock(c.endedAt, timeZone)}: the load ended without a release`;
+  return null;
 }

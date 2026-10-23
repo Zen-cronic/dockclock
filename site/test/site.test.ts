@@ -213,6 +213,50 @@ describe("judges path", async () => {
   });
 });
 
+// The Released tap stops the clock; the pin confirms it within 10 minutes (RELEASE_PIN_LATE otherwise).
+describe("release tap and pin", async () => {
+  const { recordedInput, whatIfs } = await import("../src/ui/WhatIfPanel.js");
+  const { releaseLine } = await import("../src/copy/provenance.js");
+  const { REASON_WORDS, recordedEvidence } = await import("../src/engine.js");
+  const body = JSON.parse(readFileSync(new URL("SMOKE-DEMO-mvh3xsdv.json", fxDir), "utf8")) as { data: LoadView };
+  const tapAt = body.data.verdict!.engineInput.released!.at;
+  const late = new Date(Date.parse(tapAt) + 12 * 60_000).toISOString();
+
+  it("names the late pin in words", () => {
+    expect(REASON_WORDS.RELEASE_PIN_LATE).toBe("the release location was not shared within 10 minutes of tapping Released");
+  });
+
+  it("passes the pin time to the engine, so a late pin reproduces its verdict", () => {
+    const v = structuredClone(body.data);
+    v.verdict!.engineInput.releasePinAt = late;
+    const d = detailFromApi(v, "fixture");
+    expect(run(recordedInput(d)!).reasons).toContain("RELEASE_PIN_LATE");
+    const s = structuredClone(snap);
+    s.verdict.engineInput.releasePinAt = new Date(Date.parse(s.verdict.engineInput.released!.at) + 12 * 60_000).toISOString();
+    expect(recordedEvidence(s).releasePinAt).toBe(s.verdict.engineInput.releasePinAt);
+    expect(run(recordedEvidence(s)).reasons).toContain("RELEASE_PIN_LATE");
+  });
+
+  it("offers the late-pin what-if only on a load with a tap and a pin", () => {
+    const d = detailFromApi(body.data, "fixture");
+    expect(whatIfs(d).find((w) => w.id === "pinLate")?.applies).toBe(Boolean(body.data.verdict!.engineInput.releasePinAt));
+    const v = structuredClone(body.data);
+    v.verdict!.engineInput.releasePinAt = new Date(Date.parse(tapAt) + 2 * 60_000).toISOString();
+    const withPin = detailFromApi(v, "fixture");
+    const pinLate = whatIfs(withPin).find((w) => w.id === "pinLate")!;
+    expect(pinLate.applies).toBe(true);
+    expect(run(recordedInput(withPin)!).reasons).not.toContain("RELEASE_PIN_LATE");
+    expect(run(pinLate.apply(recordedInput(withPin)!)).reasons).toContain("RELEASE_PIN_LATE");
+  });
+
+  it("says the clock stopped at the tap and the pin confirmed it; an old pack shows the pin alone", () => {
+    const tz = "America/New_York";
+    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "2026-10-23T18:57:00.000Z" }, tz)).toBe("Clock stopped at the Released tap 2:55 PM; pin confirmed 2:57 PM");
+    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z" }, tz)).toBeNull();
+    expect(releaseLine({ releasedAt: null, endedAt: "2026-10-26T18:55:00.000Z" }, tz)).toMatch(/ended without a release/);
+  });
+});
+
 describe("message monitor order", () => {
   const row = (id: string, loadId: string, at: string, over: Partial<FeedRow> = {}): FeedRow => ({
     id, at, loadId, runKind: "integration", channel: "whatsapp", direction: "out", party: "driver", purpose: "notice", preview: "", status: "delivered", failover: false, synthetic: false, localId: id, isEmail: false, ...over,

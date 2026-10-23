@@ -56,8 +56,15 @@ export function whatIfs(d: LoadDetail): WhatIf[] {
         return { ...e, arrived: e.arrived ? { ...e.arrived, at: iso(t) } : e.arrived, bol: e.bol ? { ...e.bol, checkIn: iso(t + 2 * 60_000) } : e.bol };
       },
     },
+    {
+      id: "pinLate",
+      label: "Pin 12 min after Released",
+      hint: "limit 10 min",
+      applies: Boolean(d.verdict?.engineInput.releasePinAt),
+      apply: (e) => (e.released ? { ...e, releasePinAt: iso(Date.parse(e.released.at) + 12 * 60_000) } : e),
+    },
     { id: "unsigned", label: "Receiver didn't sign the paper", hint: "no signed bill of lading", applies: true, apply: (e) => ({ ...e, bol: e.bol ? { ...e.bol, signed: false } : e.bol }) },
-    { id: "conflict", label: "Paper out-time 40 min after the pin", hint: "paper and phone disagree", applies: true, apply: (e) => ({ ...e, bol: e.bol && e.released ? { ...e.bol, checkOut: iso(Date.parse(e.released.at) + 40 * 60_000) } : e.bol }) },
+    { id: "conflict", label: "Paper out-time 40 min after the Released tap", hint: "paper and phone disagree", applies: true, apply: (e) => ({ ...e, bol: e.bol && e.released ? { ...e.bol, checkOut: iso(Date.parse(e.released.at) + 40 * 60_000) } : e.bol }) },
     {
       id: "noticeLate",
       label: "Notice sent after free time ended",
@@ -72,14 +79,14 @@ export function whatIfs(d: LoadDetail): WhatIf[] {
 export function recordedInput(d: LoadDetail): LoadEvidence | null {
   const i = d.verdict?.engineInput;
   if (!i) return null;
-  return { loadId: d.summary.id, clauseId: d.clause.id, facility: d.snapshot?.load.facility.id ?? d.summary.facility, appointmentAt: i.appointmentAt, arrived: i.arrived, released: i.released, bol: i.bol, status214: i.status214, noticeSentAt: i.noticeSentAt, shipperConfirmed: i.shipperConfirmed, evaluatedAt: i.evaluatedAt };
+  return { loadId: d.summary.id, clauseId: d.clause.id, facility: d.snapshot?.load.facility.id ?? d.summary.facility, appointmentAt: i.appointmentAt, arrived: i.arrived, released: i.released, ...(i.releasePinAt ? { releasePinAt: i.releasePinAt } : {}), bol: i.bol, status214: i.status214, noticeSentAt: i.noticeSentAt, shipperConfirmed: i.shipperConfirmed, evaluatedAt: i.evaluatedAt };
 }
 
 const RULES: Array<[string, (d: LoadDetail) => string, string[]]> = [
   ["Free time", (d) => duration(d.clause.freeTimeMinutes), ["WITHIN_FREE_TIME"]],
   ["On time", (d) => (d.clause.requireOnTimeArrival ? "required" : "not required"), ["LATE_ARRIVAL"]],
   ["Signed paper", (d) => (d.clause.acceptedRecords.includes("signed_bol_times") ? "both times" : "not required"), ["NO_STATEMENT_OF_RECORD"]],
-  ["Paper vs phone", () => "within 15 min", ["BOL_TIMESTAMP_CONFLICT", "PIN_OUTSIDE_GEOFENCE"]],
+  ["Paper vs phone", () => "within 15 min", ["BOL_TIMESTAMP_CONFLICT", "PIN_OUTSIDE_GEOFENCE", "RELEASE_PIN_LATE"]],
   ["Notice", (d) => (d.clause.noticeLeadMinutes === null ? "not required" : "before free time ends"), ["NOTICE_MISSING", "NOTICE_LATE"]],
   ["Claim window", (d) => hoursWords(d.clause.claimWindowHours), ["CLAIM_WINDOW_EXPIRED"]],
 ];

@@ -15,6 +15,7 @@ export const REASON_WORDS: Record<ReasonCode, string> = {
   CLAIM_WINDOW_EXPIRED: "the claim was filed after the contract's claim window closed",
   SHIPPER_CONFIRMATION_REQUIRED: "the contract needs the shipper's confirmation",
   CAP_APPLIED: "the contract's cap applies",
+  RELEASE_PIN_LATE: "the release location was not shared within 10 minutes of tapping Released",
 };
 
 export function recordedEvidence(snap: ReplaySnapshot): LoadEvidence {
@@ -26,6 +27,7 @@ export function recordedEvidence(snap: ReplaySnapshot): LoadEvidence {
     appointmentAt: i.appointmentAt,
     arrived: i.arrived,
     released: i.released,
+    ...(i.releasePinAt ? { releasePinAt: i.releasePinAt } : {}),
     bol: i.bol,
     status214: i.status214,
     noticeSentAt: i.noticeSentAt,

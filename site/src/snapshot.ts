@@ -103,7 +103,12 @@ export interface ClauseInfo {
 // The dock clock band. All instants; null when the step never happened.
 export interface ClockInfo {
   arrivedAt: string | null;
+  // The Released tap, or on older packs the release pin.
   releasedAt: string | null;
+  // The pin that confirms the tap (absent on older packs, where the pin is the release).
+  releasePinAt?: string | null;
+  // A closed load that was never released: when its clock stopped.
+  endedAt?: string | null;
   // When the paid clock starts (appointment or arrival, by clause).
   clockStartAt: string | null;
   freeTimeEndsAt: string | null;
@@ -169,6 +174,7 @@ export type ReasonCode =
   | "NO_STATEMENT_OF_RECORD"
   | "CLAIM_WINDOW_EXPIRED"
   | "SHIPPER_CONFIRMATION_REQUIRED"
+  | "RELEASE_PIN_LATE"
   | "CAP_APPLIED";
 
 export interface VerdictInfo {
@@ -182,7 +188,10 @@ export interface VerdictInfo {
   engineInput: {
     appointmentAt: string;
     arrived: { at: string; insideGeofence: boolean } | null;
+    // On a pack with a Released tap, `released.at` is the tap (when the clock stopped) and
+    // `releasePinAt` the location pin that confirms it. Older packs: the pin alone, no releasePinAt.
     released: { at: string; insideGeofence: boolean } | null;
+    releasePinAt?: string;
     // checkIn/checkOut are ISO instants (the driver's written times on the facility's date), as the
     // clause engine compares them with the pins.
     bol: { signed: boolean; checkIn: string | null; checkOut: string | null } | null;

@@ -13,7 +13,7 @@ interface PackShape {
   facility?: { name?: string };
   appointmentAt?: string;
   sealedAt?: string;
-  events?: { arrived?: { serverAt?: string }; released?: { serverAt?: string }; bol?: { cameraOnly?: boolean; pageSha256s?: Array<string | null> } | null; notice?: unknown };
+  events?: { arrived?: { serverAt?: string }; releasedTap?: { serverAt?: string } | null; released?: { serverAt?: string }; bol?: { cameraOnly?: boolean; pageSha256s?: Array<string | null> } | null; notice?: unknown };
   corroboration?: { confidence?: string; signals?: Array<{ name: string; ok: boolean }> };
   evaluation?: { verdict?: string; billableMinutes?: number; amountUsd?: number };
 }
@@ -99,7 +99,8 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
             {row("Load", orig.loadId ?? "", now.loadId ?? "")}
             {row("Facility", orig.facility?.name ?? "", now.facility?.name ?? "")}
             {row("Arrived", when(orig.events?.arrived?.serverAt), when(now.events?.arrived?.serverAt))}
-            {row("Released", when(orig.events?.released?.serverAt), when(now.events?.released?.serverAt))}
+            {orig.events?.releasedTap?.serverAt && row("Released tap", when(orig.events.releasedTap.serverAt), when(now.events?.releasedTap?.serverAt))}
+            {row(orig.events?.releasedTap?.serverAt ? "Release pin" : "Released", when(orig.events?.released?.serverAt), when(now.events?.released?.serverAt))}
             {row("Checks passed", signals(orig), signals(now))}
             {row("Verdict", orig.evaluation?.verdict ?? "", now.evaluation?.verdict ?? "")}
             {row("Amount", usd(orig.evaluation?.amountUsd ?? 0), usd(now.evaluation?.amountUsd ?? 0))}

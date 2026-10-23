@@ -140,6 +140,8 @@ export function detailFromApi(v: Api.LoadView, source: Source, resolveUrl: (u: s
     clock: {
       arrivedAt: v.clock.arrivedAt,
       releasedAt: v.clock.releasedAt,
+      ...(v.clock.releasePinAt ? { releasePinAt: v.clock.releasePinAt } : {}),
+      ...(v.clock.endedAt ? { endedAt: v.clock.endedAt } : {}),
       clockStartAt: v.clock.clockStartAt,
       freeTimeEndsAt: v.clock.freeTimeEndsAt,
       detentionMinutes: v.clock.detentionMinutes,

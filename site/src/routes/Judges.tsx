@@ -78,6 +78,7 @@ function SignedFields({ load }: { load: LoadDetail }) {
         <span>Load</span><b>{load.summary.id}</b>
         {c.arrivedAt && (<><span>Arrived</span><b>{clock(c.arrivedAt, load.timeZone)}</b></>)}
         {c.releasedAt && (<><span>Released</span><b>{clock(c.releasedAt, load.timeZone)}</b></>)}
+        {c.releasedAt && c.releasePinAt && (<><span>Pin</span><b>{clock(c.releasePinAt, load.timeZone)}</b></>)}
         <span>Amount</span><b>{usd(load.verdict?.amountUsd ?? 0)}</b>
       </div>
     </div>
