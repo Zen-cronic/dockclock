@@ -12,7 +12,7 @@ export function failoverMarkers(timeline: Array<{ at: string; title: string; out
   return timeline.filter((t) => t.outcome === "RESENT_OVER_RCS" || /switched the driver to RCS/i.test(t.title)).map((t) => ({ at: t.at, text: "WhatsApp failed → resent on RCS" }));
 }
 
-export function ConversationView({ messages, timeZone, party, upTo, title, markers = [] }: { messages: ConsoleMessage[]; timeZone: string; party: "driver" | "dispatcher"; upTo?: number; title?: string; markers?: Array<{ at: string; text: string }> }) {
+export function ConversationView({ messages, timeZone, party, upTo, title, markers = [], anyLocation = false }: { messages: ConsoleMessage[]; timeZone: string; party: "driver" | "dispatcher"; upTo?: number; title?: string; markers?: Array<{ at: string; text: string }>; anyLocation?: boolean }) {
   const shown = messages.filter((m) => m.party === party && (upTo === undefined || Date.parse(m.at) <= upTo));
   const lane = shown.find((m) => m.channel === "rcs") && !shown.find((m) => m.channel === "whatsapp") ? "rcs" : (messages.find((m) => m.party === party)?.channel ?? "whatsapp");
   const day = messages[0] ? dateLong(messages[0].at, timeZone) : "";
@@ -42,7 +42,7 @@ export function ConversationView({ messages, timeZone, party, upTo, title, marke
                   {due.map((k) => (
                     <span className="failoverchip" key={k.at}>{k.text}</span>
                   ))}
-                  <Bubble m={m} timeZone={timeZone} switched={switched && due.length === 0} />
+                  <Bubble m={m} timeZone={timeZone} switched={switched && due.length === 0} anyLocation={anyLocation} />
                 </Fragment>
               );
             })}
@@ -54,7 +54,7 @@ export function ConversationView({ messages, timeZone, party, upTo, title, marke
   );
 }
 
-function Bubble({ m, timeZone, switched }: { m: ConsoleMessage; timeZone: string; switched: boolean }) {
+function Bubble({ m, timeZone, switched, anyLocation }: { m: ConsoleMessage; timeZone: string; switched: boolean; anyLocation: boolean }) {
   const t = clock(m.at, timeZone);
   const tag = m.status === "not_sent" ? "not sent" : m.synthetic ? "" : (m.title ?? "");
   const failover = m.failover ? <span className="failoverchip">{channelName(m.failover.from)} failed → resent on {channelName(m.failover.to)}</span> : switched ? <span className="failoverchip">Now on {channelName(m.channel)}</span> : null;
@@ -93,7 +93,7 @@ function Bubble({ m, timeZone, switched }: { m: ConsoleMessage; timeZone: string
     inner = (
       <span className="loc">
         <i aria-hidden="true"><IconPin width={14} /></i>
-        <span>Location shared<br /><span className="small">{m.location.insideGeofence === false ? "outside the facility" : "inside the facility ∙ no coordinates shown"}</span></span>
+        <span>Location shared<br /><span className="small">{anyLocation ? "any location accepted ∙ no coordinates shown" : m.location.insideGeofence === false ? "outside the facility" : "inside the facility ∙ no coordinates shown"}</span></span>
       </span>
     );
   if (m.kind === "flow_reply" && m.flowReply) {

@@ -9,6 +9,12 @@ export function isRealPhoneRun(d: Pick<LoadDetail, "run" | "clock">): boolean {
   return (d.run.kind === "phone" || d.run.kind === "demo") && d.clock.driverTimes !== "synthetic_input";
 }
 
+// The judge-demo yard takes a pin from anywhere, so its pins prove server time, not place. Copy for
+// those loads must never say a pin was checked against a yard.
+export function acceptsAnyLocation(d: Pick<LoadDetail, "summary" | "snapshot">): boolean {
+  return d.snapshot?.load.facility.id === "judge-demo" || /any location/i.test(d.summary.facility);
+}
+
 // A few words for a badge: what kind of run this was.
 export function runLabel(d: Pick<LoadDetail, "run" | "approval">): string {
   switch (d.run.kind) {
@@ -47,7 +53,7 @@ export function stoppedStep(d: Pick<LoadDetail, "workflow">, key: string) {
 export function approvalWords(d: Pick<LoadDetail, "approval" | "run" | "claim" | "workflow">): Words {
   const a = d.approval;
   const secs = d.claim?.secondsAfterApproval;
-  const after = secs != null ? ` ∙ emailed in ${Math.round(secs)} s` : "";
+  const after = secs != null ? ` ∙ emailed in ${Math.round(secs)}\u00a0s` : "";
   if (a?.decision === "approve" && a.approver === "dispatcher")
     return { short: `Dispatcher tapped Approve${after}`, long: "The dispatcher tapped Approve on WhatsApp. Only the dispatcher, with that request's one-time code, can approve, and only once." };
   if (a?.decision === "approve" && a.approver === "demo_driver")

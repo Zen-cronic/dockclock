@@ -49,7 +49,7 @@ export function flowNodes(d: LoadDetail): FlowNode[] {
       services: ["Bedrock AgentCore", "AgentCore Gateway", ...(r.filed ? ["SES"] : [])],
       tone: r.filed ? "agent" : "refused",
       icon: r.filed ? "agent" : "stop",
-      outcome: r.filed ? (r.guard?.match ? "guard match" : "filed") : "no approval",
+      outcome: r.filed ? (r.guard?.match ? "same amount" : "filed") : "no approval",
       raw: r,
     });
   const approvedAt = d.approval?.decidedAt ?? d.timeline.find((t) => /approv/i.test(t.title) && t.tone === "ok")?.at;

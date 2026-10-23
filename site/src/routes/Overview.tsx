@@ -5,6 +5,7 @@ import { ChannelBadge, ProvenanceBadge, channelName } from "../ui/badges.js";
 import { Page } from "../ui/AppShell.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
 import { KpiTile } from "../ui/KpiTile.js";
+import { IconChevron } from "../ui/icons.js";
 import { EmptyState } from "../ui/EmptyState.js";
 
 export function Overview() {
@@ -44,7 +45,7 @@ export function Overview() {
             <div className="card">
               <div className="card-head">
                 <h2>Latest</h2>
-                <Link className="small" to="/messages">All ›</Link>
+                <Link className="small golink" to="/messages">All<IconChevron className="go" /></Link>
               </div>
               <ul className="feed">
                 {o.activity.slice(0, 8).flatMap((a, i, all) => {

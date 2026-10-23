@@ -1,3 +1,4 @@
+import { acceptsAnyLocation } from "../copy/provenance.js";
 import { Fragment, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { hasRecordedDetail, useLoad, useLoads, useMessages } from "../model/client.js";
@@ -160,7 +161,7 @@ function FeedDetail({ row }: { row: FeedRow }) {
   const msg = d.messages.find((m) => (m.id.split(":").pop() ?? m.id) === row.localId);
   return (
     <>
-      <ConversationView messages={d.messages} timeZone={d.timeZone} party={msg?.party === "dispatcher" ? "dispatcher" : "driver"} upTo={Date.parse(row.at)} />
+      <ConversationView messages={d.messages} timeZone={d.timeZone} party={msg?.party === "dispatcher" ? "dispatcher" : "driver"} upTo={Date.parse(row.at)} anyLocation={acceptsAnyLocation(d)} />
       <p style={{ marginTop: 14 }}>
         <Link className="btn small" to={`/loads/${d.summary.id}/conversation`}>Open load {d.summary.id}</Link>
       </p>

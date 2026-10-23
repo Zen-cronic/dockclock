@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useParams, useSearchParams } from "react-router-dom";
-import { approvalWords, isRealPhoneRun, provedWords, runLabel, stoppedStep, testStrip } from "../copy/provenance.js";
+import { acceptsAnyLocation, approvalWords, isRealPhoneRun, provedWords, runLabel, stoppedStep, testStrip } from "../copy/provenance.js";
 import { recordedCaptures, useLoad, usePack } from "../model/client.js";
 import { flowNodes, type FlowNode } from "../model/flow.js";
 import type { ConsoleEmail, LoadDetail, TimelineItem } from "../model/model.js";
@@ -174,7 +174,7 @@ export function LoadDetailRoute() {
                 <button aria-pressed={party === "dispatcher"} onClick={() => setParty("dispatcher")}>Dispatcher</button>
               </div>
             )}
-            <ConversationView messages={(shown ?? load).messages} timeZone={load.timeZone} party={party} markers={failoverMarkers((shown ?? load).timeline)} />
+            <ConversationView messages={(shown ?? load).messages} timeZone={load.timeZone} party={party} markers={failoverMarkers((shown ?? load).timeline)} anyLocation={acceptsAnyLocation(load)} />
           </div>
           <div className="card">
             <div className="card-head"><h2>Proof</h2></div>

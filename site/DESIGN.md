@@ -1,6 +1,6 @@
 # DockClock Console: design system "Door 05"
 
-The console is where DockClock's messaging is monitored: WhatsApp, RCS and email, per load and across loads. Its `/judges` route walks a judge through one load: proved, signed, filed, then break the signature and change one fact.
+The console is where DockClock's messaging is monitored: WhatsApp, RCS and email, per load and across loads. Its `/judges` route follows one claim through the five reasons a broker denies detention, one step each: "You weren't there that long" (Proved), "You never gave notice" (Notice), "You filed too late" (Filed), "The evidence was edited" (Break) and "It isn't owed" (Change). It opens on the priced problem (ATRI 2024, about $204,000 a year for a 40-driver carrier) and ends on "Try it". Each step has one heading, one sentence, one proof card and a "Carried by" row naming the services behind that proof. `/judges/signed` is an old link and lands on Break.
 
 Rules:
 - It is an app, not a report. Each screen does one thing.
@@ -99,12 +99,17 @@ White on safety yellow fails (1.4) and is never used.
 | ConversationView | `ConversationView.tsx` | A neutral phone frame drawn from message records. On WhatsApp, buttons sit under the bubble. On RCS, a rich card with suggestion chips and a "Share location" chip. A failover shows as one chip: "WhatsApp failed → resent on RCS". Dashed bubbles were never sent. It copies neither app's branding |
 | EmailView | `EmailView.tsx` | From, To with its test-mailbox note, Sent, Subject, body, attachments with sha256 on hover |
 | AgentFlow | `AgentFlow.tsx` + `model/flow.ts` | The load's workflow as a vertical node graph built only from records: driver messages, notice, seal, **every agent run including refusals**, approval and claim email. Each node is tagged with its AWS services. An inferred Cedar decision is marked. Steps the API marks `failed` are red (an approval nobody answered: "No answer from dispatch ∙ timed out"); steps marked `skipped` have a dashed node and no time ("No bill-of-lading photo ∙ pins only", "Claim not filed ∙ no approval"). The workflow's reason opens in the drawer. A node on a later day carries its date |
-| EvidencePanel | `EvidencePanel.tsx` | The pack as a canary carbon copy, the in-browser KMS signature check, three tamper switches with a was → now list, bill-of-lading photos with the agent's reading and the sha256 match, and the raw pack in a drawer |
-| WhatIfPanel | `WhatIfPanel.tsx` | The workflow's own clause engine, re-run with one fact changed: recorded vs computed stamps and the rule that failed |
+| EvidencePanel | `EvidencePanel.tsx` | The pack as a canary carbon copy, ruled per row (a hairline under each field, never a background stripe, so wrapped and stacked values stay on their line), the in-browser KMS signature check, three tamper switches with a was → now list, bill-of-lading photos with the agent's reading and the sha256 match, and the raw pack in a drawer |
+| WhatIfPanel | `WhatIfPanel.tsx` | The workflow's own clause engine, re-run with one fact changed. One line says what to do; only the facts this contract can turn on are listed, as plain sentences with a hint. The computed card waits ("Flip a switch…") until a fact changes, so the amount isn't repeated. Under 1100 px the result sits above the switches. The failed rule's reason reads under the stamps. The judges path uses `QuickWhatIf`: three named facts (left early, notice late, filed late), the two stamps and the reason |
 | Timeline | `Timeline.tsx` | One title row per record, grouped (driver replayed / workflow). A list that crosses days gets a date row at each change of day. The record opens in a drawer |
 | Drawer, Json | `Drawer.tsx` | A right-hand sheet. Escape closes it, and focus returns to the opener |
 | EmptyState | `EmptyState.tsx` | One line and an optional hint |
 | TourCoach | `TourCoach.tsx` | A sign-black coach card with a yellow keyline, for guided steps |
+
+## Marks and glyphs
+- Pass and fail ticks are drawn (`Mark` in `badges.tsx`, `IconCheck` and `IconClose`), never the ✓ ✕ font glyphs.
+- "Go" links end in the drawn chevron (`IconChevron`, class `go`, nudges 2 px on hover), never "›" or "→".
+- Chat ticks inside the phone frame stay as text: they imitate a chat app's delivery ticks.
 
 ## Data and provenance
 - **One view model.** Screens read the model in `src/model/model.ts`. Adapters turn the read API (`src/api.ts`, `fromApi.ts`) and the bundled replays (`replay/*.json`, `fromReplay.ts`) into it, and `src/model/client.ts` decides the source: live `/api`, then the recorded responses in `fixtures/api/` (RECORDED), then the replays (REPLAY). `?data=live|fixtures|replay` overrides it for the session.
@@ -113,6 +118,7 @@ White on safety yellow fails (1.4) and is never used.
   - "WhatsApp server times" appears only for a real phone run; a test load says "Replayed test times".
   - "Dispatcher tapped Approve" appears only when an approval record says so; with no approval record a filed claim says "Approved by a test command".
   - `test/site.test.ts` renders every replay through these functions and fails otherwise.
+- On the judge-demo yard any location counts (`acceptsAnyLocation`), so its pins read "any location", never "in yard" or "inside the facility".
 - **Never shown:** coordinates, phone numbers, BSUIDs, WhatsApp message ids, S3 keys, the KMS key ARN, the account id.
 - **Fictional names:** every company is fictional and labelled so.
 

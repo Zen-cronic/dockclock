@@ -589,3 +589,90 @@ main.page:focus { outline: none; }
 .printout.signedslip .kv { margin-top: 0; grid-template-columns: 120px minmax(0, 1fr); }
 @media (max-width: 860px) { .printout.signedslip .kv { grid-template-columns: 96px minmax(0, 1fr); } }
 .printout.signedslip { line-height: 26px; padding: 13px 22px; background-position: 0 13px; }
+
+/* Lessons pass 2026-10-23 */
+/* The pack's ruling follows its rows, so a line never cuts through a wrapped value or a stacked label. */
+.printout, .printout.signedslip { background-image: none; line-height: 1.5; }
+.printout .kv { column-gap: 0; }
+.printout .kv > span, .printout .kv > b { padding: 6px 0; border-bottom: 1px solid rgba(31, 42, 85, 0.12); }
+.printout .kv > span { padding-right: 14px; }
+.printout .kv > span:nth-last-child(2), .printout .kv > b:last-child { border-bottom: 0; }
+.printout .kv b.changed { padding: 6px 4px; }
+@media (max-width: 860px) {
+  .printout .kv > span { padding: 8px 0 0; border-bottom: 0; }
+  .printout .kv > b { margin-bottom: 0; padding: 0 0 8px; }
+  .printout .kv b.changed { padding: 0 4px 8px; }
+  .printout.signedslip .kv > span { padding: 6px 12px 6px 0; border-bottom: 1px solid rgba(31, 42, 85, 0.12); }
+  .printout.signedslip .kv > b { padding: 6px 0; }
+  .printout.signedslip .kv > span:nth-last-child(2) { border-bottom: 0; }
+}
+/* What if: one line of instruction, and a computed side that waits for a change. */
+.whatif-lede { color: var(--ink-2); margin-bottom: 12px; max-width: 52ch; }
+.compare .card.waiting { display: flex; flex-direction: column; align-items: flex-start; }
+.compare .card.waiting .wait { margin-top: 14px; color: var(--ink-3); font-size: var(--t-14); max-width: 22ch; }
+/* A drawn chevron for "go" links instead of the font glyph. */
+.go { width: 14px; height: 14px; flex: none; transition: transform 120ms var(--ease); }
+.btn .go { margin-left: -2px; }
+a:hover .go { transform: translateX(2px); }
+.golink, .pinproof > a { display: inline-flex; align-items: center; gap: 2px; }
+.pinproof > a { justify-self: start; }
+.whatif { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); grid-template-areas: "lede lede" "sw out" "sw rules"; gap: 12px var(--s4); align-items: start; }
+.whatif-lede { grid-area: lede; margin-bottom: 0; }
+.whatif-sw { grid-area: sw; }
+.whatif-out { grid-area: out; }
+.whatif-rules { grid-area: rules; }
+.whatif-why { margin-top: 10px; font-weight: 600; color: var(--stop); font-size: var(--t-14); }
+.btn .go { margin-left: -4px; }
+@media (max-width: 1100px) {
+  .whatif { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lede" "out" "sw" "rules"; }
+}
+@media (max-width: 860px) {
+  .switch { flex-wrap: wrap; row-gap: 2px; }
+  .switch .hint { flex-basis: 100%; margin-left: 50px; }
+}
+/* Drawn marks in place of font ticks */
+.mark { display: inline-flex; vertical-align: -2px; margin-right: 6px; }
+.mark svg { width: 14px; height: 14px; stroke-width: 2.6; }
+.mark.ok { color: var(--go); }
+.mark.no { color: var(--stop); }
+.rules .mk { display: inline-flex; align-items: center; }
+.rules .mk .mark { margin-right: 0; }
+.vres .ic svg { width: 30px; height: 30px; stroke-width: 2.6; }
+.steps a .n svg { width: 13px; height: 13px; stroke-width: 2.8; }
+/* Judges path: a denial per step, its proof and the service that carried it */
+.stage .kicker { font: 600 12px / 1.2 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+.carried { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin-top: 16px; }
+.carried li { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: 999px; background: var(--card); box-shadow: inset 0 0 0 1px var(--rule-2); font: 600 12px / 1 var(--mono); color: var(--ink-2); }
+.carried svg { width: 14px; height: 14px; flex: none; }
+.stage .extra { margin-top: 18px; display: grid; gap: 12px; justify-items: start; }
+.stage .extra > .pinproof, .stage .extra > .phototile, .stage .extra > .facts { justify-self: stretch; margin-top: 0; }
+.facts div.money { box-shadow: inset 0 3px 0 var(--safety); }
+.facts div.money dd { font: 800 var(--t-28) / 1 var(--display); }
+.failchip { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; border-radius: 999px; background: var(--card); box-shadow: inset 0 0 0 1px var(--rule); text-decoration: none; font-weight: 600; font-size: var(--t-13); color: var(--ink-2); }
+.failchip:hover { box-shadow: inset 0 0 0 1px var(--ink-3); }
+.mailcard { padding: 20px 22px; display: grid; gap: 10px; }
+.mailhead { display: flex; align-items: center; gap: 10px; }
+.mailhead > svg { width: 18px; height: 18px; flex: none; }
+.mailhead b { font: 800 20px / 1 var(--display); text-transform: uppercase; letter-spacing: 0.03em; }
+.mailhead .pill { margin-left: auto; }
+.mailcard .subj { font-weight: 600; overflow-wrap: anywhere; }
+.mailcard .kv-list { margin-top: 0; }
+.mailcard .kv-list dd { overflow-wrap: anywhere; }
+.mailcard .att { display: block; font-size: 12px; }
+.mailcard .tap { display: flex; align-items: center; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+.mailcard .tap .mono { margin-left: auto; }
+.mailcard .after { font: 800 var(--t-28) / 1 var(--display); text-transform: uppercase; }
+.twopt { display: grid; grid-template-columns: auto minmax(40px, 1fr) auto; align-items: start; gap: 10px; margin: 8px 0 18px; }
+.twopt .pt { display: grid; justify-items: center; gap: 3px; text-align: center; }
+.twopt .pt i { width: 14px; height: 14px; border-radius: 50%; background: var(--rule-2); }
+.twopt .pt.sent i { background: var(--go); }
+.twopt .pt.late i { background: var(--stop); }
+.twopt .pt.free i { background: var(--safety); box-shadow: inset 0 0 0 2px var(--ink); }
+.twopt .pt b { font: 600 14px / 1.2 var(--mono); }
+.twopt .pt span { font-size: 12px; color: var(--ink-3); }
+.twopt .seg { position: relative; height: 2px; margin-top: 6px; background: var(--rule-2); }
+.twopt .seg span { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); font: 600 12px var(--mono); white-space: nowrap; color: var(--ink-2); }
+.carried li.lbl { background: none; box-shadow: none; padding: 0 2px 0 0; font: 600 11px / 1 var(--text); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+.mailcard .after { text-transform: none; font-size: var(--t-20); }
+.stage .extra > .phototile { margin-top: 0; }
+.quick-sw { margin-bottom: 12px; }

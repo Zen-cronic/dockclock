@@ -177,3 +177,34 @@ describe("an approval nobody answered", () => {
     expect(provedWords(noBol).long).not.toMatch(/bill-of-lading/);
   });
 });
+
+// The judges path: one broker denial per step, and the what-ifs it shows each flip the verdict.
+describe("judges path", async () => {
+  const { JUDGE_STEPS } = await import("../src/routes/Judges.js");
+  const { earlyRelease, recordedInput, whatIfs } = await import("../src/ui/WhatIfPanel.js");
+  const { acceptsAnyLocation } = await import("../src/copy/provenance.js");
+  const body = JSON.parse(readFileSync(new URL("SMOKE-DEMO-mvh3xsdv.json", fxDir), "utf8")) as { data: LoadView };
+  const d = detailFromApi(body.data, "fixture");
+
+  it("has seven steps, with notice and without the old signed step", () => {
+    expect(JUDGE_STEPS).toEqual(["start", "proved", "notice", "filed", "break", "change", "phone"]);
+  });
+
+  it("never says a judge-demo pin was checked against a yard", () => {
+    expect(acceptsAnyLocation(d)).toBe(true);
+  });
+
+  it("moves the early release inside free time but after the arrival", () => {
+    const e = earlyRelease(d)!;
+    expect(Date.parse(e.out)).toBeGreaterThan(Date.parse(d.clock.arrivedAt!));
+    expect(Date.parse(e.out)).toBeLessThan(Date.parse(d.clock.freeTimeEndsAt!));
+  });
+
+  it("turns each of the three judge what-ifs into not owed", () => {
+    const base = recordedInput(d)!;
+    expect(run(base).verdict).toBe("BILLABLE");
+    const shown = whatIfs(d).filter((w) => ["early", "noticeLate", "window"].includes(w.id) && w.applies);
+    expect(shown.map((w) => w.id)).toEqual(["early", "noticeLate", "window"]);
+    for (const w of shown) expect(run(w.apply(base)).verdict).toBe("NOT_BILLABLE");
+  });
+});

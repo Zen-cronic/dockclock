@@ -1,5 +1,5 @@
 import type { Channel, MessageStatus, Source } from "../model/model.js";
-import { IconEmail, IconRcs, IconSms, IconWhatsApp } from "./icons.js";
+import { IconCheck, IconClose, IconEmail, IconRcs, IconSms, IconWhatsApp } from "./icons.js";
 
 // ProvenanceBadge: where the data on screen came from. Always visible, never a paragraph.
 export function ProvenanceBadge({ kind, label }: { kind: Source | "computed" | "test" | "recorded"; label?: string }) {
@@ -67,4 +67,9 @@ export function Stamp({ verdict, large }: { verdict: "BILLABLE" | "NOT_BILLABLE"
   if (!verdict) return <span className="stamp amber">Open</span>;
   const [text, cls] = verdict === "BILLABLE" ? ["Owed", ""] : verdict === "NOT_BILLABLE" ? ["Not owed", "red"] : ["Review", "amber"];
   return <span className={`stamp ${cls} ${large ? "lg" : ""}`}>{text}</span>;
+}
+
+// Mark: the console's own pass/fail tick, drawn in the icon stroke instead of a font glyph.
+export function Mark({ ok }: { ok: boolean }) {
+  return <span className={`mark ${ok ? "ok" : "no"}`} aria-hidden="true">{ok ? <IconCheck /> : <IconClose />}</span>;
 }

@@ -3,7 +3,9 @@ import { clock, dateLong, usd, zoneName } from "../format.js";
 import type { Photo } from "../model/model.js";
 import type { SignedPackInfo } from "../snapshot.js";
 import { verifyPack } from "../verify.js";
+import { Mark } from "./badges.js";
 import { Drawer, Json } from "./Drawer.js";
+import { IconCheck, IconClose } from "./icons.js";
 
 interface PackShape {
   loadId?: string;
@@ -18,7 +20,7 @@ interface PackShape {
 
 type Tamper = { amount: boolean; release: boolean; check: boolean };
 const TAMPERS: Array<[keyof Tamper, string, string]> = [
-  ["amount", "Amount", "→ $9,999.00"],
+  ["amount", "Amount", "to $9,999.00"],
   ["release", "Release", "+30 min"],
   ["check", "Failed check", ""],
 ];
@@ -123,7 +125,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
                     </dl>
                   )}
                   {ph.legible === false && <p className="small" style={{ marginTop: 8 }}>Not legible: a clearer photo was requested.</p>}
-                  {ph.matchesPack != null && <p className={ph.matchesPack ? "ok-text" : "bad-text"} style={{ marginTop: 8 }}>{ph.matchesPack ? "✓ sha256 matches the pack" : "✕ sha256 differs from the pack"}</p>}
+                  {ph.matchesPack != null && <p className={ph.matchesPack ? "ok-text" : "bad-text"} style={{ marginTop: 8 }}><Mark ok={ph.matchesPack} />{ph.matchesPack ? "sha256 matches the pack" : "sha256 differs from the pack"}</p>}
                 </div>
               </div>
             ))}
@@ -132,7 +134,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
       </div>
       <div className="card verifycard">
         <div className={`vres ${check.status === "valid" ? "good" : check.status === "invalid" ? "bad" : ""}`} aria-live="polite">
-          <span className="ic">{check.status === "valid" ? "✓" : check.status === "invalid" ? "✕" : "…"}</span>
+          <span className="ic">{check.status === "valid" ? <IconCheck /> : check.status === "invalid" ? <IconClose /> : "…"}</span>
           <div>
             <b>{check.status === "valid" ? "Signature valid" : check.status === "invalid" ? "Signature broken" : check.status === "error" ? "Couldn't check" : "Checking"}</b>
             <span className="small">{check.status === "error" ? check.error : "in your browser"}</span>

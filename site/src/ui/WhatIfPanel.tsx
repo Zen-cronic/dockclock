@@ -3,10 +3,10 @@ import type { LoadEvidence } from "@dockclock/clause-engine";
 import { baseline, clauseSpec, REASON_WORDS, run } from "../engine.js";
 import { clock, duration, usd } from "../format.js";
 import type { LoadDetail } from "../model/model.js";
-import { ProvenanceBadge, Stamp } from "./badges.js";
+import { Mark, ProvenanceBadge, Stamp } from "./badges.js";
 
 // 24 -> "1 day", 168 -> "7 days", 36 -> "36 h".
-function hoursWords(h: number): string {
+export function hoursWords(h: number): string {
   if (h % 24 !== 0) return `${h} h`;
   return h === 24 ? "1 day" : `${h / 24} days`;
 }
@@ -19,34 +19,53 @@ interface WhatIf {
   apply: (e: LoadEvidence) => LoadEvidence;
 }
 
+const sentence = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const iso = (ms: number) => new Date(ms).toISOString();
 
-function whatIfs(d: LoadDetail): WhatIf[] {
-  const spec = clauseSpec(d.clause.id);
+// A release inside free time and after the arrival, even on a 5-minute clause: up to 10 min early,
+// never more than half the free time. The paper's out-time sits just before it.
+export function earlyRelease(d: LoadDetail): { out: string; paperOut: string } | null {
   const free = d.clock.freeTimeEndsAt;
+  if (!free) return null;
+  const f = Date.parse(free);
+  const a = d.clock.arrivedAt ? Date.parse(d.clock.arrivedAt) : f - 20 * 60_000;
+  const lead = Math.min(10 * 60_000, Math.max(60_000, (f - a) / 2));
+  return { out: iso(f - lead), paperOut: iso(f - lead - Math.min(2 * 60_000, lead / 5)) };
+}
+
+export function whatIfs(d: LoadDetail): WhatIf[] {
+  const spec = clauseSpec(d.clause.id);
+  const early = earlyRelease(d);
+  const late = d.clock.freeTimeEndsAt ? iso(Date.parse(d.clock.freeTimeEndsAt) + 2 * 60_000) : null;
   const tz = d.timeZone;
   return [
     {
       id: "early",
-      label: "Left before free time ended",
-      hint: free ? `out ${clock(iso(Date.parse(free) - 10 * 60_000), tz)}` : "",
-      applies: Boolean(free),
-      apply: (e) => ({ ...e, released: e.released && free ? { ...e.released, at: iso(Date.parse(free) - 10 * 60_000) } : e.released, bol: e.bol && free ? { ...e.bol, checkOut: iso(Date.parse(free) - 12 * 60_000) } : e.bol }),
+      label: "Driver left before free time ended",
+      hint: early ? `out at ${clock(early.out, tz)}` : "",
+      applies: Boolean(early),
+      apply: (e) => ({ ...e, released: e.released && early ? { ...e.released, at: early.out } : e.released, bol: e.bol && early ? { ...e.bol, checkOut: early.paperOut } : e.bol }),
     },
     {
       id: "late",
-      label: "Arrived 20 min late",
-      hint: spec.requireOnTimeArrival ? "after the appointment" : "not required here",
+      label: "Driver arrived 20 min late",
+      hint: "after the appointment",
       applies: spec.requireOnTimeArrival,
       apply: (e) => {
         const t = Date.parse(e.appointmentAt) + 20 * 60_000;
         return { ...e, arrived: e.arrived ? { ...e.arrived, at: iso(t) } : e.arrived, bol: e.bol ? { ...e.bol, checkIn: iso(t + 2 * 60_000) } : e.bol };
       },
     },
-    { id: "unsigned", label: "Receiver didn't sign", hint: "no signed record", applies: true, apply: (e) => ({ ...e, bol: e.bol ? { ...e.bol, signed: false } : e.bol }) },
-    { id: "conflict", label: "Paper out-time 40 min off", hint: "paper vs phone", applies: true, apply: (e) => ({ ...e, bol: e.bol && e.released ? { ...e.bol, checkOut: iso(Date.parse(e.released.at) + 40 * 60_000) } : e.bol }) },
-    { id: "notice", label: "No detention notice", hint: spec.noticeLeadMinutes === null ? "not required here" : "never emailed", applies: spec.noticeLeadMinutes !== null, apply: (e) => ({ ...e, noticeSentAt: null }) },
-    { id: "window", label: `Filed ${hoursWords(spec.claimWindowHours + 24)} after release`, hint: `window ${hoursWords(spec.claimWindowHours)}`, applies: true, apply: (e) => ({ ...e, evaluatedAt: e.released ? iso(Date.parse(e.released.at) + (spec.claimWindowHours + 24) * 3_600_000) : e.evaluatedAt }) },
+    { id: "unsigned", label: "Receiver didn't sign the paper", hint: "no signed bill of lading", applies: true, apply: (e) => ({ ...e, bol: e.bol ? { ...e.bol, signed: false } : e.bol }) },
+    { id: "conflict", label: "Paper out-time 40 min after the pin", hint: "paper and phone disagree", applies: true, apply: (e) => ({ ...e, bol: e.bol && e.released ? { ...e.bol, checkOut: iso(Date.parse(e.released.at) + 40 * 60_000) } : e.bol }) },
+    {
+      id: "noticeLate",
+      label: "Notice sent after free time ended",
+      hint: late ? `sent ${clock(late, tz)}` : "",
+      applies: spec.noticeLeadMinutes !== null && Boolean(late),
+      apply: (e) => ({ ...e, noticeSentAt: late ?? e.noticeSentAt }),
+    },
+    { id: "window", label: `Claim filed ${hoursWords(spec.claimWindowHours + 24)} after release`, hint: `contract allows ${hoursWords(spec.claimWindowHours)}`, applies: true, apply: (e) => ({ ...e, evaluatedAt: e.released ? iso(Date.parse(e.released.at) + (spec.claimWindowHours + 24) * 3_600_000) : e.evaluatedAt }) },
   ];
 }
 
@@ -65,14 +84,45 @@ const RULES: Array<[string, (d: LoadDetail) => string, string[]]> = [
   ["Claim window", (d) => hoursWords(d.clause.claimWindowHours), ["CLAIM_WINDOW_EXPIRED"]],
 ];
 
+type Result = ReturnType<typeof run>;
+
+// Recorded vs computed. Until a fact changes, the computed side waits instead of repeating the amount.
+export function Outcome({ recorded, computed }: { recorded: Result; computed: Result | null }) {
+  return (
+    <div className="compare">
+      <div className="card">
+        <ProvenanceBadge kind="replay" label="Recorded" />
+        <div style={{ marginTop: 14 }}>
+          <Stamp verdict={recorded.verdict} />
+        </div>
+        <div className="num">{usd(recorded.amountUsd)}</div>
+      </div>
+      <div className={`card${computed ? "" : " waiting"}`} aria-live="polite">
+        <ProvenanceBadge kind="computed" />
+        {computed ? (
+          <>
+            <div style={{ marginTop: 14 }}>
+              <Stamp verdict={computed.verdict} />
+            </div>
+            <div className="num">{usd(computed.amountUsd)}</div>
+          </>
+        ) : (
+          <p className="wait">Flip a switch to see what the contract decides.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // WhatIfPanel: the workflow's own clause engine, re-run in the browser with one fact changed.
 export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: string[] }) {
   const [on, setOn] = useState<Set<string>>(new Set(initial ?? []));
   const base = recordedInput(load);
   if (!base) return <p className="small">No engine inputs recorded for this load.</p>;
-  const all = whatIfs(load);
+  // Only the facts this contract can turn on; a rule it doesn't have stays in the list on the right.
+  const all = whatIfs(load).filter((w) => w.applies);
   let changed = base;
-  for (const w of all) if (w.applies && on.has(w.id)) changed = w.apply(changed);
+  for (const w of all) if (on.has(w.id)) changed = w.apply(changed);
   const recorded = run(base);
   const computed = run(changed);
   const ask = baseline(changed);
@@ -85,40 +135,29 @@ export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: str
     setOn(next);
   };
   return (
-    <div className="grid-2">
-      <div>
+    <div className="whatif">
+      <p className="whatif-lede">Change a fact. The contract's rules run again in your browser.</p>
+      <div className="whatif-sw">
         {all.map((w) => (
-          <label className={`switch ${w.applies ? "" : "off"}`} key={w.id}>
-            <input type="checkbox" role="switch" checked={on.has(w.id)} disabled={!w.applies} onChange={(e) => toggle(w.id, e.target.checked)} />
+          <label className="switch" key={w.id}>
+            <input type="checkbox" role="switch" checked={on.has(w.id)} onChange={(e) => toggle(w.id, e.target.checked)} />
             {w.label}
             <span className="hint">{w.hint}</span>
           </label>
         ))}
       </div>
-      <div>
-        <div className="compare">
-          <div className="card">
-            <ProvenanceBadge kind="replay" label="Recorded" />
-            <div style={{ marginTop: 14 }}>
-              <Stamp verdict={recorded.verdict} />
-            </div>
-            <div className="num">{usd(recorded.amountUsd)}</div>
-          </div>
-          <div className="card" aria-live="polite">
-            <ProvenanceBadge kind="computed" />
-            <div style={{ marginTop: 14 }}>
-              <Stamp verdict={computed.verdict} />
-            </div>
-            <div className="num">{usd(computed.amountUsd)}</div>
-          </div>
-        </div>
-        <div className="card" style={{ marginTop: 12 }}>
+      <div className="whatif-out">
+        <Outcome recorded={recorded} computed={any ? computed : null} />
+        {any && reasons.length > 0 && <p className="whatif-why">{sentence(REASON_WORDS[reasons[0]!])}.</p>}
+      </div>
+      <div className="whatif-rules">
+        <div className="card">
           <ul className="rules">
             {RULES.map(([name, value, codes]) => {
               const failed = any && codes.some((c) => reasons.includes(c as never));
               return (
                 <li key={name} className={failed ? "failed" : ""}>
-                  <span className="mk" aria-hidden="true">{failed ? "✕" : "✓"}</span>
+                  <span className="mk"><Mark ok={!failed} /></span>
                   <b>{name}</b>
                   <span>{value(load)}{failed ? <span className="vh"> failed</span> : null}</span>
                 </li>
@@ -126,9 +165,41 @@ export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: str
             })}
           </ul>
         </div>
-        {any && reasons.length > 0 && <p className="small" style={{ marginTop: 10 }}>{REASON_WORDS[reasons[0]!]}.</p>}
-        <p className="small" style={{ marginTop: 6 }}>2-hour rule would ask {ask.filed ? usd(ask.amountUsd) : "$0.00"}{ask.filed && computed.verdict !== "BILLABLE" ? " (refusable)" : ""}.</p>
+        <p className="small" style={{ marginTop: 10 }}>Billing every stop over 2 hours would ask {ask.filed ? usd(ask.amountUsd) : "$0.00"}{ask.filed && computed.verdict !== "BILLABLE" ? ", and the contract can refuse it" : ""}.</p>
       </div>
     </div>
+  );
+}
+
+// The judges path's short version: a few named facts, the two stamps and the reason. No rule table.
+export function QuickWhatIf({ load, ids }: { load: LoadDetail; ids: string[] }) {
+  const [on, setOn] = useState<Set<string>>(new Set());
+  const base = recordedInput(load);
+  const shown = whatIfs(load).filter((w) => w.applies && ids.includes(w.id));
+  if (!base || shown.length === 0) return <p className="small">No engine inputs recorded for this load.</p>;
+  let changed = base;
+  for (const w of shown) if (on.has(w.id)) changed = w.apply(changed);
+  const computed = run(changed);
+  const reasons = computed.reasons.filter((r) => r !== "CAP_APPLIED");
+  const toggle = (id: string, v: boolean) => {
+    const next = new Set(on);
+    if (v) next.add(id);
+    else next.delete(id);
+    setOn(next);
+  };
+  return (
+    <>
+      <div className="quick-sw">
+        {shown.map((w) => (
+          <label className="switch" key={w.id}>
+            <input type="checkbox" role="switch" checked={on.has(w.id)} onChange={(e) => toggle(w.id, e.target.checked)} />
+            {w.label}
+            <span className="hint">{w.hint}</span>
+          </label>
+        ))}
+      </div>
+      <Outcome recorded={run(base)} computed={on.size ? computed : null} />
+      {on.size > 0 && reasons.length > 0 && <p className="whatif-why">{sentence(REASON_WORDS[reasons[0]!])}.</p>}
+    </>
   );
 }
