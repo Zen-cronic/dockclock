@@ -33,25 +33,27 @@ Carriers also skip billing because they expect to be refused and don't want to d
 4. **Sealed evidence.** Every photo is downloaded into S3 and hashed. The evidence pack is signed with an AWS KMS key and stored under S3 Object Lock, so anyone with the public key can check it later.
 5. **The contract decides, not the model.** A deterministic clause engine returns `BILLABLE`, `NOT_BILLABLE` (with the clause's reason) or `NEEDS_HUMAN`. Pre-filled times the driver left unchanged do not count as independent proof.
 6. **Dispatch approves on WhatsApp.** A BILLABLE load sends the dispatcher the `dockclock_dispatch_approval` template. Only the dispatcher's number, with that request's nonce, can approve, and only once. **Hold** stops the claim; no answer in two days hands it to a person.
-7. **The agent files the claim.** A Bedrock AgentCore agent reads the bill-of-lading photo before sealing, then, once dispatch approves, writes the claim email to the broker or shipper and sends it with Amazon SES, attaching the signed pack. It can only call DockClock's tools through an AgentCore Gateway, where Cedar policies allow the claim tool only with an approval and an amount under a cap. The tool then refuses unless the amount and pack digest equal the sealed values, so a prompt cannot change the money.
+7. **The agent files the claim.** Before sealing, the workflow calls the agent's bill-of-lading tool, which reads the photo with Claude on Amazon Bedrock; the reading only raises or lowers the evidence confidence, it never sets a time or an amount. Once dispatch approves, the Bedrock AgentCore agent writes the claim email to the broker or shipper and sends it with Amazon SES, attaching the signed pack. It can only call DockClock's tools through an AgentCore Gateway, where Cedar policies allow the claim tool only with an approval and an amount under a cap. The tool then refuses unless the amount and pack digest equal the sealed values, so a prompt cannot change the money.
 
 ## What works today, and what is still being built
 We'll tell you before you find it. Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md). Load ids say what kind of run it was: `LIVE-` loads were driven from a real phone; `SMOKE-` loads replay synthetic driver messages through the deployed stack, so everything after the phone (workflow, agent, SES, KMS) is real.
 
-| Works today (proven) | Being built before the 2026-10-24 freeze |
+| Works today (proven) | Not built, or not yet run live |
 |---|---|
-| Steps 1–5 above, run live on a real phone over AWS End User Messaging Social (load `LIVE-mve0rrez`) | Replies to disputes |
+| Steps 1–5 above, run live on a real phone over AWS End User Messaging Social (load `LIVE-mve0rrez`) | Replies to disputes (not built) |
 | **The whole money loop, automatic after sealing:** the dispatcher gets a WhatsApp approval template, taps **Approve claim**, and the AgentCore agent files the claim by SES with the signed pack; the workflow then reads the claim record itself before it reports success (load `SMOKE-mve8yfv3`: synthetic driver messages, a real approval template and tap on the operator's phone, and the claim emailed by SES to our test mailbox 14 seconds after the tap) | A live phone run of the photo retake and of the judge try-it path (both built and tested) |
 | **The detention notice:** EventBridge Scheduler fires before free time ends, SES emails the broker or shipper, the delivery event is recorded, and the sealed pack carries the notice, so clauses that require notice can pay (load `SMOKE-mveb2qnf`, synthetic driver messages: SES reported delivery to our test mailbox 0.7 s after sending) | |
 | A **Bedrock AgentCore** claims agent (Harness + Gateway) bounded by Cedar policies and a code gate on the sealed amount and digest; it refuses without an approval, and a second filing for the same load is refused (the claim is reserved before SES is called) | |
 | Bill-of-lading reading: **26 of 26 fields correct** on 7 fictional test photos, and an honest "not legible" on a real blurry phone photo; the reading is part of the signed evidence. An unreadable photo gets one request for a clearer one (tested; a live phone run is pending) | |
 | **RCS** for drivers without WhatsApp and as failover when a WhatsApp send fails (live on a real phone, load `LIVE-mve1ve6d`: dispatch card, Arrived, two location pins and a bill-of-lading photo over RCS, 2026-10-18 12:52–12:54 EDT; the WhatsApp-to-RCS failover is tested and run with synthetic events) | |
-| Duplicate, out-of-order and stale taps refused; STOP/START honoured; "Talk to dispatch" answers the driver and emails dispatch; a tampered pack fails verification; over 160 automated tests | |
+| Duplicate, out-of-order and stale taps refused; STOP/START honoured; "Talk to dispatch" answers the driver and emails dispatch; a tampered pack fails verification; about 300 automated tests | |
 
 Today the scorecard measures the clause engine on 24 hand-labelled test loads. Its truth column was written by us from each clause's text, so it is a consistency check, not field data.
 
 ## Try it yourself (judges)
-Send **DEMO** on WhatsApp to the DockClock number given on the Devpost submission page (**DEMO ES** for Spanish, **DEMO FR** for Québécois French). It takes about 10 minutes, most of it the real wait (10 more if a photo has to be retaken). You are both the driver and the dispatcher:
+**No phone needed:** open the console at https://d3djuoqhg6b8o2.cloudfront.net/judges. It walks one recorded load in five steps: what was proved, the signed evidence, the filed claim, breaking the signature yourself, and changing one fact. The screens read the live system (a recorded copy stands in if the API is down), and nothing needs a login.
+
+**With a phone:** send **DEMO** on WhatsApp to the DockClock number given on the Devpost submission page (**DEMO ES** for Spanish, **DEMO FR** for Québécois French). It takes about 10 minutes, most of it the real wait (10 more if a photo has to be retaken). You are both the driver and the dispatcher:
 1. Tap **Arrived** and share your location. In the demo any location counts; the pin is still recorded with WhatsApp's server timestamp.
 2. Free time is 5 minutes. Wait longer than that. Shortly after you arrive a detention notice is emailed, and the chat tells you.
 3. Tap **Released**, share your location again, write on a piece of paper the arrival and release times the chat and the form show (US Eastern time in the demo), and photograph it in the form. Keep the times the form suggests.
@@ -90,7 +92,7 @@ Per load this is **3 utility templates (driver dispatch, notice sent, dispatcher
 ## Run it
 ```bash
 npm ci
-npm test            # over 160 tests
+npm test            # about 300 tests (plus the console's own)
 npm run scorecard   # recomputes the headline above
 ```
 Deploying to your own AWS account (CDK) needs an existing WhatsApp Business Account linked to AWS End User Messaging Social; see `.env.example`.
