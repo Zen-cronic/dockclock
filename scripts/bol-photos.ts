@@ -1,7 +1,7 @@
 // Renders photo-like images of a FICTIONAL bill of lading with known contents, plus a ground-truth
 // manifest, into data/bol-photos/ (gitignored). Two uses:
 //   npm run bol:photos                      the eval set (see scripts/eval-bol.ts)
-//   npm run bol:photos -- --in 10:05 --out 13:10 [--signer "R. Alvarez"] [--facility "Demo Yard"]
+//   npm run bol:photos -- --in 10:05 --out 13:10 [--signer "R. Alvarez"] [--facility "Demo Yard"] [--shipper "Demo Receiving Co."]
 //                                           one document matching a live load's times, to show on a
 //                                           screen or print and photograph with the WhatsApp Flow camera.
 // Every image carries a "fictional document" footer; none is a real shipment.
@@ -13,6 +13,8 @@ interface BolCase {
   inTime: string | null;
   outTime: string | null;
   signer: string | null;
+  // Defaults to the eval set's fictional shipper; a live take passes the load's counterparty.
+  shipper?: string;
   facility: string;
   look: "clean" | "angled" | "dim" | "blurry";
   // What a careful reader should report.
@@ -74,7 +76,7 @@ function page(c: BolCase): string {
   footer { border-top: 1px solid #333; color: #555; font-size: 11px; margin-top: 12px; padding-top: 6px; }
 </style></head><body><div class="sheet">
   <h1>STRAIGHT BILL OF LADING</h1><p class="sub">BOL No. ${escapeHtml(c.id.toUpperCase())}-4471 · Short form, not negotiable</p>
-  <table><tr><th>Shipper</th><th>Facility</th></tr><tr><td>Lakeshore Foods (fictional shipper)</td><td>${escapeHtml(c.facility)}</td></tr>
+  <table><tr><th>Shipper</th><th>Facility</th></tr><tr><td>${escapeHtml(c.shipper ?? "Lakeshore Foods")} (fictional shipper)</td><td>${escapeHtml(c.facility)}</td></tr>
     <tr><th>Carrier</th><th>Trailer / Seal</th></tr><tr><td>Demo Carrier (fictional, 40 trucks)</td><td>TRL 5302 / SEAL 88120</td></tr></table>
   <table><tr><th>Handling units</th><th>Description</th><th>Weight (lb)</th></tr><tr><td>22 PLT</td><td>Canned goods, dry, no hazmat</td><td>38,400</td></tr></table>
   <table class="times"><tr><th colspan="2">Dock times, written by the receiver</th></tr>
@@ -99,6 +101,7 @@ const cases: BolCase[] = custom
         outTime: arg("out"),
         signer: arg("signer") ?? "R. Alvarez",
         facility: arg("facility") ?? "Demo Yard (operator test site)",
+        shipper: arg("shipper") ?? "Lakeshore Foods",
         look: "clean",
         truth: { inTime: arg("in"), outTime: arg("out"), receiverSigned: true, legible: true },
       },
