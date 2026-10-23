@@ -118,7 +118,7 @@ const media = JSON.stringify({ mediaStatus: "SUCCESS", s3Bucket: out("RcsMediaBu
 const t = (minutesBeforeNow: number) => now - minutesBeforeNow * 60_000;
 const failedId = `smoke-wa-${loadId}`;
 const failedPurpose = startOnWhatsApp ? "dispatch_template" : "offer_release";
-await ddb.send(new PutCommand({ TableName: table, Item: { pk: `MSG#${failedId}`, sk: "RECEIPT", loadId, purpose: failedPurpose, channel: "whatsapp", acceptedAt: new Date(t(251)).toISOString(), expires: Math.floor(now / 1000) + 86_400 } }));
+await ddb.send(new PutCommand({ TableName: table, Item: { pk: `MSG#${failedId}`, sk: "RECEIPT", loadId, purpose: failedPurpose, channel: "whatsapp", acceptedAt: new Date(t(251)).toISOString() } }));
 if (startOnWhatsApp) {
   const sentAt = new Date(t(251)).toISOString();
   const message = renderWhatsApp(dispatchTemplate("en_US", loadId, nonce, "Lakeshore DC, Columbus OH", "the appointment"));
