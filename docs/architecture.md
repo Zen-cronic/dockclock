@@ -1,21 +1,24 @@
 # DockClock architecture
 
-![DockClock architecture: driver and dispatcher phones, AWS End User Messaging, the Step Functions load lifecycle, sealed evidence, the AgentCore claims agent behind Cedar, Amazon SES, and the judge console on CloudFront](architecture.png)
+![DockClock architecture: one load in ten numbered steps, from the driver's phone through AWS End User Messaging, the Step Functions load workflow, the clause engine and sealed pack, the dispatcher's Approve tap, the AgentCore claims agent behind Cedar, and Amazon SES to the broker's inbox, with the judge console on CloudFront below](architecture.png)
 
-Source: [`architecture.mmd`](architecture.mmd) (Mermaid). Vector copy: [`architecture.svg`](architecture.svg). Re-render both with `npx tsx scripts/render-architecture.ts`.
+Source: [`architecture.source.svg`](architecture.source.svg), drawn by hand. Re-render [`architecture.png`](architecture.png) and [`architecture.svg`](architecture.svg) (fonts embedded) with `npm run diagram`.
 
-**The trust split.** The model reads and drafts: it reads the bill-of-lading photo and writes the claim email. Code and Cedar decide: the deterministic clause engine sets the verdict and the amount, the dispatcher's tap approves, Cedar allows the claim tool only with an approval and an amount under the cap, and the tool refuses unless the amount and pack digest equal the sealed values.
+**The trust split.** The top lane is the model: it reads the bill-of-lading photo and drafts the claim's opening line. The bottom lane decides: the deterministic clause engine sets the verdict and the amount, the dispatcher's tap approves, Cedar allows the claim tool only with an approval and an amount under the cap, and the tool refuses unless the amount and pack digest equal the sealed values.
 
 ## Key
 
-| Color | Meaning |
+| Mark | Meaning |
 |---|---|
-| Yellow | People and their inboxes |
-| Blue | AWS services and DockClock Lambdas |
-| Grey, rounded | Step Functions states, numbered in order |
-| Teal | Stored state, evidence and keys |
-| Green, thick border | Where code or Cedar decides |
-| Purple | Where the model reads and drafts |
+| Thick line, numbered 1 to 10 | The main path, in order |
+| Dashed line | The judge console's read-only view |
+| Blue outline, blue lane | The model reads or drafts |
+| Green outline, green lane | Code, Cedar or a person decides |
+| Canary strip | The sealed evidence pack |
+| Safety-yellow strip | The money check |
+| Dashed outline | A person, not AWS |
+
+Plumbing (SNS, SQS and its dead-letter queue, Lambda, DynamoDB, EventBridge Scheduler, Secrets Manager, CloudWatch, X-Ray, CDK) is listed in one panel rather than drawn.
 
 ## AWS services, one job each
 
@@ -36,7 +39,7 @@ Source: [`architecture.mmd`](architecture.mmd) (Mermaid). Vector copy: [`archite
 | Amazon Bedrock AgentCore Harness | Runs the claims agent's managed loop, whose only tools are DockClock's. |
 | Amazon Bedrock AgentCore Gateway | Serves DockClock's tools to the agent over MCP with IAM auth. |
 | AgentCore Policy (Cedar) | Authorizes every tool call in ENFORCE mode, default deny, and allows the claim tool only with an approval and an amount under the cap. |
-| Amazon SES | Sends the detention notice and the claim with its signed pack to the broker or shipper, and escalations to dispatch, through the `dockclock-claims` configuration set. |
+| Amazon SES | Sends the detention notice, then the claim with a one-page PDF summary and the signed pack (the public key is a link), to the broker or shipper, and escalations to dispatch, through the `dockclock-claims` configuration set. |
 | Amazon CloudFront | Serves the judge console with no login, and routes `/api/*` to the read API, whose read-only role sees only demo-workspace loads and which refuses to send any response that would leak a phone number, location or id. |
 | Amazon CloudWatch | Logs every function and alarms on dead-lettered events, failed lifecycles and SES bounce or complaint rates. |
 | AWS X-Ray | Traces the load lifecycle and its Lambdas, so one load's path through the services can be followed. |

@@ -1,0 +1,208 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1540 858" width="1540" height="858" role="img" aria-labelledby="t d">
+  <!-- Source of docs/architecture.png and docs/architecture.svg. Edit this file, then run `npm run diagram`. -->
+  <title id="t">DockClock architecture: one load in ten steps</title>
+  <desc id="d">1 The driver's phone sends taps, pins and a bill-of-lading photo over WhatsApp, or RCS as a fallback. 2 AWS End User Messaging Social carries WhatsApp and AWS End User Messaging carries RCS. 3 An AWS Step Functions workflow runs the load; the dock clock stops at the Released tap and a pin within 10 minutes confirms it. 4 Claude on Amazon Bedrock reads the bill-of-lading photo and only raises or lowers confidence. 5 The clause engine, in plain code, sets the verdict and the amount, and the evidence pack is signed with AWS KMS and stored under S3 Object Lock. 6 The dispatcher approves with one WhatsApp tap. 7 A Bedrock AgentCore Harness agent drafts the claim's opening line. 8 Its tool calls pass the AgentCore Gateway and a Cedar policy, and the claim tool refuses unless the amount and digest match the sealed pack. 9 Amazon SES sends the notice, then the claim with a PDF summary and the signed pack. 10 The fictional broker or shipper inbox receives it. A judge console on Amazon CloudFront calls a read-only API that hides typed text and photos on demo loads.</desc>
+  <style>
+    text { font-kerning: normal; }
+    .lane-m { fill: #e3e9fb; } .lane-d { fill: #dfefe5; } .lane-n { fill: #e9ece9; }
+    .ll { font-family: "Big Shoulders Display", "Arial Narrow", sans-serif; font-weight: 800; font-size: 30px; letter-spacing: 0.05em; }
+    .ll.m { fill: #2f55d4; } .ll.d { fill: #0f7543; } .ll.n { fill: #3f4550; font-size: 21px; }
+    .ls, .tg, .tc, .te, .tb, .pl, .lg { font-family: Overpass, "Segoe UI", Arial, sans-serif; }
+    .ls { font-size: 16px; fill: #3f4550; }
+    .node { fill: #ffffff; } .node.p { fill: #f7f8f7; }
+    .edge-box { fill: none; stroke: #b9c0b9; stroke-width: 1.5; }
+    .edge-box.m { stroke: #2f55d4; stroke-width: 2.5; } .edge-box.d { stroke: #0f7543; stroke-width: 2.5; }
+    .edge-box.p { stroke: #5e6573; stroke-dasharray: 5 4; } .edge-box.pd { stroke: #0f7543; stroke-width: 2.5; stroke-dasharray: 6 4; }
+    .tt, .tr { font-family: "Big Shoulders Display", "Arial Narrow", sans-serif; font-weight: 800; letter-spacing: 0.01em; fill: #15171c; }
+    .tt { font-size: 25px; } .tr { font-size: 21px; }
+    .tg { font-weight: 400; font-size: 14.5px; fill: #3f4550; }
+    .td { font-family: "Overpass Mono", Menlo, monospace; font-size: 13.5px; }
+    .tc { font-size: 16px; fill: #3f4550; }
+    .te { font-weight: 600; font-size: 15px; fill: #3f4550; }
+    .tb { font-weight: 700; font-size: 14px; }
+    .seal { fill: #fbf0b8; } .seal-t { fill: #1f2a55; } .money { fill: #ffc400; } .money-t { fill: #15171c; }
+    .sw { stroke: #c9b04a; stroke-width: 1.5; }
+    .div { stroke: #b9c0b9; stroke-width: 1; }
+    .main { fill: none; stroke: #15171c; stroke-width: 3.5; }
+    .side { fill: none; stroke: #5e6573; stroke-width: 1.75; }
+    .read { fill: none; stroke: #5e6573; stroke-width: 1.75; stroke-dasharray: 6 5; }
+    .ahm { fill: #15171c; } .ahs { fill: #5e6573; }
+    .door rect { fill: #121316; stroke: #121316; stroke-width: 1.5; }
+    .door text { font-family: "Big Shoulders Display", "Arial Narrow", sans-serif; font-weight: 800; font-size: 20px; fill: #ffffff; }
+    .pl { font-size: 15px; fill: #15171c; }
+    .h1 { font-family: "Big Shoulders Display", "Arial Narrow", sans-serif; font-weight: 800; font-size: 46px; fill: #15171c; }
+    .brand { font-family: "Big Shoulders Display", "Arial Narrow", sans-serif; font-weight: 800; font-size: 17px; letter-spacing: 0.14em; fill: #15171c; }
+    .sub { font-family: Overpass, "Segoe UI", Arial, sans-serif; font-size: 18px; fill: #3f4550; }
+    .lg { font-size: 15px; fill: #3f4550; }
+  </style>
+  <defs>
+            <marker id="am" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto-start-reverse">
+              <path d="M0 0L10 5L0 10z" class="ahm"/>
+            </marker>
+            <marker id="as" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+              <path d="M0 0L10 5L0 10z" class="ahs"/>
+            </marker>
+          </defs>
+  <rect width="1540" height="858" fill="#ffffff"/>
+  <g transform="translate(20,20)">
+    <rect width="30" height="30" rx="6" fill="#ffc400"/><rect x="2.1" y="2.1" width="25.8" height="25.8" rx="4.2" fill="#121316"/>
+    <rect x="7" y="6.1" width="16" height="13.6" rx="0.7" fill="#ffffff"/>
+    <path d="M7 9.6h16M7 12.9h16M7 16.2h16" stroke="#121316" stroke-width="1.2"/>
+    <rect x="7" y="19.7" width="16" height="4.2" fill="#ffc400"/>
+    <path d="M7 23.9l4.2-4.2h2.8l-4.2 4.2zM12.6 23.9l4.2-4.2h2.8l-4.2 4.2zM18.2 23.9l4.2-4.2h0.6v1.5l-2.7 2.7z" fill="#121316"/>
+    <text class="brand" x="42" y="22">DOCKCLOCK</text>
+  </g>
+  <text class="h1" x="20" y="96">DockClock architecture</text>
+  <text class="sub" x="470" y="94">One load, from the driver's tap at the dock to the claim in the broker's inbox. Follow the numbers.</text>
+  <g transform="translate(20,118)">
+          
+
+          <!-- Lanes -->
+          <rect class="lane-m" x="0" y="0" width="1500" height="156" rx="16"/>
+          <text class="ll m" x="28" y="64">MODEL READS AND DRAFTS</text>
+          <text class="ls" x="28" y="94">It never sets a time, a verdict or an amount.</text>
+
+          <rect class="lane-d" x="0" y="336" width="1500" height="170" rx="16"/>
+          <text class="ll d" x="28" y="404">CODE AND CEDAR DECIDE</text>
+          <text class="ls" x="28" y="434">Plain code, a Cedar policy and one person's tap.</text>
+
+          <!-- Main path -->
+          <line class="main" x1="198" y1="253" x2="226" y2="253" marker-start="url(#am)" marker-end="url(#am)"/>
+          <line class="main" x1="514" y1="253" x2="542" y2="253" marker-end="url(#am)"/>
+          <line class="main" x1="700" y1="194" x2="700" y2="130" marker-start="url(#am)" marker-end="url(#am)"/>
+          <text class="te" x="712" y="172">BOL photo</text>
+          <line class="main" x1="620" y1="312" x2="620" y2="358" marker-start="url(#am)" marker-end="url(#am)"/>
+          <text class="te" x="632" y="340">seal, verdict</text>
+          <line class="main" x1="895" y1="312" x2="895" y2="358" marker-start="url(#am)" marker-end="url(#am)"/>
+          <text class="te" x="907" y="340">Approve?</text>
+          <path class="main" d="M950 196V78H1008" marker-end="url(#am)"/>
+          <text class="te" x="940" y="180" text-anchor="end">starts the agent</text>
+          <line class="main" x1="1040" y1="128" x2="1040" y2="358" marker-end="url(#am)"/>
+          <text class="te" x="1050" y="340">tool calls</text>
+          <line class="main" x1="1200" y1="360" x2="1200" y2="312" marker-end="url(#am)"/>
+          <text class="te" x="1212" y="340">claim + pack</text>
+          <line class="main" x1="1284" y1="253" x2="1312" y2="253" marker-end="url(#am)"/>
+
+
+          <!-- Judge console reads -->
+          <line class="read" x1="664" y1="582" x2="664" y2="480" marker-end="url(#as)"/>
+          <text class="te" x="676" y="524">reads only</text>
+
+          <!-- 1 Driver -->
+          <rect class="node p" x="12" y="196" width="184" height="114" rx="10"/>
+          <rect class="edge-box p" x="12" y="196" width="184" height="114" rx="10"/>
+          <text class="tt" x="32" y="241">Driver's phone</text>
+          <text class="tg" x="32" y="262">WhatsApp or RCS</text>
+          <text class="tc" x="32" y="287">taps, pins, BOL photo</text>
+
+          <!-- 2 End User Messaging -->
+          <rect class="node" x="228" y="196" width="284" height="114" rx="10"/>
+          <rect class="edge-box" x="228" y="196" width="284" height="114" rx="10"/>
+          <text class="tr" x="248" y="230">WhatsApp</text>
+          <text class="tg" x="248" y="249">AWS End User Messaging Social</text>
+          <line class="div" x1="248" y1="262" x2="492" y2="262"/>
+          <text class="tr" x="248" y="286">RCS fallback</text>
+          <text class="tg" x="248" y="304">AWS End User Messaging</text>
+
+          <!-- 3 Workflow -->
+          <rect class="node" x="544" y="196" width="430" height="114" rx="10"/>
+          <rect class="edge-box" x="544" y="196" width="430" height="114" rx="10"/>
+          <text class="tt" x="564" y="237">Load workflow</text>
+          <text class="tg" x="564" y="256">AWS Step Functions</text>
+          <text class="tc" x="564" y="278">pins, notice, BOL photo, seal, approval</text>
+          <text class="tc" x="564" y="296">clock stops at the Released tap</text>
+
+          <!-- 4 BOL read -->
+          <rect class="node" x="590" y="28" width="260" height="100" rx="10"/>
+          <rect class="edge-box m" x="590" y="28" width="260" height="100" rx="10"/>
+          <text class="tt" x="610" y="65">Reads the BOL photo</text>
+          <text class="tg" x="610" y="86">Claude on Amazon Bedrock</text>
+          <text class="tc" x="610" y="109">raises or lowers confidence</text>
+
+          <!-- 5 Contract decides -->
+          <rect class="node" x="544" y="360" width="240" height="116" rx="10"/>
+          <path class="seal" d="M545 444H783V466Q783 475 774 475H554Q545 475 545 466Z"/>
+          <rect class="edge-box d" x="544" y="360" width="240" height="116" rx="10"/>
+          <text class="tt" x="564" y="395">Contract decides</text>
+          <text class="tg" x="564" y="414">Clause engine in plain code</text>
+          <text class="tc" x="564" y="434">verdict and amount</text>
+          <text class="tb seal-t" x="564" y="465">AWS KMS + S3 Object Lock</text>
+
+          <!-- 6 Dispatch -->
+          <rect class="node p" x="816" y="360" width="158" height="116" rx="10"/>
+          <rect class="edge-box pd" x="816" y="360" width="158" height="116" rx="10"/>
+          <text class="tt" x="836" y="395">Dispatcher</text>
+          <text class="tg" x="836" y="414">on WhatsApp</text>
+          <text class="tc" x="836" y="434">one Approve tap</text>
+
+          <!-- 7 Agent -->
+          <rect class="node" x="1010" y="28" width="280" height="100" rx="10"/>
+          <rect class="edge-box m" x="1010" y="28" width="280" height="100" rx="10"/>
+          <text class="tt" x="1030" y="65">Claims agent</text>
+          <text class="tg" x="1030" y="86">Bedrock AgentCore Harness</text>
+          <text class="tc" x="1030" y="109">drafts the opening line</text>
+
+          <!-- 8 Gateway and Cedar -->
+          <rect class="node" x="1010" y="360" width="280" height="116" rx="10"/>
+          <path class="money" d="M1011 444H1289V466Q1289 475 1280 475H1020Q1011 475 1011 466Z"/>
+          <rect class="edge-box d" x="1010" y="360" width="280" height="116" rx="10"/>
+          <text class="tt" x="1030" y="395">Gateway + Cedar</text>
+          <text class="tg" x="1030" y="414">AgentCore Gateway + Cedar policy</text>
+          <text class="tc" x="1030" y="434">claim tool only after approval</text>
+          <text class="tb money-t" x="1030" y="465">Amount + digest must match</text>
+
+          <!-- 9 SES -->
+          <rect class="node" x="1088" y="196" width="196" height="114" rx="10"/>
+          <rect class="edge-box" x="1088" y="196" width="196" height="114" rx="10"/>
+          <text class="tt" x="1108" y="237">Claim email</text>
+          <text class="tg" x="1108" y="256">Amazon SES</text>
+          <text class="tc" x="1108" y="278">notice, then the claim</text>
+          <text class="tc" x="1108" y="296">PDF + signed pack</text>
+
+          <!-- 10 Inbox -->
+          <rect class="node p" x="1312" y="196" width="172" height="114" rx="10"/>
+          <rect class="edge-box p" x="1312" y="196" width="172" height="114" rx="10"/>
+          <text class="tt" x="1332" y="241">Broker inbox</text>
+          <text class="tg" x="1332" y="262">Fictional</text>
+          <text class="tc" x="1332" y="287">broker or shipper</text>
+
+          <!-- Judge console -->
+          <rect class="lane-n" x="0" y="530" width="800" height="146" rx="16"/>
+          <text class="ll n" x="24" y="562">JUDGE CONSOLE · NO LOGIN</text>
+          <rect class="node p" x="24" y="584" width="196" height="76" rx="10"/>
+          <rect class="edge-box p" x="24" y="584" width="196" height="76" rx="10"/>
+          <text class="tr" x="42" y="612">Judge's browser</text>
+          <text class="tg" x="42" y="636">Console and <tspan class="td">/judges</tspan></text>
+          <line class="side" x1="220" y1="622" x2="250" y2="622" marker-end="url(#as)"/>
+          <rect class="node" x="252" y="584" width="228" height="76" rx="10"/>
+          <rect class="edge-box" x="252" y="584" width="228" height="76" rx="10"/>
+          <text class="tr" x="270" y="612">Amazon CloudFront</text>
+          <text class="tg" x="270" y="636">Site on S3, <tspan class="td">/api/*</tspan></text>
+          <line class="side" x1="480" y1="622" x2="510" y2="622" marker-end="url(#as)"/>
+          <rect class="node" x="512" y="584" width="272" height="76" rx="10"/>
+          <rect class="edge-box" x="512" y="584" width="272" height="76" rx="10"/>
+          <text class="tr" x="530" y="612">Read API</text>
+          <text class="tg" x="618" y="612">read-only</text>
+          <text class="tc" x="530" y="640">no typed text or photo shown</text>
+
+          <!-- Plumbing -->
+          <rect class="lane-n" x="830" y="530" width="670" height="146" rx="16"/>
+          <text class="ll n" x="854" y="562">PLUMBING</text>
+          <text class="pl" x="854" y="602">Amazon SNS&#160;&#160;/&#160;&#160;Amazon SQS + dead-letter queue&#160;&#160;/&#160;&#160;AWS Lambda</text>
+          <text class="pl" x="854" y="628">Amazon DynamoDB&#160;&#160;/&#160;&#160;EventBridge Scheduler&#160;&#160;/&#160;&#160;AWS Secrets Manager</text>
+          <text class="pl" x="854" y="654">Amazon CloudWatch&#160;&#160;/&#160;&#160;AWS X-Ray&#160;&#160;/&#160;&#160;AWS CDK</text>
+
+          <!-- Door numbers -->
+          <g class="door"><rect x="0" y="182" width="30" height="30" rx="5"/><text x="15" y="205" text-anchor="middle">1</text></g>
+          <g class="door"><rect x="216" y="182" width="30" height="30" rx="5"/><text x="231" y="205" text-anchor="middle">2</text></g>
+          <g class="door"><rect x="532" y="182" width="30" height="30" rx="5"/><text x="547" y="205" text-anchor="middle">3</text></g>
+          <g class="door"><rect x="578" y="14" width="30" height="30" rx="5"/><text x="593" y="37" text-anchor="middle">4</text></g>
+          <g class="door"><rect x="532" y="346" width="30" height="30" rx="5"/><text x="547" y="369" text-anchor="middle">5</text></g>
+          <g class="door"><rect x="804" y="346" width="30" height="30" rx="5"/><text x="819" y="369" text-anchor="middle">6</text></g>
+          <g class="door"><rect x="998" y="14" width="30" height="30" rx="5"/><text x="1013" y="37" text-anchor="middle">7</text></g>
+          <g class="door"><rect x="998" y="346" width="30" height="30" rx="5"/><text x="1013" y="369" text-anchor="middle">8</text></g>
+          <g class="door"><rect x="1076" y="182" width="30" height="30" rx="5"/><text x="1091" y="205" text-anchor="middle">9</text></g>
+          <g class="door"><rect x="1300" y="182" width="30" height="30" rx="5"/><text x="1315" y="205" text-anchor="middle">10</text></g>
+          </g>
+  <g transform="translate(20,815)"><line class="main" x1="2" y1="9" x2="44" y2="9"/><text class="lg" x="56" y="13">Main path, numbered</text></g><g transform="translate(237,815)"><line class="read" x1="2" y1="9" x2="44" y2="9"/><text class="lg" x="56" y="13">Read-only view</text></g><g transform="translate(416,815)"><rect class="node" x="1.5" y="1.5" width="43" height="15" rx="4"/><rect class="edge-box m" x="1.5" y="1.5" width="43" height="15" rx="4"/><text class="lg" x="56" y="13">The model reads or drafts</text></g><g transform="translate(664,815)"><rect class="node" x="1.5" y="1.5" width="43" height="15" rx="4"/><rect class="edge-box d" x="1.5" y="1.5" width="43" height="15" rx="4"/><text class="lg" x="56" y="13">Code, Cedar or a person decides</text></g><g transform="translate(956,815)"><rect class="seal sw" x="1.5" y="1.5" width="43" height="15" rx="4"/><text class="lg" x="56" y="13">Sealed evidence pack</text></g><g transform="translate(1176,815)"><rect class="money" x="1" y="1" width="44" height="16" rx="4"/><text class="lg" x="56" y="13">Money check</text></g><g transform="translate(1339,815)"><rect class="node p" x="1.5" y="1.5" width="43" height="15" rx="4"/><rect class="edge-box p" x="1.5" y="1.5" width="43" height="15" rx="4"/><text class="lg" x="56" y="13">A person, not AWS</text></g>
+</svg>

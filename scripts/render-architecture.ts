@@ -1,64 +1,64 @@
-// Renders docs/architecture.mmd to docs/architecture.svg and docs/architecture.png (1600px wide,
-// white background) with Mermaid in system Chrome via Playwright.
+// Renders docs/architecture.source.svg (hand-drawn, Door 05 type) to:
+//   docs/architecture.png, 1848px wide on white, for the README and Devpost;
+//   docs/architecture.svg, the same drawing with its fonts embedded so it renders anywhere.
+// Uses system Chrome via Playwright. The fonts come from Google Fonts (latin subset only).
 import { readFileSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright";
 
-const MERMAID_URL = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js";
-const WIDTH = 1600;
+const SCALE = 1.2; // 1540-unit viewBox -> 1848px PNG
+const FONTS_CSS =
+  "https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800&family=Overpass:wght@400;600;700&family=Overpass+Mono:wght@400&display=block";
+// A browser user agent, so Google Fonts serves woff2.
+const UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+
 const docs = new URL("../docs/", import.meta.url);
-const source = readFileSync(new URL("architecture.mmd", docs), "utf8");
+const source = readFileSync(new URL("architecture.source.svg", docs), "utf8");
+
+// Keep only the latin @font-face blocks and inline each font file as a data URI.
+async function embeddedFontCss(): Promise<string> {
+  const css = await (await fetch(FONTS_CSS, { headers: { "user-agent": UA } })).text();
+  const blocks = [...css.matchAll(/\/\*\s*latin\s*\*\/\s*(@font-face\s*{[^}]*})/g)].map((m) => m[1]!);
+  if (blocks.length < 5) throw new Error(`expected 5 latin font faces from Google Fonts, got ${blocks.length}`);
+  const inlined = await Promise.all(
+    blocks.map(async (block) => {
+      const url = /url\((https:[^)]+\.woff2)\)/.exec(block)?.[1];
+      if (!url) throw new Error(`no woff2 url in ${block}`);
+      const data = Buffer.from(await (await fetch(url)).arrayBuffer()).toString("base64");
+      return block.replace(url, `data:font/woff2;base64,${data}`).replace(/\s+/g, " ");
+    }),
+  );
+  return inlined.join("\n");
+}
+
+const fontCss = await embeddedFontCss();
+const standalone = source.replace("<style>", `<style>\n${fontCss}\n`);
 
 const browser = await chromium.launch({ channel: "chrome" });
 try {
-  const page = await browser.newPage({ viewport: { width: WIDTH, height: 1200 }, deviceScaleFactor: 1 });
+  const vb = /viewBox="0 0 (\d+) (\d+)"/.exec(source);
+  if (!vb) throw new Error("architecture.source.svg needs a viewBox");
+  const [width, height] = [Math.round(Number(vb[1]) * SCALE), Math.round(Number(vb[2]) * SCALE)];
+  const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
   await page.setContent(
     `<!doctype html><html><head><meta charset="utf-8"><style>
       html, body { margin: 0; background: #ffffff; }
-      #out { width: ${WIDTH}px; }
-      #out svg { display: block; width: ${WIDTH}px !important; max-width: none !important; height: auto; background: #ffffff; }
-    </style></head><body><div id="out"></div></body></html>`,
+      svg { display: block; width: ${width}px; height: ${height}px; }
+    </style></head><body>${standalone}</body></html>`,
   );
-  await page.addScriptTag({ url: MERMAID_URL });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+  // Fail rather than ship a PNG drawn in fallback fonts.
+  const missing = await page.evaluate(() =>
+    ['800 25px "Big Shoulders Display"', '400 16px "Overpass"', '600 15px "Overpass"', '700 14px "Overpass"', '400 13px "Overpass Mono"'].filter(
+      (font) => !document.fonts.check(font),
+    ),
+  );
+  if (missing.length) throw new Error(`fonts did not load: ${missing.join(", ")}`);
 
-  const svgText = await page.evaluate(async (src) => {
-    type Mermaid = { initialize(config: object): void; render(id: string, text: string): Promise<{ svg: string }> };
-    const mermaid = (window as unknown as { mermaid: Mermaid }).mermaid;
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: "strict",
-      theme: "base",
-      themeVariables: {
-        fontFamily: "Arial, Helvetica, sans-serif",
-        fontSize: "16px",
-        primaryColor: "#eef4ff",
-        primaryBorderColor: "#3b5bdb",
-        lineColor: "#495057",
-        textColor: "#1a202c",
-        clusterBkg: "#fafafa",
-        clusterBorder: "#adb5bd",
-        edgeLabelBackground: "#ffffff",
-      },
-      flowchart: { htmlLabels: true, curve: "basis", nodeSpacing: 28, rankSpacing: 38, padding: 10, wrappingWidth: 400 },
-    });
-    const { svg } = await mermaid.render("dockclock-architecture", src);
-    const out = document.getElementById("out")!;
-    out.innerHTML = svg;
-    const el = out.querySelector("svg")!;
-    el.setAttribute("style", `background-color: #ffffff; max-width: ${el.viewBox.baseVal.width}px;`);
-    // A white rectangle under everything, so viewers that ignore CSS backgrounds still get white.
-    const vb = el.viewBox.baseVal;
-    const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    for (const [k, v] of Object.entries({ x: vb.x, y: vb.y, width: vb.width, height: vb.height, fill: "#ffffff" })) bg.setAttribute(k, String(v));
-    el.insertBefore(bg, el.firstChild);
-    // XMLSerializer, not outerHTML: the labels are XHTML inside foreignObject and must be well formed.
-    return new XMLSerializer().serializeToString(el);
-  }, source);
-
-  writeFileSync(new URL("architecture.svg", docs), `<?xml version="1.0" encoding="UTF-8"?>\n${svgText}\n`);
-  // The page CSS stretches the live SVG to WIDTH, so the element screenshot is WIDTH pixels wide.
-  await page.locator("#out svg").screenshot({ path: new URL("architecture.png", docs).pathname, omitBackground: false });
-  const box = await page.locator("#out svg").boundingBox();
-  console.log(`wrote docs/architecture.svg and docs/architecture.png (${Math.round(box!.width)}x${Math.round(box!.height)})`);
+  writeFileSync(new URL("architecture.svg", docs), `<?xml version="1.0" encoding="UTF-8"?>\n${standalone}`);
+  await page.locator("svg").screenshot({ path: new URL("architecture.png", docs).pathname, omitBackground: false });
+  console.log(`wrote docs/architecture.svg and docs/architecture.png (${width}x${height})`);
 } finally {
   await browser.close();
 }
