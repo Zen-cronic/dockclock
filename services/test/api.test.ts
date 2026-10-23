@@ -195,6 +195,26 @@ describe("console read API", () => {
     expect(JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data.summary.status).toBe("needs_human");
   });
 
+  it("calls a claim-tool call filed only when the tool reports the email sent", async () => {
+    const items = partitions["SMOKE-RCS-1"]!;
+    const call = (result: Record<string, unknown>) => ({ name: "dockclock-tools___send_detention_claim", input: { loadId: "SMOKE-RCS-1", amountCents: 7500 }, status: "success", result });
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: `AGENT#${T(18, 1)}#file_claim`, task: "file_claim", startedAt: T(18, 1), toolCalls: [call({ sesMessageId: "x" })] });
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: `AGENT#${T(18, 5)}#file_claim`, task: "file_claim", startedAt: T(18, 5), toolCalls: [call({ sent: true, sesMessageId: "y" })] });
+    const view = JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data;
+    const results = view.agentRuns.map((r: { toolCalls: Array<{ result: { ok: boolean; summary: string } }> }) => r.toolCalls[0]!.result);
+    expect(results[0]).toEqual({ ok: false, summary: "Not filed: the claim tool did not report the email sent." });
+    expect(results[1]).toMatchObject({ ok: true });
+    const titles = view.timeline.map((t: { title: string }) => t.title);
+    expect(titles.filter((t: string) => t === "The AI agent filed the claim by email")).toHaveLength(1);
+    const overview = JSON.parse((await get("/api/overview")).body).data;
+    expect(overview.claims.refusedAgentRuns).toBe(1);
+  });
+
+  it("names the PDF claim summary send in plain words", async () => {
+    const { purposeWords } = await import("../api/describe.js");
+    expect(purposeWords("claim_receipt")).toBe("the PDF claim summary");
+  });
+
   it("counts only filing runs after the approval when deciding a load needs a person", async () => {
     const items = partitions["SMOKE-RCS-1"]!;
     items.push({ pk: "LOAD#SMOKE-RCS-1", sk: "APPROVAL", approver: "dispatcher-whatsapp", approvedAt: T(18, 0) });

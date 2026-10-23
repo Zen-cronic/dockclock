@@ -109,6 +109,7 @@ export const PURPOSE_WORDS: Record<string, string> = {
   outcome_filed: "word that the claim was filed",
   opt_out: "the STOP confirmation",
   opt_in: "the START confirmation",
+  claim_receipt: "the PDF claim summary",
 };
 
 // Plain words for a send purpose; replies to the driver (tell_<key>) read as one kind.
@@ -127,7 +128,8 @@ export function toolSummary(name: string, result: Item, status: string | null): 
   if (result.policyDenied === true) return { ok: false, summary: "Denied by the Gateway's Cedar policy." };
   if (typeof result.error === "string") return { ok: false, summary: `Error: ${result.error}` };
   if (status === "error") return { ok: false, summary: "The tool call failed." };
-  if (name === "send_detention_claim" && result.sent === true) return { ok: true, summary: "Email accepted by SES; claim recorded as sent." };
+  // "Filed" only when the tool says the email was sent; anything else from the claim tool is not a filing.
+  if (name === "send_detention_claim") return result.sent === true ? { ok: true, summary: "Email accepted by SES; claim recorded as sent." } : { ok: false, summary: "Not filed: the claim tool did not report the email sent." };
   if (name === "get_load_evidence") {
     const amount = typeof result.amountUsd === "number" ? `, $${result.amountUsd.toFixed(2)}` : "";
     const approved = result.approved === true ? "dispatch approved" : "no dispatch approval";
