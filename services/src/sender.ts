@@ -1,5 +1,5 @@
 import { PinpointSMSVoiceV2Client, SendRcsMessageCommand, type RcsMessageContent } from "@aws-sdk/client-pinpoint-sms-voice-v2";
-import { SendWhatsAppMessageCommand, SocialMessagingClient } from "@aws-sdk/client-socialmessaging";
+import { PostWhatsAppMessageMediaCommand, SendWhatsAppMessageCommand, SocialMessagingClient } from "@aws-sdk/client-socialmessaging";
 import { GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { encodeButtonPayload, encodeFlowToken, normalizeE164 } from "@dockclock/whatsapp";
 import { COPY, type Language } from "./messages.js";
@@ -46,6 +46,11 @@ function recipient(address: Address): Body {
 
 export function textMessage(body: string): Body {
   return { type: "text", text: { preview_url: false, body } };
+}
+
+// A WhatsApp document message for a file already uploaded with PostWhatsAppMessageMedia.
+export function documentMessage(mediaId: string, filename: string, caption: string): Body {
+  return { type: "document", document: { id: mediaId, filename, caption } };
 }
 
 // `stoppedAt` is the zone-labelled time of the Released tap, quoted in the release request.
@@ -168,7 +173,7 @@ async function cleared(target: Target, purpose: string, loadId: string, options:
 
 // A message the gates stopped is still recorded under its load, marked not sent with the reason,
 // so a test load's conversation shows what DockClock would have said. Best effort, like recordSend.
-async function recordBlocked(loadId: string, purpose: string, channel: Channel, message: SentMessage, audience: Audience, reason: string): Promise<void> {
+export async function recordBlocked(loadId: string, purpose: string, channel: Channel, message: SentMessage, audience: Audience, reason: string): Promise<void> {
   if (loadId === "-") return;
   try {
     const messageId = `not-sent-${randomBytes(6).toString("hex")}`;
@@ -220,6 +225,67 @@ export async function send(target: Target, body: Body, purpose: string, loadId: 
   const messageId = out.messageId ?? null;
   log("send_accepted", { purpose, loadId, messageId, channel: "whatsapp" });
   if (messageId) await recordSend(messageId, loadId, purpose, "whatsapp", renderWhatsApp(body), options.audience ?? "driver");
+  return messageId;
+}
+
+// A file in S3 to send as a WhatsApp document: the object, the name the recipient sees, a caption,
+// and the SHA-256 of the bytes (kept with the send record so the console can show it).
+export interface DocumentFile {
+  bucket: string;
+  key: string;
+  filename: string;
+  caption: string;
+  sha256: string;
+}
+
+// Sends one file as a WhatsApp document through the same gates as send(): the gates first, so a
+// blocked recipient never causes an upload; then PostWhatsAppMessageMedia reads the object from S3
+// (with this function's own S3 permission) and returns a media id; then SendWhatsAppMessage sends
+// the document. Unlike send() it never throws: a failed upload or send is logged and recorded under
+// the load as not sent with the reason, and the caller carries on.
+export async function sendDocument(target: Target, file: DocumentFile, purpose: string, loadId: string, options: SendOptions = {}): Promise<string | null> {
+  const audience = options.audience ?? "driver";
+  const shown = { kind: "document" as const, text: file.caption, document: { filename: file.filename, sha256: file.sha256 } };
+  const gate = await cleared(target, purpose, loadId, options);
+  if ("blocked" in gate) {
+    await recordBlocked(loadId, purpose, "whatsapp", shown, audience, gate.blocked);
+    return null;
+  }
+  let mediaId: string | undefined;
+  try {
+    const upload = await messaging.send(new PostWhatsAppMessageMediaCommand({ originationPhoneNumberId: env.originationPhoneId(), sourceS3File: { bucketName: file.bucket, key: file.key } }));
+    mediaId = upload.mediaId;
+  } catch (error) {
+    log("media_upload_failed", { purpose, loadId, error: (error as Error).name });
+  }
+  if (!mediaId) {
+    await recordBlocked(loadId, purpose, "whatsapp", shown, audience, NOT_SENT.uploadFailed);
+    return null;
+  }
+  let messageId: string | null = null;
+  try {
+    const out = await messaging.send(
+      new SendWhatsAppMessageCommand({
+        originationPhoneNumberId: env.originationPhoneId(),
+        metaApiVersion: env.metaApiVersion(),
+        message: Buffer.from(JSON.stringify({ ...recipient(gate.address), ...documentMessage(mediaId, file.filename, file.caption) })),
+      }),
+    );
+    messageId = out.messageId ?? null;
+  } catch (error) {
+    log("send_failed", { purpose, loadId, channel: "whatsapp", error: (error as Error).name });
+  }
+  if (!messageId) {
+    await recordBlocked(loadId, purpose, "whatsapp", shown, audience, NOT_SENT.sendFailed);
+    return null;
+  }
+  log("send_accepted", { purpose, loadId, messageId, channel: "whatsapp" });
+  try {
+    await recordSend(messageId, loadId, purpose, "whatsapp", shown, audience);
+  } catch (error) {
+    // The document is out; a lost receipt row must not turn into a second send.
+    log("send_record_failed", { purpose, loadId, messageId, error: (error as Error).name });
+  }
   return messageId;
 }
 

@@ -8,6 +8,7 @@ import { reasonWords } from "./reasons.js";
 import { ddb } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
+import { sendClaimReceipts, type ReceiptResult } from "./claim-receipt.js";
 
 // What the contract decided, in the driver's own thread: after sealing, and again once the claim is
 // filed. On a judge demo load this is how the judge sees the result of every step.
@@ -81,7 +82,7 @@ export function outcomeText(input: OutcomeInput, language: Language, demo: boole
   return why ? t.needsHuman(input.loadId, why) : t.needsHumanPlain(input.loadId);
 }
 
-export async function handler(input: OutcomeInput): Promise<{ sent: boolean }> {
+export async function handler(input: OutcomeInput): Promise<{ sent: boolean; receipts?: ReceiptResult[] }> {
   const load = await getLoad(input.loadId);
   if (!load?.sealedPackId) return { sent: false };
   const pack = (await ddb.send(new GetCommand({ TableName: env.table(), Key: keys.pack(load.loadId, load.sealedPackId) }))).Item as { digest?: string; amountUsd?: number } | undefined;
@@ -91,7 +92,18 @@ export async function handler(input: OutcomeInput): Promise<{ sent: boolean }> {
     amountUsd: pack?.amountUsd ?? 0,
   });
   const target = { address: load.address, driverKey: load.driverKey };
-  const id = load.channel === "rcs" ? await sendRcs(target, rcsText(text), `outcome_${input.kind}`, load.loadId) : await send(target, textMessage(text), `outcome_${input.kind}`, load.loadId);
-  log("outcome_told", { loadId: load.loadId, kind: input.kind, sent: id !== null });
-  return { sent: id !== null };
+  let id: string | null = null;
+  let failure: unknown = null;
+  try {
+    id = load.channel === "rcs" ? await sendRcs(target, rcsText(text), `outcome_${input.kind}`, load.loadId) : await send(target, textMessage(text), `outcome_${input.kind}`, load.loadId);
+  } catch (error) {
+    failure = error;
+  }
+  log("outcome_told", { loadId: load.loadId, outcome: input.kind, sent: id !== null });
+  // Once the claim is filed, the PDF summary follows the text (claim-receipt.ts). It never throws,
+  // and it runs even when the text failed: the two are separate messages.
+  const receipts = input.kind === "filed" ? await sendClaimReceipts(load).catch((error: Error) => (log("claim_receipt_failed", { loadId: load.loadId, error: error.name }), [])) : undefined;
+  // A failed text still fails this step as before; the workflow catches it and the load stays filed.
+  if (failure) throw failure;
+  return { sent: id !== null, ...(receipts ? { receipts } : {}) };
 }

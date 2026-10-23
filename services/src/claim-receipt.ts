@@ -1,0 +1,179 @@
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { sha256Hex } from "@dockclock/evidence";
+import { loadPageUrl } from "@dockclock/mail";
+import { driverKey } from "./identity.js";
+import type { Language } from "./messages.js";
+import { NOT_SENT, type Audience } from "./outbound.js";
+import { rcsText } from "./rcs.js";
+import { recordBlocked, sendDocument, sendRcs, type Target } from "./sender.js";
+import { ddb, type LoadItem } from "./store.js";
+import { env, log } from "./config.js";
+import { keys } from "./keys.js";
+
+// After the claim is filed, the one-page PDF claim summary goes back over WhatsApp as a document
+// message: to the dispatcher who approved it on a carrier load (their 24-hour window opened with the
+// Approve tap seconds earlier), to the judge on a DEMO load (driver and dispatcher at once), and to a
+// carrier load's driver too while their own window is still open. An RCS driver gets a short text
+// with the amount and a link to the load's console page instead of a file. Every send passes the
+// gates in sender.ts. Nothing here may fail the load: each recipient is tried on its own, and a
+// failure is logged and recorded as not sent.
+
+export const RECEIPT_PURPOSE = "claim_receipt";
+
+const s3 = new S3Client({ maxAttempts: 3 });
+
+// WhatsApp's customer-service window is 24 hours from the person's last message. A small margin
+// keeps a send from racing the window's close.
+const WINDOW_MS = 24 * 60 * 60 * 1000;
+const WINDOW_MARGIN_MS = 10 * 60 * 1000;
+
+interface ReceiptCopy {
+  caption: (id: string, usd: string) => string;
+  rcsLink: (id: string, usd: string, link: string) => string;
+}
+
+// Short and plain: what the file is, the amount, and where the signed pack went.
+export const RECEIPT_TEXT: Record<Language, ReceiptCopy> = {
+  en_US: {
+    caption: (id, usd) => `Claim summary for load ${id}: ${usd}. The signed evidence pack went with the claim email.`,
+    rcsLink: (id, usd, link) => `Claim summary for load ${id}: ${usd}. See the claim and its evidence: ${link}`,
+  },
+  es_MX: {
+    caption: (id, usd) => `Resumen del reclamo de la carga ${id}: ${usd}. El paquete de evidencia firmado va con el correo del reclamo.`,
+    rcsLink: (id, usd, link) => `Resumen del reclamo de la carga ${id}: ${usd}. Vea el reclamo y su evidencia: ${link}`,
+  },
+  fr_CA: {
+    caption: (id, usd) => `Résumé de la réclamation du chargement ${id} : ${usd}. Le dossier de preuve signé est joint au courriel de réclamation.`,
+    rcsLink: (id, usd, link) => `Résumé de la réclamation du chargement ${id} : ${usd}. Voir la réclamation et sa preuve : ${link}`,
+  },
+};
+
+const usd = (n: number) => `$${n.toFixed(2)}`;
+
+interface ClaimItem {
+  status?: string;
+  amountUsd?: number;
+  pdfKey?: string;
+  pdfName?: string;
+}
+
+export interface ReceiptResult {
+  audience: Audience;
+  channel: "whatsapp" | "rcs";
+  sent: boolean;
+  // Why nothing went out, when nothing did (a gate, a closed window, a failure).
+  skipped?: string;
+}
+
+// The last time the driver wrote on WhatsApp for this load: their latest inbound WhatsApp event.
+// Approve and Hold taps are not load events, and failovers are DockClock's own records.
+export async function lastDriverWhatsAppAt(loadId: string): Promise<string | null> {
+  const out = await ddb.send(
+    new QueryCommand({
+      TableName: env.table(),
+      KeyConditionExpression: "pk = :p AND begins_with(sk, :e)",
+      ExpressionAttributeValues: { ":p": keys.load(loadId).pk, ":e": "EVENT#" },
+      ScanIndexForward: false,
+    }),
+  );
+  const latest = (out.Items ?? []).find((e) => e.type !== "failover" && (e.channel ?? "whatsapp") === "whatsapp" && typeof e.serverAt === "string");
+  return (latest?.serverAt as string | undefined) ?? null;
+}
+
+export function windowOpen(lastAt: string | null, now = Date.now()): boolean {
+  if (!lastAt) return false;
+  const at = Date.parse(lastAt);
+  return Number.isFinite(at) && now - at < WINDOW_MS - WINDOW_MARGIN_MS;
+}
+
+async function dispatcherTarget(): Promise<Target> {
+  const address = { kind: "phone" as const, e164: env.dispatcherPhone() };
+  return { address, driverKey: await driverKey(address) };
+}
+
+// The PDF's bytes are read once to take their SHA-256 (the same hash the console shows for the claim
+// email's attachment); WhatsApp then reads the same object itself through PostWhatsAppMessageMedia.
+async function pdfHash(key: string): Promise<string> {
+  const object = await s3.send(new GetObjectCommand({ Bucket: env.bucket(), Key: key }));
+  return sha256Hex(await object.Body!.transformToByteArray());
+}
+
+export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]> {
+  const claim = (await ddb.send(new GetCommand({ TableName: env.table(), Key: keys.claim(load.loadId), ConsistentRead: true }))).Item as ClaimItem | undefined;
+  if (claim?.status !== "sent") {
+    log("claim_receipt_skipped", { loadId: load.loadId, reason: "claim not recorded as sent" });
+    return [];
+  }
+  const amount = usd(Number(claim.amountUsd ?? 0));
+  const filename = claim.pdfName ?? `detention-claim-${load.loadId}.pdf`;
+  const driver: Target = { address: load.address, driverKey: load.driverKey };
+  const results: ReceiptResult[] = [];
+
+  // The file, read once for every WhatsApp recipient. A missing or unreadable PDF is recorded on
+  // each recipient's send as not sent; the RCS link needs no file.
+  let sha256: string | null = null;
+  let fileProblem: string | null = null;
+  if (!claim.pdfKey) fileProblem = NOT_SENT.noPdf;
+  else {
+    try {
+      sha256 = await pdfHash(claim.pdfKey);
+    } catch (error) {
+      log("claim_receipt_pdf_unreadable", { loadId: load.loadId, error: (error as Error).name });
+      fileProblem = NOT_SENT.noPdf;
+    }
+  }
+
+  const document = async (target: Target, language: Language, audience: Audience): Promise<ReceiptResult> => {
+    const caption = RECEIPT_TEXT[language].caption(load.loadId, amount);
+    if (!claim.pdfKey || !sha256) {
+      const reason = fileProblem ?? NOT_SENT.noPdf;
+      await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: caption, document: { filename } }, audience, reason);
+      return { audience, channel: "whatsapp", sent: false, skipped: reason };
+    }
+    const id = await sendDocument(target, { bucket: env.bucket(), key: claim.pdfKey, filename, caption, sha256 }, RECEIPT_PURPOSE, load.loadId, { audience });
+    return { audience, channel: "whatsapp", sent: id !== null };
+  };
+
+  const notSent = async (audience: Audience, language: Language, reason: string): Promise<ReceiptResult> => {
+    await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: RECEIPT_TEXT[language].caption(load.loadId, amount), document: { filename, ...(sha256 ? { sha256 } : {}) } }, audience, reason);
+    return { audience, channel: "whatsapp", sent: false, skipped: reason };
+  };
+
+  // An RCS driver gets the amount and the console link, never a file. Only demo-workspace loads
+  // have a console page; without one the filed message already said everything a link would add.
+  const rcsLink = async (): Promise<ReceiptResult | null> => {
+    const link = loadPageUrl(load.loadId, load.ws);
+    if (!link) {
+      log("claim_receipt_skipped", { loadId: load.loadId, reason: "RCS driver and no console page for this load" });
+      return null;
+    }
+    const id = await sendRcs(driver, rcsText(RECEIPT_TEXT[load.language ?? "en_US"].rcsLink(load.loadId, amount, link)), RECEIPT_PURPOSE, load.loadId);
+    return { audience: "driver", channel: "rcs", sent: id !== null };
+  };
+
+  const attempt = async (audience: Audience, run: () => Promise<ReceiptResult | null>) => {
+    try {
+      const result = await run();
+      if (result) results.push(result);
+    } catch (error) {
+      log("claim_receipt_failed", { loadId: load.loadId, audience, error: (error as Error).name });
+      results.push({ audience, channel: load.channel === "rcs" && audience === "driver" ? "rcs" : "whatsapp", sent: false, skipped: (error as Error).name });
+    }
+  };
+
+  const language = load.language ?? "en_US";
+  if (load.demo === true) {
+    // The judge approved their own claim, so the judge is the one waiting for it.
+    await attempt("driver", () => (load.channel === "rcs" ? rcsLink() : document(driver, language, "driver")));
+  } else {
+    // The dispatcher reads the approval template in English (dockclock_dispatch_approval).
+    await attempt("dispatcher", async () => (load.synthetic && !load.askDispatcher ? notSent("dispatcher", "en_US", NOT_SENT.testLoad) : document(await dispatcherTarget(), "en_US", "dispatcher")));
+    await attempt("driver", async () => {
+      if (load.channel === "rcs") return rcsLink();
+      return windowOpen(await lastDriverWhatsAppAt(load.loadId)) ? document(driver, language, "driver") : notSent("driver", language, NOT_SENT.windowClosed);
+    });
+  }
+  log("claim_receipts", { loadId: load.loadId, results: results.map((r) => ({ audience: r.audience, channel: r.channel, sent: r.sent })) });
+  return results;
+}

@@ -94,6 +94,23 @@ describe("stacks", () => {
     for (const p of rcs) expect(p).toContain(`rcs-agent/${config.rcsAgentId}`);
   });
 
+  it("lets only the outcome teller upload the claim PDF to WhatsApp, reading claim PDFs and nothing else", () => {
+    const policies = Object.entries(msgT.findResources("AWS::IAM::Policy"));
+    const uploaders = policies.filter(([, p]) => JSON.stringify(p).includes("social-messaging:PostWhatsAppMessageMedia"));
+    expect(uploaders.map(([id]) => id)).toEqual([expect.stringMatching(/^TellOutcomeServiceRoleDefaultPolicy/)]);
+    const statements = uploaders[0]![1].Properties.PolicyDocument.Statement as Array<{ Action: string | string[]; Resource: unknown }>;
+    const upload = statements.find((s) => s.Action === "social-messaging:PostWhatsAppMessageMedia")!;
+    expect(JSON.stringify(upload.Resource)).toContain(`phone-number-id/${config.originationPhoneId.replace(/^phone-number-id-/, "")}`);
+    const reads = statements.filter((s) => [s.Action].flat().some((a) => a.startsWith("s3:")));
+    expect(reads.map((s) => s.Action)).toEqual(["s3:GetObject"]);
+    expect(JSON.stringify(reads[0]!.Resource)).toContain("/packs/*/claim.pdf");
+    // Every send is recorded on the load, so the role writes the table.
+    expect(JSON.stringify(statements)).toContain("dynamodb:PutItem");
+    const fn = Object.values(msgT.findResources("AWS::Lambda::Function")).find((f) => JSON.stringify(f.Properties.Role).includes("TellOutcomeServiceRole"))!;
+    expect(fn.Properties.Environment.Variables.EVIDENCE_BUCKET).toBeDefined();
+    expect(fn.Properties.Timeout).toBe(60);
+  });
+
   it("seals, asks dispatch, lets the agent file and then checks the claim record", () => {
     const [definition] = Object.values(msgT.findResources("AWS::StepFunctions::StateMachine")).map((r) => JSON.stringify(r));
     for (const state of ["Schedule detention notice", "Tell the driver the verdict", "Tell the driver the claim was filed", "Photo readable?", "Ask for a clearer photo", "Await retake", "Read the retaken photo", "Read bill of lading", "Seal evidence", "Verdict?", "Ask dispatch to approve", "Agent files the claim", "Check claim record", "Claim sent?", "Held by dispatch"]) {

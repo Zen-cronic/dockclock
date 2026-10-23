@@ -6,7 +6,7 @@ import { keys } from "./keys.js";
 // What a recipient saw: the rendered text, button titles and Flow call to action of one outbound
 // message. Never the recipient, never a button payload (payloads carry the load's nonce).
 export interface SentMessage {
-  kind: "template" | "text" | "buttons" | "location_request" | "flow" | "card" | "unknown";
+  kind: "template" | "text" | "buttons" | "location_request" | "flow" | "card" | "document" | "unknown";
   template?: { name: string; language: string };
   title?: string;
   text: string;
@@ -15,6 +15,9 @@ export interface SentMessage {
   flowCta?: string;
   // Every button, chip or call to action by what it does (the button titles above, typed).
   actions?: SentAction[];
+  // A WhatsApp document message: the file name the recipient saw and the SHA-256 of the file's
+  // bytes. The caption is `text`. Never the S3 key or the WhatsApp media id.
+  document?: { filename: string; sha256?: string };
 }
 
 export interface SentAction {
@@ -66,6 +69,10 @@ export function renderWhatsApp(body: Json): SentMessage {
     };
   }
   if (body.type === "text") return { kind: "text", text: str(obj(body.text).body) };
+  if (body.type === "document") {
+    const document = obj(body.document);
+    return { kind: "document", text: str(document.caption), document: { filename: str(document.filename) } };
+  }
   if (body.type === "interactive") {
     const interactive = obj(body.interactive);
     const text = str(obj(interactive.body).text);
@@ -127,4 +134,10 @@ export const NOT_SENT = {
   repliesOff: "Not sent: driver messages are switched off in this deployment.",
   notAllowlisted: "Not sent: the recipient is a test number, and DockClock only messages allowlisted or DEMO-enrolled numbers.",
   optedOut: "Not sent: the driver replied STOP.",
+  // The claim summary PDF sent back over WhatsApp (claim-receipt.ts).
+  noPdf: "Not sent: the claim PDF was not stored, so there was no file to send.",
+  uploadFailed: "Not sent: the claim PDF could not be uploaded to WhatsApp.",
+  sendFailed: "Not sent: WhatsApp did not accept the message.",
+  windowClosed: "Not sent: the driver has not written in the last 24 hours, and WhatsApp then allows only approved templates.",
+  testLoad: "Not sent: a test load. Dispatch is only messaged when the test asks for it.",
 } as const;

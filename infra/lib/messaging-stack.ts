@@ -317,10 +317,17 @@ export class MessagingStack extends Stack {
     });
     // The driver's thread hears the contract's decision after sealing and again once the claim is
     // filed; a failed message never changes the load's path.
-    const outcomeFn = fn("TellOutcome", "outcome.ts", channelEnv);
-    core.table.grantReadData(outcomeFn);
+    // After filing it also sends the PDF claim summary back as a WhatsApp document
+    // (services/src/claim-receipt.ts): two sends with an upload between them, hence the longer timeout.
+    const outcomeFn = fn("TellOutcome", "outcome.ts", { ...channelEnv, EVIDENCE_BUCKET: core.evidenceBucket.bucketName }, Duration.seconds(60));
+    // Write: every send is recorded (MSG# receipt and the load's SEND# row), sent or not.
+    core.table.grantReadWriteData(outcomeFn);
     core.identitySecret.grantRead(outcomeFn);
     outcomeFn.addToRolePolicy(sendWhatsApp);
+    // PostWhatsAppMessageMedia reads the PDF from S3 with this role's own permission (no service
+    // role and no bucket policy change), so the role may read the claim PDFs and nothing else.
+    outcomeFn.addToRolePolicy(new iam.PolicyStatement({ actions: ["social-messaging:PostWhatsAppMessageMedia"], resources: [phoneArn] }));
+    outcomeFn.addToRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject"], resources: [core.evidenceBucket.arnForObjects("packs/*/claim.pdf")] }));
     if (rcs) outcomeFn.addToRolePolicy(rcs.sendRcs);
     const tell = (id: string, payload: Record<string, unknown>) =>
       new tasks.LambdaInvoke(this, id, {

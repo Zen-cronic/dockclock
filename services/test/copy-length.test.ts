@@ -5,6 +5,7 @@ import { escalationEmail } from "../src/escalate.js";
 import { COPY, LANGUAGES, type Language } from "../src/messages.js";
 import { noticeEmail } from "../src/notice.js";
 import { outcomeText } from "../src/outcome.js";
+import { RECEIPT_TEXT } from "../src/claim-receipt.js";
 import { rcsBolRequest, rcsDispatchCard, rcsReleaseOffer } from "../src/rcs.js";
 import type { LoadItem } from "../src/store.js";
 
@@ -42,6 +43,8 @@ function driverMessages(language: Language): Record<string, string> {
     needsHuman: out({ kind: "verdict", loadId: LOAD, verdict: "NEEDS_HUMAN", amountUsd: 0, reasons: ALL_REASONS }),
     filed: out({ kind: "filed", loadId: LOAD }),
     held: out({ kind: "held", loadId: LOAD }),
+    receiptCaption: RECEIPT_TEXT[language].caption(LOAD, "$1234.56"),
+    receiptRcs: RECEIPT_TEXT[language].rcsLink(LOAD, "$1234.56", `https://d3djuoqhg6b8o2.cloudfront.net/loads/${LOAD}`),
   };
   for (const [key, text] of Object.entries(copy.replies)) messages[`reply.${key}`] = text;
   return messages;
