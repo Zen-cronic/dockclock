@@ -1,0 +1,117 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-23T19:32:07.091Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "packId": "LIVE-mvlb0qzq-bab73430118a",
+  "digestSha256": "eb4fc3d9821d6d5f7dcfce56f8976c23d1ed33942de3fde39c21c124884182ad",
+  "algorithm": "ECDSA_SHA_256",
+  "signatureBase64": "MEQCIAj0q35kvaXqkrrYZM1RCOsdv1Hy94T6B6ETAr92vIffAiAczJ7vgStoLvuq6sSX2nbCy2tHBiXGvTuIHQXroE5edg==",
+  "publicKeyPath": "keys/public-key.pem",
+  "spkiSha256": "bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c",
+  "sealedAt": "2026-10-23T18:56:39.356Z",
+  "storage": "S3 Object Lock (governance mode, 30 days)",
+  "pack": {
+   "version": 1,
+   "packId": "LIVE-mvlb0qzq-bab73430118a",
+   "loadId": "LIVE-mvlb0qzq",
+   "clauseId": "judge-demo",
+   "channel": "whatsapp",
+   "facility": {
+    "id": "judge-demo",
+    "name": "Judge demo yard (any location counts)"
+   },
+   "appointmentAt": "2026-10-23T18:30:00.000Z",
+   "events": {
+    "arrived": {
+     "serverAt": "2026-10-23T18:32:54.000Z",
+     "messageId": "msg-sha256:9c9840aee1033042"
+    },
+    "released": {
+     "serverAt": "2026-10-23T18:55:11.000Z",
+     "messageId": "msg-sha256:3530ad0848b53421"
+    },
+    "bol": {
+     "serverAt": "2026-10-23T18:56:29.000Z",
+     "messageId": "msg-sha256:7b342a6403c0ef2d",
+     "pageSha256s": [
+      "f796fdca088a561059516a5e93e3130deaad317e15b8026428e4f37511648dbd"
+     ],
+     "cameraOnly": true,
+     "timesEdited": {
+      "in": false,
+      "out": false
+     }
+    },
+    "notice": {
+     "sentAt": "2026-10-23T18:34:34.327Z",
+     "deliveredAt": "2026-10-23T18:34:35.429Z",
+     "messageId": "msg-sha256:afe231b92190fa52"
+    }
+   },
+   "corroboration": {
+    "confidence": "low",
+    "signals": [
+     {
+      "name": "arrived_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "released_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "bol_camera_only",
+      "ok": true,
+      "detail": "captured in camera-only Flow"
+     },
+     {
+      "name": "bol_media_hashed",
+      "ok": true,
+      "detail": "1 of 1 pages stored and hashed"
+     },
+     {
+      "name": "bol_confirmed_by_driver",
+      "ok": true,
+      "detail": "driver confirmed or corrected extracted times"
+     },
+     {
+      "name": "bol_in_matches_arrived_pin",
+      "ok": true,
+      "independent": false,
+      "detail": "1 min apart (tolerance 15); pre-filled from the pin and left unchanged, so not independent"
+     },
+     {
+      "name": "bol_out_matches_released_pin",
+      "ok": true,
+      "independent": false,
+      "detail": "0 min apart (tolerance 15); pre-filled from the pin and left unchanged, so not independent"
+     },
+     {
+      "name": "bol_photo_legible",
+      "ok": false,
+      "detail": "photo could not be read"
+     },
+     {
+      "name": "notice_delivered",
+      "ok": true,
+      "detail": "2026-10-23T18:34:35.429Z"
+     }
+    ]
+   },
+   "evaluation": {
+    "loadId": "LIVE-mvlb0qzq",
+    "clockStartAt": "2026-10-23T18:32:54.000Z",
+    "detentionMinutes": 17.283333333333335,
+    "verdict": "BILLABLE",
+    "reasons": [],
+    "billableMinutes": 17.283333333333335,
+    "amountUsd": 17.28
+   },
+   "sealedAt": "2026-10-23T18:56:39.356Z"
+  }
+ }
+}

@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T20:13:41.502Z",
+ "generatedAt": "2026-10-23T19:32:04.710Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
@@ -63,7 +63,7 @@
    "basis": "Modelled on published broker terms. Values those terms do not state are DockClock assumptions."
   },
   "clock": {
-   "asOf": "2026-10-20T20:13:41.502Z",
+   "asOf": "2026-10-23T19:32:04.710Z",
    "arrivedAt": "2026-10-20T15:28:40.218Z",
    "releasedAt": "2026-10-20T19:06:40.218Z",
    "clockStartAt": "2026-10-20T15:28:40.218Z",
@@ -420,16 +420,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "outcome": "ADVANCED",
+     "phaseBefore": "dispatched",
+     "sk": "EVENT#2026-10-20T15:27:40.218Z",
      "detail": {
       "payload": "dc1.arrived.SMOKE-RCS-mvh32fui.<nonce>"
      },
-     "serverAt": "2026-10-20T15:27:40.218Z",
-     "phaseAfter": "awaiting_arrival_pin",
-     "sk": "EVENT#2026-10-20T15:27:40.218Z",
+     "channel": "rcs",
+     "outcome": "ADVANCED",
      "type": "button",
-     "phaseBefore": "dispatched",
-     "channel": "rcs"
+     "serverAt": "2026-10-20T15:27:40.218Z",
+     "phaseAfter": "awaiting_arrival_pin"
     },
     "provenance": "synthetic_input",
     "messageId": "m1"
@@ -450,14 +450,14 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "outcome": "ADVANCED",
-     "type": "location",
      "phaseAfter": "at_dock",
+     "type": "location",
      "phaseBefore": "awaiting_arrival_pin",
-     "serverAt": "2026-10-20T15:28:40.218Z",
-     "sk": "EVENT#2026-10-20T15:28:40.218Z",
      "detail": {},
-     "channel": "rcs"
+     "channel": "rcs",
+     "outcome": "ADVANCED",
+     "sk": "EVENT#2026-10-20T15:28:40.218Z",
+     "serverAt": "2026-10-20T15:28:40.218Z"
     },
     "provenance": "synthetic_input",
     "messageId": "m2"
@@ -476,18 +476,18 @@
     "outcome": "RESENT_OVER_RCS",
     "tone": "refused",
     "record": {
+     "phaseAfter": "at_dock",
      "detail": {
       "errorCode": 131026,
       "purpose": "offer_release",
       "queued": "offer_release"
      },
-     "sk": "EVENT#2026-10-20T15:29:40.000Z",
      "outcome": "RESENT_OVER_RCS",
+     "channel": "rcs",
      "type": "failover",
-     "phaseAfter": "at_dock",
-     "serverAt": "2026-10-20T15:29:40.000Z",
      "phaseBefore": "at_dock",
-     "channel": "rcs"
+     "serverAt": "2026-10-20T15:29:40.000Z",
+     "sk": "EVENT#2026-10-20T15:29:40.000Z"
     },
     "provenance": "synthetic_input"
    },
@@ -507,15 +507,15 @@
     "tone": "neutral",
     "record": {
      "serverAt": "2026-10-20T19:05:40.218Z",
-     "detail": {
-      "payload": "dc1.released.SMOKE-RCS-mvh32fui.<nonce>"
-     },
-     "outcome": "ADVANCED",
+     "channel": "rcs",
      "sk": "EVENT#2026-10-20T19:05:40.218Z",
      "phaseBefore": "at_dock",
-     "type": "button",
+     "outcome": "ADVANCED",
      "phaseAfter": "awaiting_release_pin",
-     "channel": "rcs"
+     "type": "button",
+     "detail": {
+      "payload": "dc1.released.SMOKE-RCS-mvh32fui.<nonce>"
+     }
     },
     "provenance": "synthetic_input",
     "messageId": "m3"
@@ -536,14 +536,14 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "outcome": "ADVANCED",
-     "sk": "EVENT#2026-10-20T19:06:40.218Z",
-     "phaseAfter": "awaiting_bol",
      "phaseBefore": "awaiting_release_pin",
-     "type": "location",
+     "sk": "EVENT#2026-10-20T19:06:40.218Z",
      "serverAt": "2026-10-20T19:06:40.218Z",
+     "type": "location",
      "detail": {},
-     "channel": "rcs"
+     "phaseAfter": "awaiting_bol",
+     "channel": "rcs",
+     "outcome": "ADVANCED"
     },
     "provenance": "synthetic_input",
     "messageId": "m4"
@@ -777,16 +777,16 @@
     "tone": "neutral",
     "photoId": "p1",
     "record": {
-     "outcome": "ADVANCED",
      "serverAt": "2026-10-20T19:36:01.524Z",
      "type": "image",
      "sk": "EVENT#2026-10-20T19:36:01.524Z",
+     "channel": "rcs",
+     "outcome": "ADVANCED",
      "phaseBefore": "awaiting_bol",
      "phaseAfter": "documented",
      "detail": {
       "mimeType": "image/jpeg"
-     },
-     "channel": "rcs"
+     }
     },
     "provenance": "synthetic_input",
     "messageId": "m11"

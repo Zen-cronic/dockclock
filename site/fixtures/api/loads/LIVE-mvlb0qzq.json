@@ -1,0 +1,1295 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-23T19:32:06.766Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "summary": {
+   "loadId": "LIVE-mvlb0qzq",
+   "runKind": "phone",
+   "runLabel": "Real phone",
+   "createdAt": "2026-10-23T18:29:24.101Z",
+   "lastActivityAt": "2026-10-23T18:57:07.096Z",
+   "facility": {
+    "id": "judge-demo",
+    "name": "Judge demo yard (any location counts)",
+    "timeZone": "America/New_York"
+   },
+   "counterparty": {
+    "name": "Demo Receiving Co. (fictional)",
+    "role": "shipper"
+   },
+   "channel": "whatsapp",
+   "channels": [
+    "whatsapp"
+   ],
+   "language": "en_US",
+   "phase": "sealed",
+   "status": "claim_filed",
+   "live": false,
+   "verdict": "BILLABLE",
+   "amountUsd": 17.28,
+   "claimSentAt": "2026-10-23T18:57:07.096Z",
+   "arrivedAt": "2026-10-23T18:32:54.000Z",
+   "releasedAt": "2026-10-23T18:55:11.000Z",
+   "failover": false,
+   "photos": 1
+  },
+  "run": {
+   "kind": "phone",
+   "summary": "Recorded from a real phone: every message, time and email here is what DockClock stored.",
+   "notes": [
+    "Approval: a real tap on a real phone."
+   ]
+  },
+  "clause": {
+   "id": "judge-demo",
+   "freeTimeMinutes": 5,
+   "freeTimeAnchor": "arrival",
+   "requireOnTimeArrival": false,
+   "ratePerHourUsd": 60,
+   "capUsdPerOccurrence": 30,
+   "noticeLeadMinutes": 0,
+   "acceptedRecords": [
+    "app_gps",
+    "signed_bol_times"
+   ],
+   "claimWindowHours": 24,
+   "shipperConfirmationRequired": false,
+   "basis": "DockClock judge demo clause, not modelled on any published terms."
+  },
+  "clock": {
+   "asOf": "2026-10-23T19:32:06.766Z",
+   "arrivedAt": "2026-10-23T18:32:54.000Z",
+   "releasedAt": "2026-10-23T18:55:11.000Z",
+   "clockStartAt": "2026-10-23T18:32:54.000Z",
+   "freeTimeEndsAt": "2026-10-23T18:37:54.000Z",
+   "detentionMinutes": 17.283333333333335,
+   "billableMinutes": 17.283333333333335,
+   "amountUsd": 17.28,
+   "driverTimes": "recorded"
+  },
+  "workflow": [
+   {
+    "key": "dispatched",
+    "label": "Load dispatched to the driver",
+    "state": "done",
+    "at": "2026-10-23T18:29:24.101Z",
+    "services": [
+     "Lambda",
+     "Step Functions",
+     "EUM Social"
+    ]
+   },
+   {
+    "key": "arrived",
+    "label": "Arrival confirmed by a location pin",
+    "state": "done",
+    "at": "2026-10-23T18:32:54.000Z",
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "notice",
+    "label": "Detention notice emailed before free time ends",
+    "state": "done",
+    "at": "2026-10-23T18:34:34.327Z",
+    "services": [
+     "EventBridge Scheduler",
+     "Lambda",
+     "SES"
+    ]
+   },
+   {
+    "key": "released",
+    "label": "Release confirmed by a location pin",
+    "state": "done",
+    "at": "2026-10-23T18:55:11.000Z",
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ]
+   },
+   {
+    "key": "paperwork",
+    "label": "Bill of lading received",
+    "state": "done",
+    "at": "2026-10-23T18:56:29.000Z",
+    "services": [
+     "EUM Social",
+     "SQS",
+     "Lambda",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "photo_read",
+    "label": "Photo read by the agent's tool",
+    "state": "done",
+    "at": "2026-10-23T18:56:38.366Z",
+    "services": [
+     "Step Functions",
+     "Lambda"
+    ]
+   },
+   {
+    "key": "sealed",
+    "label": "Contract decided: billable; evidence sealed and signed",
+    "state": "done",
+    "at": "2026-10-23T18:56:39.356Z",
+    "services": [
+     "Lambda",
+     "KMS",
+     "S3 Object Lock"
+    ]
+   },
+   {
+    "key": "approval",
+    "label": "Dispatch approved the claim",
+    "state": "done",
+    "at": "2026-10-23T18:56:55.437Z",
+    "services": [
+     "Step Functions",
+     "EUM Social",
+     "Lambda"
+    ]
+   },
+   {
+    "key": "claim",
+    "label": "AI agent filed the claim by email",
+    "state": "done",
+    "at": "2026-10-23T18:57:07.096Z",
+    "services": [
+     "Bedrock AgentCore",
+     "AgentCore Gateway",
+     "SES"
+    ]
+   }
+  ],
+  "messages": [
+   {
+    "id": "m1",
+    "at": "2026-10-23T18:29:24.392Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "dispatch_template",
+    "kind": "wa_template",
+    "body": "Load LIVE-mvlb0qzq is booked: Judge demo yard (any location counts), appointment Oct 23, 2:30 PM. When you are parked at the dock, tap Arrived and we will start the detention clock.",
+    "footer": "Reply STOP to stop load messages.",
+    "template": {
+     "name": "dockclock_load_dispatch",
+     "language": "en_US"
+    },
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Arrived"
+     },
+     {
+      "type": "quick_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "read",
+    "receipts": {
+     "acceptedAt": "2026-10-23T18:29:24.392Z",
+     "sentAt": "2026-10-23T18:29:32.000Z",
+     "readAt": "2026-10-23T18:29:32.000Z"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "m2",
+    "at": "2026-10-23T18:32:42.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_button_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "recorded",
+    "purpose": "tap_arrived",
+    "body": "Tapped Arrived",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Arrived",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m3",
+    "at": "2026-10-23T18:32:44.342Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "location_arrived",
+    "kind": "wa_location_request",
+    "body": "Share your location to start the dock clock. Only send it while parked.",
+    "actions": [
+     {
+      "type": "send_location",
+      "title": "Send location"
+     }
+    ],
+    "status": "read",
+    "receipts": {
+     "acceptedAt": "2026-10-23T18:32:44.342Z",
+     "sentAt": "2026-10-23T18:32:45.000Z",
+     "readAt": "2026-10-23T18:32:45.000Z"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "m4",
+    "at": "2026-10-23T18:32:54.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_location",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "recorded",
+    "purpose": "location",
+    "body": "Location shared",
+    "location": {
+     "insideGeofence": true,
+     "note": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only."
+    }
+   },
+   {
+    "id": "m5",
+    "at": "2026-10-23T18:32:55.803Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "offer_release",
+    "kind": "wa_reply_buttons",
+    "body": "Checked in at Judge demo yard (any location counts) at 14:32 (WhatsApp server time). Tap Released when you are unloaded and leaving the door.",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Released"
+     },
+     {
+      "type": "quick_reply",
+      "title": "Talk to dispatch"
+     }
+    ],
+    "status": "read",
+    "receipts": {
+     "acceptedAt": "2026-10-23T18:32:55.803Z",
+     "sentAt": "2026-10-23T18:32:56.000Z",
+     "readAt": "2026-10-23T18:32:57.000Z"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "m6",
+    "at": "2026-10-23T18:32:59.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_button_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "recorded",
+    "purpose": "tap_released",
+    "body": "Tapped Released",
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Released",
+      "tapped": true
+     }
+    ]
+   },
+   {
+    "id": "m7",
+    "at": "2026-10-23T18:33:01.030Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "location_released",
+    "kind": "wa_location_request",
+    "body": "Share your location once more to stop the dock clock.",
+    "actions": [
+     {
+      "type": "send_location",
+      "title": "Send location"
+     }
+    ],
+    "status": "read",
+    "receipts": {
+     "acceptedAt": "2026-10-23T18:33:01.030Z",
+     "sentAt": "2026-10-23T18:33:02.000Z",
+     "readAt": "2026-10-23T18:33:02.000Z"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "m8",
+    "at": "2026-10-23T18:34:34.770Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "notice_sent",
+    "kind": "wa_template",
+    "body": "Load LIVE-mvlb0qzq: free time ends at 14:37 EDT. We emailed Demo Receiving Co. (fictional) the detention notice your contract requires. Updates will arrive in this chat.",
+    "template": {
+     "name": "dockclock_notice_sent",
+     "language": "en_US"
+    },
+    "status": "read",
+    "receipts": {
+     "acceptedAt": "2026-10-23T18:34:34.770Z",
+     "sentAt": "2026-10-23T18:34:42.000Z",
+     "readAt": "2026-10-23T18:34:42.000Z"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "m9",
+    "at": "2026-10-23T18:55:11.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_location",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "recorded",
+    "purpose": "location",
+    "body": "Location shared",
+    "location": {
+     "insideGeofence": true,
+     "note": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only."
+    }
+   },
+   {
+    "id": "m10",
+    "at": "2026-10-23T18:55:14.476Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "release_flow",
+    "kind": "wa_flow",
+    "body": "Clock stopped at Judge demo yard (any location counts). Add a photo of the signed bill of lading so the times on paper back up your pins.",
+    "actions": [
+     {
+      "type": "flow_cta",
+      "title": "Add BOL photo"
+     }
+    ],
+    "status": "read",
+    "receipts": {
+     "acceptedAt": "2026-10-23T18:55:14.476Z",
+     "sentAt": "2026-10-23T18:55:15.000Z",
+     "readAt": "2026-10-23T18:55:16.000Z"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "m11",
+    "at": "2026-10-23T18:56:29.000Z",
+    "channel": "whatsapp",
+    "direction": "in",
+    "party": "driver",
+    "kind": "wa_flow_reply",
+    "status": "received",
+    "outcome": "ADVANCED",
+    "provenance": "recorded",
+    "purpose": "flow_reply",
+    "body": "Bill of lading form",
+    "flowReply": {
+     "inTime": "14:32",
+     "outTime": "14:55",
+     "receiverSigned": true,
+     "delayReason": "dock_not_ready"
+    },
+    "photoId": "p1"
+   },
+   {
+    "id": "m12",
+    "at": "2026-10-23T18:56:34.034Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "driver",
+    "purpose": "tell_bol_received",
+    "kind": "wa_text",
+    "body": "Got it. Your photo and times are saved with this load's evidence.",
+    "status": "read",
+    "receipts": {
+     "acceptedAt": "2026-10-23T18:56:34.034Z",
+     "sentAt": "2026-10-23T18:56:35.000Z",
+     "readAt": "2026-10-23T18:56:35.000Z"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "m13",
+    "at": "2026-10-23T18:56:42.874Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "dispatcher",
+    "purpose": "dispatch_approval",
+    "kind": "wa_template",
+    "body": "Load LIVE-mvlb0qzq needs your decision before any claim is sent: the contract clause is met, evidence confidence low, photo NOT readable. Proposed claim: $17.28. Nothing goes to the broker until you approve.",
+    "template": {
+     "name": "dockclock_dispatch_approval",
+     "language": "en_US"
+    },
+    "actions": [
+     {
+      "type": "quick_reply",
+      "title": "Approve claim"
+     },
+     {
+      "type": "quick_reply",
+      "title": "Hold"
+     }
+    ],
+    "status": "read",
+    "receipts": {
+     "acceptedAt": "2026-10-23T18:56:42.874Z",
+     "sentAt": "2026-10-23T18:56:50.000Z",
+     "readAt": "2026-10-23T18:56:50.000Z"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "m14",
+    "at": "2026-10-23T18:56:55.467Z",
+    "channel": "whatsapp",
+    "direction": "out",
+    "party": "dispatcher",
+    "purpose": "approval_reply",
+    "kind": "wa_text",
+    "body": "Approved. The claims agent is filing load LIVE-mvlb0qzq now.",
+    "status": "read",
+    "receipts": {
+     "acceptedAt": "2026-10-23T18:56:55.467Z",
+     "sentAt": "2026-10-23T18:56:56.000Z",
+     "readAt": "2026-10-23T18:56:56.000Z"
+    },
+    "provenance": "recorded"
+   }
+  ],
+  "timeline": [
+   {
+    "id": "e1",
+    "at": "2026-10-23T18:29:24.392Z",
+    "title": "DockClock sent the load dispatch",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-23T18:29:24.392Z",
+     "channel": "whatsapp",
+     "purpose": "dispatch_template",
+     "audience": "driver",
+     "status": "read",
+     "message": {
+      "actions": [
+       {
+        "title": "Arrived",
+        "type": "quick_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "quick_reply"
+       }
+      ],
+      "buttons": [
+       "Arrived",
+       "Talk to dispatch"
+      ],
+      "footer": "Reply STOP to stop load messages.",
+      "kind": "template",
+      "template": {
+       "language": "en_US",
+       "name": "dockclock_load_dispatch"
+      },
+      "text": "Load LIVE-mvlb0qzq is booked: Judge demo yard (any location counts), appointment Oct 23, 2:30 PM. When you are parked at the dock, tap Arrived and we will start the detention clock."
+     },
+     "receipts": {
+      "acceptedAt": "2026-10-23T18:29:24.392Z",
+      "sentAt": "2026-10-23T18:29:32.000Z",
+      "readAt": "2026-10-23T18:29:32.000Z"
+     }
+    },
+    "provenance": "recorded",
+    "messageId": "m1"
+   },
+   {
+    "id": "e2",
+    "at": "2026-10-23T18:32:42.000Z",
+    "title": "Driver tapped Arrived",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "sk": "EVENT#2026-10-23T18:32:42.000Z",
+     "detail": {
+      "payload": "dc1.arrived.LIVE-mvlb0qzq.<nonce>"
+     },
+     "phaseBefore": "dispatched",
+     "outcome": "ADVANCED",
+     "phaseAfter": "awaiting_arrival_pin",
+     "channel": "whatsapp",
+     "type": "button",
+     "serverAt": "2026-10-23T18:32:42.000Z"
+    },
+    "provenance": "recorded",
+    "messageId": "m2"
+   },
+   {
+    "id": "e3",
+    "at": "2026-10-23T18:32:44.342Z",
+    "title": "DockClock sent a request for the arrival location",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-23T18:32:44.342Z",
+     "channel": "whatsapp",
+     "purpose": "location_arrived",
+     "audience": "driver",
+     "status": "read",
+     "message": {
+      "actions": [
+       {
+        "title": "Send location",
+        "type": "send_location"
+       }
+      ],
+      "buttons": [
+       "Send location"
+      ],
+      "kind": "location_request",
+      "text": "Share your location to start the dock clock. Only send it while parked."
+     },
+     "receipts": {
+      "acceptedAt": "2026-10-23T18:32:44.342Z",
+      "sentAt": "2026-10-23T18:32:45.000Z",
+      "readAt": "2026-10-23T18:32:45.000Z"
+     }
+    },
+    "provenance": "recorded",
+    "messageId": "m3"
+   },
+   {
+    "id": "e4",
+    "at": "2026-10-23T18:32:54.000Z",
+    "title": "Driver shared a location",
+    "detail": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only. Time is WhatsApp server time.",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "phaseBefore": "awaiting_arrival_pin",
+     "detail": {},
+     "serverAt": "2026-10-23T18:32:54.000Z",
+     "type": "location",
+     "sk": "EVENT#2026-10-23T18:32:54.000Z",
+     "outcome": "ADVANCED",
+     "channel": "whatsapp",
+     "phaseAfter": "at_dock"
+    },
+    "provenance": "recorded",
+    "messageId": "m4"
+   },
+   {
+    "id": "e5",
+    "at": "2026-10-23T18:32:55.803Z",
+    "title": "DockClock sent the check-in confirmation with Released",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-23T18:32:55.803Z",
+     "channel": "whatsapp",
+     "purpose": "offer_release",
+     "audience": "driver",
+     "status": "read",
+     "message": {
+      "actions": [
+       {
+        "title": "Released",
+        "type": "quick_reply"
+       },
+       {
+        "title": "Talk to dispatch",
+        "type": "quick_reply"
+       }
+      ],
+      "buttons": [
+       "Released",
+       "Talk to dispatch"
+      ],
+      "kind": "buttons",
+      "text": "Checked in at Judge demo yard (any location counts) at 14:32 (WhatsApp server time). Tap Released when you are unloaded and leaving the door."
+     },
+     "receipts": {
+      "acceptedAt": "2026-10-23T18:32:55.803Z",
+      "sentAt": "2026-10-23T18:32:56.000Z",
+      "readAt": "2026-10-23T18:32:57.000Z"
+     }
+    },
+    "provenance": "recorded",
+    "messageId": "m5"
+   },
+   {
+    "id": "e6",
+    "at": "2026-10-23T18:32:59.000Z",
+    "title": "Driver tapped Released",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "phaseBefore": "at_dock",
+     "phaseAfter": "awaiting_release_pin",
+     "detail": {
+      "payload": "dc1.released.LIVE-mvlb0qzq.<nonce>"
+     },
+     "outcome": "ADVANCED",
+     "sk": "EVENT#2026-10-23T18:32:59.000Z",
+     "channel": "whatsapp",
+     "type": "button",
+     "serverAt": "2026-10-23T18:32:59.000Z"
+    },
+    "provenance": "recorded",
+    "messageId": "m6"
+   },
+   {
+    "id": "e7",
+    "at": "2026-10-23T18:33:01.030Z",
+    "title": "DockClock sent a request for the release location",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-23T18:33:01.030Z",
+     "channel": "whatsapp",
+     "purpose": "location_released",
+     "audience": "driver",
+     "status": "read",
+     "message": {
+      "actions": [
+       {
+        "title": "Send location",
+        "type": "send_location"
+       }
+      ],
+      "buttons": [
+       "Send location"
+      ],
+      "kind": "location_request",
+      "text": "Share your location once more to stop the dock clock."
+     },
+     "receipts": {
+      "acceptedAt": "2026-10-23T18:33:01.030Z",
+      "sentAt": "2026-10-23T18:33:02.000Z",
+      "readAt": "2026-10-23T18:33:02.000Z"
+     }
+    },
+    "provenance": "recorded",
+    "messageId": "m7"
+   },
+   {
+    "id": "e8",
+    "at": "2026-10-23T18:34:34.327Z",
+    "title": "Detention notice emailed before free time ended",
+    "services": [
+     "EventBridge Scheduler",
+     "Lambda",
+     "SES"
+    ],
+    "channel": "email",
+    "tone": "money",
+    "emailId": "notice",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e9",
+    "at": "2026-10-23T18:34:34.770Z",
+    "title": "DockClock sent word that the detention notice was emailed",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-23T18:34:34.770Z",
+     "channel": "whatsapp",
+     "purpose": "notice_sent",
+     "audience": "driver",
+     "status": "read",
+     "message": {
+      "kind": "template",
+      "template": {
+       "language": "en_US",
+       "name": "dockclock_notice_sent"
+      },
+      "text": "Load LIVE-mvlb0qzq: free time ends at 14:37 EDT. We emailed Demo Receiving Co. (fictional) the detention notice your contract requires. Updates will arrive in this chat."
+     },
+     "receipts": {
+      "acceptedAt": "2026-10-23T18:34:34.770Z",
+      "sentAt": "2026-10-23T18:34:42.000Z",
+      "readAt": "2026-10-23T18:34:42.000Z"
+     }
+    },
+    "provenance": "recorded",
+    "messageId": "m8"
+   },
+   {
+    "id": "e10",
+    "at": "2026-10-23T18:34:35.429Z",
+    "title": "SES reported the notice delivered",
+    "services": [
+     "SES",
+     "SNS",
+     "Lambda"
+    ],
+    "channel": "email",
+    "tone": "ok",
+    "emailId": "notice",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e11",
+    "at": "2026-10-23T18:55:11.000Z",
+    "title": "Driver shared a location",
+    "detail": "Inside the facility area. Coordinates are not shown. The demo yard accepts the test area only. Time is WhatsApp server time.",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "record": {
+     "detail": {},
+     "type": "location",
+     "outcome": "ADVANCED",
+     "phaseAfter": "awaiting_bol",
+     "serverAt": "2026-10-23T18:55:11.000Z",
+     "channel": "whatsapp",
+     "phaseBefore": "awaiting_release_pin",
+     "sk": "EVENT#2026-10-23T18:55:11.000Z"
+    },
+    "provenance": "recorded",
+    "messageId": "m9"
+   },
+   {
+    "id": "e12",
+    "at": "2026-10-23T18:55:14.476Z",
+    "title": "DockClock sent the bill of lading form",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-23T18:55:14.476Z",
+     "channel": "whatsapp",
+     "purpose": "release_flow",
+     "audience": "driver",
+     "status": "read",
+     "message": {
+      "actions": [
+       {
+        "title": "Add BOL photo",
+        "type": "flow_cta"
+       }
+      ],
+      "flowCta": "Add BOL photo",
+      "kind": "flow",
+      "text": "Clock stopped at Judge demo yard (any location counts). Add a photo of the signed bill of lading so the times on paper back up your pins."
+     },
+     "receipts": {
+      "acceptedAt": "2026-10-23T18:55:14.476Z",
+      "sentAt": "2026-10-23T18:55:15.000Z",
+      "readAt": "2026-10-23T18:55:16.000Z"
+     }
+    },
+    "provenance": "recorded",
+    "messageId": "m10"
+   },
+   {
+    "id": "e13",
+    "at": "2026-10-23T18:56:29.000Z",
+    "title": "Bill of lading form submitted",
+    "services": [
+     "EUM Social",
+     "SNS",
+     "SQS",
+     "Lambda",
+     "DynamoDB"
+    ],
+    "channel": "whatsapp",
+    "outcome": "ADVANCED",
+    "tone": "neutral",
+    "photoId": "p1",
+    "record": {
+     "phaseBefore": "awaiting_bol",
+     "phaseAfter": "documented",
+     "outcome": "ADVANCED",
+     "sk": "EVENT#2026-10-23T18:56:29.000Z",
+     "channel": "whatsapp",
+     "serverAt": "2026-10-23T18:56:29.000Z",
+     "detail": {
+      "flowToken": "dc1.release.LIVE-mvlb0qzq.<nonce>"
+     },
+     "type": "flow"
+    },
+    "provenance": "recorded",
+    "messageId": "m11"
+   },
+   {
+    "id": "e14",
+    "at": "2026-10-23T18:56:34.034Z",
+    "title": "DockClock sent a reply to the driver",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-23T18:56:34.034Z",
+     "channel": "whatsapp",
+     "purpose": "tell_bol_received",
+     "audience": "driver",
+     "status": "read",
+     "message": {
+      "kind": "text",
+      "text": "Got it. Your photo and times are saved with this load's evidence."
+     },
+     "receipts": {
+      "acceptedAt": "2026-10-23T18:56:34.034Z",
+      "sentAt": "2026-10-23T18:56:35.000Z",
+      "readAt": "2026-10-23T18:56:35.000Z"
+     }
+    },
+    "provenance": "recorded",
+    "messageId": "m12"
+   },
+   {
+    "id": "e15",
+    "at": "2026-10-23T18:56:38.366Z",
+    "title": "The agent's photo tool could not read the bill of lading",
+    "services": [
+     "Step Functions",
+     "Lambda"
+    ],
+    "tone": "agent",
+    "photoId": "p1",
+    "record": {
+     "legible": false,
+     "inTime": null,
+     "outTime": null,
+     "receiverSigned": false,
+     "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "e16",
+    "at": "2026-10-23T18:56:39.356Z",
+    "title": "The contract decided: billable, $17.28. Evidence sealed and signed",
+    "services": [
+     "Step Functions",
+     "Lambda",
+     "KMS",
+     "S3 Object Lock"
+    ],
+    "tone": "money",
+    "record": {
+     "verdict": "BILLABLE",
+     "reasons": [],
+     "amountUsd": 17.28,
+     "packId": "LIVE-mvlb0qzq-bab73430118a",
+     "digestSha256": "eb4fc3d9821d6d5f7dcfce56f8976c23d1ed33942de3fde39c21c124884182ad"
+    },
+    "provenance": "recorded"
+   },
+   {
+    "id": "e17",
+    "at": "2026-10-23T18:56:42.874Z",
+    "title": "DockClock sent the claim to dispatch for approval",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "money",
+    "record": {
+     "sk": "SEND#2026-10-23T18:56:42.874Z",
+     "channel": "whatsapp",
+     "purpose": "dispatch_approval",
+     "audience": "dispatcher",
+     "status": "read",
+     "message": {
+      "actions": [
+       {
+        "title": "Approve claim",
+        "type": "quick_reply"
+       },
+       {
+        "title": "Hold",
+        "type": "quick_reply"
+       }
+      ],
+      "buttons": [
+       "Approve claim",
+       "Hold"
+      ],
+      "kind": "template",
+      "template": {
+       "language": "en_US",
+       "name": "dockclock_dispatch_approval"
+      },
+      "text": "Load LIVE-mvlb0qzq needs your decision before any claim is sent: the contract clause is met, evidence confidence low, photo NOT readable. Proposed claim: $17.28. Nothing goes to the broker until you approve."
+     },
+     "receipts": {
+      "acceptedAt": "2026-10-23T18:56:42.874Z",
+      "sentAt": "2026-10-23T18:56:50.000Z",
+      "readAt": "2026-10-23T18:56:50.000Z"
+     }
+    },
+    "provenance": "recorded",
+    "messageId": "m13"
+   },
+   {
+    "id": "e18",
+    "at": "2026-10-23T18:56:55.467Z",
+    "title": "DockClock sent the approval confirmation",
+    "services": [
+     "Lambda",
+     "EUM Social"
+    ],
+    "channel": "whatsapp",
+    "tone": "neutral",
+    "record": {
+     "sk": "SEND#2026-10-23T18:56:55.467Z",
+     "channel": "whatsapp",
+     "purpose": "approval_reply",
+     "audience": "dispatcher",
+     "status": "read",
+     "message": {
+      "kind": "text",
+      "text": "Approved. The claims agent is filing load LIVE-mvlb0qzq now."
+     },
+     "receipts": {
+      "acceptedAt": "2026-10-23T18:56:55.467Z",
+      "sentAt": "2026-10-23T18:56:56.000Z",
+      "readAt": "2026-10-23T18:56:56.000Z"
+     }
+    },
+    "provenance": "recorded",
+    "messageId": "m14"
+   },
+   {
+    "id": "e19",
+    "at": "2026-10-23T18:56:56.219Z",
+    "title": "The AI agent filed the claim by email",
+    "services": [
+     "Bedrock AgentCore",
+     "AgentCore Gateway",
+     "SES"
+    ],
+    "tone": "agent",
+    "agentRunId": "a1",
+    "emailId": "claim",
+    "provenance": "recorded"
+   },
+   {
+    "id": "e20",
+    "at": "2026-10-23T18:57:07.795Z",
+    "title": "SES reported the claim email delivered",
+    "services": [
+     "SES",
+     "SNS",
+     "Lambda"
+    ],
+    "channel": "email",
+    "tone": "ok",
+    "emailId": "claim",
+    "provenance": "recorded"
+   }
+  ],
+  "photos": [
+   {
+    "id": "p1",
+    "page": 1,
+    "channel": "whatsapp",
+    "takenAt": "2026-10-23T18:56:29.000Z",
+    "mimeType": "image/jpeg",
+    "sha256": "f796fdca088a561059516a5e93e3130deaad317e15b8026428e4f37511648dbd",
+    "matchesPack": true,
+    "url": "photos/LIVE-mvlb0qzq-1.jpg",
+    "servedBytes": "metadata_stripped",
+    "source": "phone_camera",
+    "usedInEvidence": true,
+    "legible": false,
+    "reading": {
+     "inTime": null,
+     "outTime": null,
+     "receiverSigned": false,
+     "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+     "readAt": "2026-10-23T18:56:38.366Z"
+    },
+    "provenance": "recorded"
+   }
+  ],
+  "emails": [
+   {
+    "id": "notice",
+    "purpose": "notice",
+    "sentAt": "2026-10-23T18:34:34.327Z",
+    "status": "delivered",
+    "deliveredAt": "2026-10-23T18:34:35.429Z",
+    "from": "claims@claims.kaungzinhein.com",
+    "to": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper",
+     "note": "Delivered to our test mailbox, not to a real company."
+    },
+    "subject": "Detention notice: load LIVE-mvlb0qzq at Judge demo yard (any location counts)",
+    "attachments": [],
+    "bodyStored": true,
+    "provenance": "recorded"
+   },
+   {
+    "id": "claim",
+    "purpose": "claim",
+    "sentAt": "2026-10-23T18:57:07.096Z",
+    "status": "delivered",
+    "deliveredAt": "2026-10-23T18:57:07.795Z",
+    "from": "claims@claims.kaungzinhein.com",
+    "to": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper",
+     "note": "Delivered to our test mailbox, not to a real company."
+    },
+    "subject": "Detention claim for load LIVE-mvlb0qzq - $17.28",
+    "attachments": [
+     {
+      "name": "LIVE-mvlb0qzq-bab73430118a.json",
+      "contentType": "application/json",
+      "sha256": "1784abe9c9b145ed37ed24bbfb4ee320a12c3686301c322ea172a22395c65414",
+      "note": "The signed evidence pack, exactly as sealed."
+     },
+     {
+      "name": "dockclock-public-key.pem",
+      "contentType": "application/x-pem-file",
+      "sha256": "8876fe3fc644cd347dee167da5720bf46a2b36feaea629b2ea3d9896a855e299",
+      "note": "The public key to check the signature."
+     }
+    ],
+    "bodyStored": true,
+    "provenance": "recorded"
+   }
+  ],
+  "agentRuns": [
+   {
+    "id": "a1",
+    "task": "file_claim",
+    "startedAt": "2026-10-23T18:56:56.219Z",
+    "endedAt": "2026-10-23T18:57:10.542Z",
+    "model": "Claude Sonnet 4.5 on Amazon Bedrock AgentCore",
+    "stopReason": "end_turn",
+    "toolCalls": [
+     {
+      "name": "get_load_evidence",
+      "input": {
+       "loadId": "LIVE-mvlb0qzq"
+      },
+      "cedar": {
+       "decision": "permit",
+       "policy": "Read tools are always allowed.",
+       "decisionSource": "inferred"
+      },
+      "result": {
+       "ok": true,
+       "summary": "Sealed BILLABLE, $17.28, dispatch approved."
+      }
+     },
+     {
+      "name": "send_detention_claim",
+      "input": {
+       "amountCents": 1728,
+       "approvalId": "appr-b238ffe1da74",
+       "body": "(the email body, shown in the mailbox)",
+       "loadId": "LIVE-mvlb0qzq",
+       "packDigest": "eb4fc3d9821d6d5f7dcfce56f8976c23d1ed33942de3fde39c21c124884182ad",
+       "subject": "Detention claim for load LIVE-mvlb0qzq - $17.28"
+      },
+      "cedar": {
+       "decision": "permit",
+       "policy": "The claim tool needs an approval id and 0 < amount ≤ $5,000.00 (in cents).",
+       "decisionSource": "inferred"
+      },
+      "result": {
+       "ok": true,
+       "summary": "Email accepted by SES; claim recorded as sent."
+      }
+     }
+    ],
+    "guard": {
+     "amountCentsSent": 1728,
+     "amountCentsSealed": 1728,
+     "digestSent": "eb4fc3d9821d6d5f7dcfce56f8976c23d1ed33942de3fde39c21c124884182ad",
+     "digestSealed": "eb4fc3d9821d6d5f7dcfce56f8976c23d1ed33942de3fde39c21c124884182ad",
+     "match": true
+    },
+    "text": "**Claim filed successfully.**\n\nThe detention claim for load LIVE-mvlb0qzq has been sent to Demo Receiving Co. (fictional) for **$17.28**.\n\n**Summary:**\n- Load ID: LIVE-mvlb0qzq\n- Facility: Judge demo yard (any location counts)\n- Arrival: 2026-10-23 14:32 EDT\n- Release: 2026-10-23 14:55 EDT\n- Detention time: 17.28 minutes\n- Free time: 5 minutes\n- Rate: $60.00/hour\n- Amount: $17.28\n- Sent: 2026-10-23T18:57:07.096Z\n\nThe signed evidence pack has been attached to the email.",
+    "provenance": "recorded"
+   }
+  ],
+  "approval": {
+   "requestedAt": "2026-10-23T18:56:42.657Z",
+   "decidedAt": "2026-10-23T18:56:55.437Z",
+   "decision": "approve",
+   "approver": "dispatcher"
+  },
+  "claim": {
+   "status": "sent",
+   "amountUsd": 17.28,
+   "amountCents": 1728,
+   "packDigest": "eb4fc3d9821d6d5f7dcfce56f8976c23d1ed33942de3fde39c21c124884182ad",
+   "sentAt": "2026-10-23T18:57:07.096Z",
+   "subject": "Detention claim for load LIVE-mvlb0qzq - $17.28",
+   "secondsAfterApproval": 11.7
+  },
+  "verdict": {
+   "verdict": "BILLABLE",
+   "reasons": [],
+   "amountUsd": 17.28,
+   "confidence": "low",
+   "signals": [
+    {
+     "name": "arrived_pin_in_geofence",
+     "ok": true,
+     "detail": "inside facility polygon"
+    },
+    {
+     "name": "released_pin_in_geofence",
+     "ok": true,
+     "detail": "inside facility polygon"
+    },
+    {
+     "name": "bol_camera_only",
+     "ok": true,
+     "detail": "captured in camera-only Flow"
+    },
+    {
+     "name": "bol_media_hashed",
+     "ok": true,
+     "detail": "1 of 1 pages stored and hashed"
+    },
+    {
+     "name": "bol_confirmed_by_driver",
+     "ok": true,
+     "detail": "driver confirmed or corrected extracted times"
+    },
+    {
+     "name": "bol_in_matches_arrived_pin",
+     "ok": true,
+     "independent": false,
+     "detail": "1 min apart (tolerance 15); pre-filled from the pin and left unchanged, so not independent"
+    },
+    {
+     "name": "bol_out_matches_released_pin",
+     "ok": true,
+     "independent": false,
+     "detail": "0 min apart (tolerance 15); pre-filled from the pin and left unchanged, so not independent"
+    },
+    {
+     "name": "bol_photo_legible",
+     "ok": false,
+     "detail": "photo could not be read"
+    },
+    {
+     "name": "notice_delivered",
+     "ok": true,
+     "detail": "2026-10-23T18:34:35.429Z"
+    }
+   ],
+   "engineInput": {
+    "appointmentAt": "2026-10-23T18:30:00.000Z",
+    "arrived": {
+     "at": "2026-10-23T18:32:54.000Z",
+     "insideGeofence": true
+    },
+    "released": {
+     "at": "2026-10-23T18:55:11.000Z",
+     "insideGeofence": true
+    },
+    "bol": {
+     "signed": true,
+     "checkIn": "2026-10-23T18:32:00.000Z",
+     "checkOut": "2026-10-23T18:55:00.000Z"
+    },
+    "status214": false,
+    "noticeSentAt": "2026-10-23T18:34:34.327Z",
+    "shipperConfirmed": false,
+    "evaluatedAt": "2026-10-23T18:56:39.356Z"
+   }
+  },
+  "pack": {
+   "packId": "LIVE-mvlb0qzq-bab73430118a",
+   "digestSha256": "eb4fc3d9821d6d5f7dcfce56f8976c23d1ed33942de3fde39c21c124884182ad",
+   "sealedAt": "2026-10-23T18:56:39.356Z",
+   "storage": "S3 Object Lock (governance mode, 30 days)",
+   "confidence": "low",
+   "href": "/api/loads/LIVE-mvlb0qzq/pack"
+  }
+ }
+}

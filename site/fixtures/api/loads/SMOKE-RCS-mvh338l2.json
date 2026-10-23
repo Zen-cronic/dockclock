@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T20:13:39.825Z",
+ "generatedAt": "2026-10-23T19:32:05.632Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
@@ -62,7 +62,7 @@
    "basis": "Modelled on published shipper terms. Values those terms do not state are DockClock assumptions."
   },
   "clock": {
-   "asOf": "2026-10-20T20:13:39.825Z",
+   "asOf": "2026-10-23T19:32:05.632Z",
    "arrivedAt": "2026-10-20T15:29:17.462Z",
    "releasedAt": "2026-10-20T19:07:17.462Z",
    "clockStartAt": "2026-10-20T15:36:17.462Z",
@@ -202,15 +202,7 @@
       "title": "Talk to dispatch"
      }
     ],
-    "status": "failed",
-    "receipts": {
-     "acceptedAt": "2026-10-20T15:25:17.462Z",
-     "failedAt": "2026-10-20T15:26:17.000Z"
-    },
-    "failover": {
-     "at": "2026-10-20T19:36:18.284Z",
-     "action": "rerouted_to_rcs"
-    },
+    "status": "accepted",
     "provenance": "synthetic_input"
    },
    {
@@ -452,13 +444,13 @@
      "EUM Social"
     ],
     "channel": "whatsapp",
-    "tone": "refused",
+    "tone": "neutral",
     "record": {
      "sk": "SEND#2026-10-20T15:25:17.462Z",
      "channel": "whatsapp",
      "purpose": "dispatch_template",
      "audience": "driver",
-     "status": "failed",
+     "status": "accepted",
      "message": {
       "actions": [
        {
@@ -482,10 +474,7 @@
       },
       "text": "Load SMOKE-RCS-mvh338l2 is booked: Lakeshore DC, Columbus OH, appointment the appointment. When you are parked at the dock, tap Arrived and we will start the detention clock."
      },
-     "receipts": {
-      "acceptedAt": "2026-10-20T15:25:17.462Z",
-      "failedAt": "2026-10-20T15:26:17.000Z"
-     }
+     "receipts": {}
     },
     "provenance": "synthetic_input",
     "messageId": "m1"
@@ -504,18 +493,18 @@
     "outcome": "RESENT_OVER_RCS",
     "tone": "refused",
     "record": {
+     "phaseBefore": "dispatched",
+     "serverAt": "2026-10-20T15:26:17.000Z",
+     "sk": "EVENT#2026-10-20T15:26:17.000Z",
+     "outcome": "RESENT_OVER_RCS",
+     "phaseAfter": "dispatched",
+     "channel": "rcs",
+     "type": "failover",
      "detail": {
       "errorCode": 131026,
       "purpose": "dispatch_template",
       "queued": "send_dispatch"
-     },
-     "sk": "EVENT#2026-10-20T15:26:17.000Z",
-     "outcome": "RESENT_OVER_RCS",
-     "phaseAfter": "dispatched",
-     "serverAt": "2026-10-20T15:26:17.000Z",
-     "type": "failover",
-     "phaseBefore": "dispatched",
-     "channel": "rcs"
+     }
     },
     "provenance": "synthetic_input"
    },
@@ -534,16 +523,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "outcome": "ADVANCED",
-     "serverAt": "2026-10-20T15:28:17.462Z",
-     "phaseAfter": "awaiting_arrival_pin",
-     "sk": "EVENT#2026-10-20T15:28:17.462Z",
-     "type": "button",
      "detail": {
       "payload": "dc1.arrived.SMOKE-RCS-mvh338l2.<nonce>"
      },
      "phaseBefore": "dispatched",
-     "channel": "rcs"
+     "phaseAfter": "awaiting_arrival_pin",
+     "sk": "EVENT#2026-10-20T15:28:17.462Z",
+     "serverAt": "2026-10-20T15:28:17.462Z",
+     "channel": "rcs",
+     "type": "button",
+     "outcome": "ADVANCED"
     },
     "provenance": "synthetic_input",
     "messageId": "m2"
@@ -564,14 +553,14 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "outcome": "ADVANCED",
-     "type": "location",
+     "detail": {},
      "serverAt": "2026-10-20T15:29:17.462Z",
+     "channel": "rcs",
+     "sk": "EVENT#2026-10-20T15:29:17.462Z",
      "phaseAfter": "at_dock",
      "phaseBefore": "awaiting_arrival_pin",
-     "detail": {},
-     "sk": "EVENT#2026-10-20T15:29:17.462Z",
-     "channel": "rcs"
+     "outcome": "ADVANCED",
+     "type": "location"
     },
     "provenance": "synthetic_input",
     "messageId": "m3"
@@ -591,16 +580,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "outcome": "ADVANCED",
-     "sk": "EVENT#2026-10-20T19:06:17.462Z",
+     "serverAt": "2026-10-20T19:06:17.462Z",
      "detail": {
       "payload": "dc1.released.SMOKE-RCS-mvh338l2.<nonce>"
      },
      "phaseBefore": "at_dock",
-     "type": "button",
-     "serverAt": "2026-10-20T19:06:17.462Z",
      "phaseAfter": "awaiting_release_pin",
-     "channel": "rcs"
+     "channel": "rcs",
+     "sk": "EVENT#2026-10-20T19:06:17.462Z",
+     "type": "button",
+     "outcome": "ADVANCED"
     },
     "provenance": "synthetic_input",
     "messageId": "m4"
@@ -621,14 +610,14 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "serverAt": "2026-10-20T19:07:17.462Z",
-     "outcome": "ADVANCED",
-     "phaseAfter": "awaiting_bol",
-     "phaseBefore": "awaiting_release_pin",
-     "type": "location",
-     "sk": "EVENT#2026-10-20T19:07:17.462Z",
      "detail": {},
-     "channel": "rcs"
+     "phaseBefore": "awaiting_release_pin",
+     "phaseAfter": "awaiting_bol",
+     "channel": "rcs",
+     "serverAt": "2026-10-20T19:07:17.462Z",
+     "sk": "EVENT#2026-10-20T19:07:17.462Z",
+     "outcome": "ADVANCED",
+     "type": "location"
     },
     "provenance": "synthetic_input",
     "messageId": "m5"
@@ -866,16 +855,16 @@
     "tone": "neutral",
     "photoId": "p1",
     "record": {
-     "outcome": "ADVANCED",
-     "sk": "EVENT#2026-10-20T19:36:38.748Z",
+     "serverAt": "2026-10-20T19:36:38.748Z",
      "type": "image",
+     "phaseBefore": "awaiting_bol",
+     "channel": "rcs",
      "detail": {
       "mimeType": "image/jpeg"
      },
-     "phaseBefore": "awaiting_bol",
-     "serverAt": "2026-10-20T19:36:38.748Z",
      "phaseAfter": "documented",
-     "channel": "rcs"
+     "sk": "EVENT#2026-10-20T19:36:38.748Z",
+     "outcome": "ADVANCED"
     },
     "provenance": "synthetic_input",
     "messageId": "m12"

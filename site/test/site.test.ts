@@ -132,7 +132,9 @@ describe.each(fxLoads)("API fixture %s", (file) => {
     const words = [runLabel(d), testStrip(d) ?? "", provedWords(d).short, provedWords(d).long, approvalWords(d).short, approvalWords(d).long, ...flowNodes(d).map((n) => n.title)].join(" | ");
     if (d.run.kind !== "phone" && d.run.kind !== "demo") expect(words).not.toMatch(/WhatsApp server times|RCS server times/);
     if (!(d.approval?.decision === "approve" && d.approval.approver === "dispatcher")) expect(words).not.toMatch(/tapped/i);
-    for (const p of d.photos) expect(p.badge).not.toMatch(/real phone/);
+    // "real phone" is true only for a photo a real-phone run took with the phone's camera.
+    const cameraShots = new Set((body.data.photos ?? []).filter((p) => p.source === "phone_camera").map((p) => p.sha256));
+    for (const p of d.photos) if (!(d.run.kind === "phone" && cameraShots.has(p.sha256))) expect(p.badge).not.toMatch(/real phone/);
   });
 
   it("verifies its signed pack when one is published", async () => {

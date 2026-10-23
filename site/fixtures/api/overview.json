@@ -1,38 +1,40 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T20:13:33.972Z",
+ "generatedAt": "2026-10-23T19:31:55.855Z",
  "workspace": "demo",
  "pollMs": 3000,
  "data": {
   "window": {
-   "loads": 27,
+   "loads": 31,
    "from": "2026-10-16T22:07:08.782Z",
-   "to": "2026-10-20T20:13:33.972Z"
+   "to": "2026-10-23T19:31:55.855Z"
   },
   "loads": {
-   "total": 27,
+   "total": 31,
    "live": 0,
    "byStatus": {
-    "claim_filed": 9,
+    "not_billable": 9,
+    "claim_filed": 10,
+    "needs_human": 2,
     "held": 7,
-    "not_billable": 8,
     "closed": 3
    },
    "byVerdict": {
-    "BILLABLE": 17,
-    "NOT_BILLABLE": 8
+    "NOT_BILLABLE": 9,
+    "BILLABLE": 19,
+    "NEEDS_HUMAN": 1
    }
   },
   "claims": {
-   "filed": 9,
-   "amountUsd": 633.74,
+   "filed": 10,
+   "amountUsd": 651.02,
    "refusedAgentRuns": 1
   },
   "messages": {
    "byChannel": {
     "whatsapp": {
-     "outbound": 17,
-     "inbound": 156
+     "outbound": 47,
+     "inbound": 178
     },
     "rcs": {
      "outbound": 34,
@@ -43,247 +45,251 @@
      "inbound": 0
     },
     "email": {
-     "outbound": 27,
+     "outbound": 34,
      "inbound": 0
     }
    },
    "byStatus": {
-    "not_sent": 59,
-    "received": 186,
-    "delivered": 12,
-    "failed": 1,
+    "received": 208,
+    "not_sent": 67,
+    "read": 23,
+    "delivered": 18,
+    "accepted": 1,
     "sent": 6
    }
   },
   "delivery": {
-   "outbound": 1,
-   "delivered": 0,
-   "read": 0,
-   "failed": 1,
-   "deliveryRate": 0,
+   "outbound": 24,
+   "delivered": 23,
+   "read": 23,
+   "failed": 0,
+   "deliveryRate": 0.9583333333333334,
    "failovers": 5,
-   "failoverRate": 0.18518518518518517
+   "failoverRate": 0.16129032258064516
   },
   "emails": {
-   "sent": 18,
-   "delivered": 12,
+   "sent": 24,
+   "delivered": 18,
    "bounced": 0
   },
   "activity": [
    {
-    "id": "SMOKE-DEMO-mvh3xsdq:e19",
-    "at": "2026-10-20T20:09:23.928Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdq",
-    "runKind": "integration",
-    "kind": "claim",
-    "channel": "email",
-    "title": "SES reported the claim email delivered",
-    "tone": "ok",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e19"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdq:e18",
-    "at": "2026-10-20T20:09:09.556Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdq",
-    "runKind": "integration",
-    "kind": "agent",
-    "title": "The AI agent filed the claim by email",
-    "tone": "agent",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e18"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdq:e17",
-    "at": "2026-10-20T20:09:09.117Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdq",
-    "runKind": "integration",
-    "kind": "approval",
-    "title": "Approval recorded from the command line (test, not a tap)",
-    "tone": "ok",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e17"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdv:e19",
-    "at": "2026-10-20T20:09:06.118Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdv",
-    "runKind": "integration",
-    "kind": "claim",
-    "channel": "email",
-    "title": "SES reported the claim email delivered",
-    "tone": "ok",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e19"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdv:e18",
-    "at": "2026-10-20T20:08:52.801Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdv",
-    "runKind": "integration",
-    "kind": "agent",
-    "title": "The AI agent filed the claim by email",
-    "tone": "agent",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e18"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdv:e17",
-    "at": "2026-10-20T20:08:51.344Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdv",
-    "runKind": "integration",
-    "kind": "approval",
-    "title": "Approval recorded from the command line (test, not a tap)",
-    "tone": "ok",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e17"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdq:e16",
-    "at": "2026-10-20T20:08:26.401Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdq",
+    "id": "SMOKE-mvlc4by2:e16",
+    "at": "2026-10-23T19:00:32.035Z",
+    "loadId": "SMOKE-mvlc4by2",
     "runKind": "integration",
     "kind": "email",
     "channel": "email",
     "title": "Dispatch escalation composed (not sent: test load)",
     "tone": "refused",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e16"
+    "href": "/loads/SMOKE-mvlc4by2?tab=timeline#e16"
    },
    {
-    "id": "SMOKE-DEMO-mvh3xsdv:e16",
-    "at": "2026-10-20T20:08:26.280Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdv",
-    "runKind": "integration",
-    "kind": "email",
-    "channel": "email",
-    "title": "Dispatch escalation composed (not sent: test load)",
-    "tone": "refused",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e16"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdq:e15",
-    "at": "2026-10-20T20:08:24.562Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdq",
-    "runKind": "integration",
-    "kind": "workflow",
-    "title": "The agent's photo tool read the bill of lading",
-    "tone": "agent",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e15"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdv:e15",
-    "at": "2026-10-20T20:08:20.265Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdv",
-    "runKind": "integration",
-    "kind": "email",
-    "channel": "email",
-    "title": "Dispatch escalation composed (not sent: test load)",
-    "tone": "refused",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e15"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdv:e14",
-    "at": "2026-10-20T20:08:20.246Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdv",
+    "id": "SMOKE-mvlc4by2:e15",
+    "at": "2026-10-23T19:00:32.027Z",
+    "loadId": "SMOKE-mvlc4by2",
     "runKind": "integration",
     "kind": "message",
     "channel": "whatsapp",
     "title": "DockClock composed a reply to the driver (not sent)",
     "tone": "neutral",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e14"
+    "href": "/loads/SMOKE-mvlc4by2?tab=timeline#e15"
    },
    {
-    "id": "SMOKE-DEMO-mvh3xsdq:e14",
-    "at": "2026-10-20T20:08:19.854Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdq",
+    "id": "SMOKE-mvlc4by2:e14",
+    "at": "2026-10-23T19:00:29.387Z",
+    "loadId": "SMOKE-mvlc4by2",
     "runKind": "integration",
     "kind": "message",
-    "channel": "rcs",
+    "channel": "whatsapp",
+    "title": "DockClock composed the bill of lading form (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-mvlc4by2?tab=timeline#e14"
+   },
+   {
+    "id": "SMOKE-mvlc4by2:e13",
+    "at": "2026-10-23T19:00:26.848Z",
+    "loadId": "SMOKE-mvlc4by2",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "whatsapp",
+    "title": "DockClock composed a request for the release location (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-mvlc4by2?tab=timeline#e13"
+   },
+   {
+    "id": "SMOKE-mvlc4by2:e12",
+    "at": "2026-10-23T19:00:19.167Z",
+    "loadId": "SMOKE-mvlc4by2",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "whatsapp",
+    "title": "DockClock composed the check-in confirmation with Released (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-mvlc4by2?tab=timeline#e12"
+   },
+   {
+    "id": "SMOKE-mvlc4by2:e11",
+    "at": "2026-10-23T19:00:14.007Z",
+    "loadId": "SMOKE-mvlc4by2",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "whatsapp",
+    "title": "DockClock composed a request for the arrival location (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-mvlc4by2?tab=timeline#e11"
+   },
+   {
+    "id": "SMOKE-mvlc4by2:e10",
+    "at": "2026-10-23T19:00:12.588Z",
+    "loadId": "SMOKE-mvlc4by2",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "whatsapp",
     "title": "DockClock composed a reply to the driver (not sent)",
     "tone": "neutral",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e14"
+    "href": "/loads/SMOKE-mvlc4by2?tab=timeline#e10"
    },
    {
-    "id": "SMOKE-DEMO-mvh3xsdq:e13",
-    "at": "2026-10-20T20:08:19.532Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdq",
+    "id": "SMOKE-mvlc4by2:e9",
+    "at": "2026-10-23T19:00:11.076Z",
+    "loadId": "SMOKE-mvlc4by2",
     "runKind": "integration",
     "kind": "message",
-    "channel": "rcs",
-    "title": "Driver sent a photo",
+    "channel": "whatsapp",
+    "title": "DockClock composed the load dispatch (not sent)",
     "tone": "neutral",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e13"
+    "href": "/loads/SMOKE-mvlc4by2?tab=timeline#e9"
    },
    {
-    "id": "SMOKE-DEMO-mvh3xsdv:e13",
-    "at": "2026-10-20T20:08:19.000Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdv",
+    "id": "LIVE-mvlb0qzq:e19",
+    "at": "2026-10-23T18:57:07.795Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
+    "kind": "claim",
+    "channel": "email",
+    "title": "SES reported the claim email delivered",
+    "tone": "ok",
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e19"
+   },
+   {
+    "id": "LIVE-mvlb0qzq:e18",
+    "at": "2026-10-23T18:56:56.219Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
+    "kind": "agent",
+    "title": "The AI agent filed the claim by email",
+    "tone": "agent",
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e18"
+   },
+   {
+    "id": "LIVE-mvlb0qzq:e17",
+    "at": "2026-10-23T18:56:55.467Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
+    "kind": "message",
+    "channel": "whatsapp",
+    "title": "DockClock sent the approval confirmation",
+    "tone": "neutral",
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e17"
+   },
+   {
+    "id": "LIVE-mvlb0qzq:e16",
+    "at": "2026-10-23T18:56:42.874Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
+    "kind": "message",
+    "channel": "whatsapp",
+    "title": "DockClock sent the claim to dispatch for approval",
+    "tone": "money",
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e16"
+   },
+   {
+    "id": "LIVE-mvlb0qzq:e15",
+    "at": "2026-10-23T18:56:38.366Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
+    "kind": "workflow",
+    "title": "The agent's photo tool could not read the bill of lading",
+    "tone": "agent",
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e15"
+   },
+   {
+    "id": "LIVE-mvlb0qzq:e14",
+    "at": "2026-10-23T18:56:34.034Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
+    "kind": "message",
+    "channel": "whatsapp",
+    "title": "DockClock sent a reply to the driver",
+    "tone": "neutral",
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e14"
+   },
+   {
+    "id": "LIVE-mvlb0qzq:e13",
+    "at": "2026-10-23T18:56:29.000Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
+    "kind": "message",
+    "channel": "whatsapp",
+    "title": "Bill of lading form submitted",
+    "tone": "neutral",
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e13"
+   },
+   {
+    "id": "LIVE-mvlb0qzq:e12",
+    "at": "2026-10-23T18:55:14.476Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
+    "kind": "message",
+    "channel": "whatsapp",
+    "title": "DockClock sent the bill of lading form",
+    "tone": "neutral",
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e12"
+   },
+   {
+    "id": "LIVE-mvlb0qzq:e11",
+    "at": "2026-10-23T18:55:11.000Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
+    "kind": "message",
+    "channel": "whatsapp",
+    "title": "Driver shared a location",
+    "tone": "neutral",
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e11"
+   },
+   {
+    "id": "SMOKE-mvlc4by2:e8",
+    "at": "2026-10-23T18:35:09.000Z",
+    "loadId": "SMOKE-mvlc4by2",
     "runKind": "integration",
     "kind": "message",
     "channel": "whatsapp",
     "title": "Bill of lading form submitted",
     "tone": "neutral",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e13"
+    "href": "/loads/SMOKE-mvlc4by2?tab=timeline#e8"
    },
    {
-    "id": "SMOKE-DEMO-mvh3xsdv:e12",
-    "at": "2026-10-20T20:08:15.692Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdv",
-    "runKind": "integration",
+    "id": "LIVE-mvlb0qzq:e10",
+    "at": "2026-10-23T18:34:35.429Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
+    "kind": "email",
+    "channel": "email",
+    "title": "SES reported the notice delivered",
+    "tone": "ok",
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e10"
+   },
+   {
+    "id": "LIVE-mvlb0qzq:e9",
+    "at": "2026-10-23T18:34:34.770Z",
+    "loadId": "LIVE-mvlb0qzq",
+    "runKind": "phone",
     "kind": "message",
     "channel": "whatsapp",
-    "title": "DockClock composed the bill of lading form (not sent)",
+    "title": "DockClock sent word that the detention notice was emailed",
     "tone": "neutral",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e12"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdq:e12",
-    "at": "2026-10-20T20:08:15.497Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdq",
-    "runKind": "integration",
-    "kind": "message",
-    "channel": "rcs",
-    "title": "DockClock composed the bill of lading form (not sent)",
-    "tone": "neutral",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e12"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdq:e11",
-    "at": "2026-10-20T20:08:15.218Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdq",
-    "runKind": "integration",
-    "kind": "message",
-    "channel": "rcs",
-    "title": "Driver shared a location",
-    "tone": "neutral",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e11"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdv:e11",
-    "at": "2026-10-20T20:08:15.000Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdv",
-    "runKind": "integration",
-    "kind": "message",
-    "channel": "whatsapp",
-    "title": "Driver shared a location",
-    "tone": "neutral",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e11"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdv:e10",
-    "at": "2026-10-20T20:08:11.674Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdv",
-    "runKind": "integration",
-    "kind": "message",
-    "channel": "whatsapp",
-    "title": "DockClock composed a request for the release location (not sent)",
-    "tone": "neutral",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdv?tab=timeline#e10"
-   },
-   {
-    "id": "SMOKE-DEMO-mvh3xsdq:e10",
-    "at": "2026-10-20T20:08:11.556Z",
-    "loadId": "SMOKE-DEMO-mvh3xsdq",
-    "runKind": "integration",
-    "kind": "message",
-    "channel": "rcs",
-    "title": "DockClock composed a request for the release location (not sent)",
-    "tone": "neutral",
-    "href": "/loads/SMOKE-DEMO-mvh3xsdq?tab=timeline#e10"
+    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e9"
    }
   ]
  }

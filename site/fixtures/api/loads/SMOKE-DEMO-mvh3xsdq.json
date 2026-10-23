@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-20T20:13:38.350Z",
+ "generatedAt": "2026-10-23T19:32:00.444Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
@@ -62,7 +62,7 @@
    "basis": "DockClock judge demo clause, not modelled on any published terms."
   },
   "clock": {
-   "asOf": "2026-10-20T20:13:38.350Z",
+   "asOf": "2026-10-23T19:32:00.444Z",
    "arrivedAt": "2026-10-20T20:00:11.099Z",
    "releasedAt": "2026-10-20T20:08:15.218Z",
    "clockStartAt": "2026-10-20T20:00:11.099Z",
@@ -447,16 +447,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "phaseBefore": "dispatched",
-     "serverAt": "2026-10-20T20:00:07.000Z",
-     "phaseAfter": "awaiting_arrival_pin",
+     "sk": "EVENT#2026-10-20T20:00:07.000Z",
      "detail": {
       "payload": "dc1.arrived.SMOKE-DEMO-mvh3xsdq.<nonce>"
      },
-     "channel": "rcs",
+     "serverAt": "2026-10-20T20:00:07.000Z",
+     "phaseAfter": "awaiting_arrival_pin",
+     "type": "button",
      "outcome": "ADVANCED",
-     "sk": "EVENT#2026-10-20T20:00:07.000Z",
-     "type": "button"
+     "channel": "rcs",
+     "phaseBefore": "dispatched"
     },
     "provenance": "synthetic_input",
     "messageId": "m2"
@@ -511,14 +511,14 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "type": "location",
      "phaseAfter": "at_dock",
-     "serverAt": "2026-10-20T20:00:11.099Z",
-     "sk": "EVENT#2026-10-20T20:00:11.099Z",
-     "detail": {},
-     "channel": "rcs",
      "phaseBefore": "awaiting_arrival_pin",
-     "outcome": "ADVANCED"
+     "type": "location",
+     "serverAt": "2026-10-20T20:00:11.099Z",
+     "detail": {},
+     "sk": "EVENT#2026-10-20T20:00:11.099Z",
+     "outcome": "ADVANCED",
+     "channel": "rcs"
     },
     "provenance": "synthetic_input",
     "messageId": "m4"
@@ -631,16 +631,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "detail": {
-      "payload": "dc1.released.SMOKE-DEMO-mvh3xsdq.<nonce>"
-     },
-     "phaseBefore": "at_dock",
+     "sk": "EVENT#2026-10-20T20:08:11.121Z",
      "serverAt": "2026-10-20T20:08:11.121Z",
+     "type": "button",
+     "phaseBefore": "at_dock",
+     "outcome": "ADVANCED",
      "phaseAfter": "awaiting_release_pin",
      "channel": "rcs",
-     "sk": "EVENT#2026-10-20T20:08:11.121Z",
-     "outcome": "ADVANCED",
-     "type": "button"
+     "detail": {
+      "payload": "dc1.released.SMOKE-DEMO-mvh3xsdq.<nonce>"
+     }
     },
     "provenance": "synthetic_input",
     "messageId": "m7"
@@ -695,13 +695,13 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "phaseBefore": "awaiting_release_pin",
      "type": "location",
-     "phaseAfter": "awaiting_bol",
-     "sk": "EVENT#2026-10-20T20:08:15.218Z",
      "detail": {},
-     "channel": "rcs",
+     "phaseBefore": "awaiting_release_pin",
+     "phaseAfter": "awaiting_bol",
      "outcome": "ADVANCED",
+     "channel": "rcs",
+     "sk": "EVENT#2026-10-20T20:08:15.218Z",
      "serverAt": "2026-10-20T20:08:15.218Z"
     },
     "provenance": "synthetic_input",
@@ -748,16 +748,16 @@
     "tone": "neutral",
     "photoId": "p1",
     "record": {
-     "sk": "EVENT#2026-10-20T20:08:19.532Z",
-     "phaseAfter": "documented",
      "serverAt": "2026-10-20T20:08:19.532Z",
-     "channel": "rcs",
      "detail": {
       "mimeType": "image/jpeg"
      },
      "outcome": "ADVANCED",
      "phaseBefore": "awaiting_bol",
-     "type": "image"
+     "channel": "rcs",
+     "type": "image",
+     "phaseAfter": "documented",
+     "sk": "EVENT#2026-10-20T20:08:19.532Z"
     },
     "provenance": "synthetic_input",
     "messageId": "m11"
