@@ -6,7 +6,7 @@ import { clauseById, detentionStartsAt } from "@dockclock/clause-engine";
 import { canonicalJson, checkGeofence, facilityById, type SignedPack } from "@dockclock/evidence";
 import { parseMime, scrub, scrubText } from "@dockclock/sanitize";
 import { type Language } from "../../services/src/messages.js";
-import { addressOnly, agentRunsOf, isSynthetic, buttonAction, checkEngineInput, engineInputOf, clauseInfo, INBOUND_SERVICES, inboundTitle, obj, purposeWords, runKindOf, sha256, str, tapTitle, toCents, verdictWords, type Item } from "../../services/api/describe.js";
+import { addressOnly, agentRunsOf, attachmentNote, isSynthetic, buttonAction, checkEngineInput, engineInputOf, clauseInfo, INBOUND_SERVICES, inboundTitle, obj, purposeWords, runKindOf, sha256, str, tapTitle, toCents, verdictWords, type Item } from "../../services/api/describe.js";
 import type {
   ApprovalInfo,
   ChatMessage,
@@ -202,10 +202,7 @@ export function buildSnapshot(src: SnapshotSources): ReplaySnapshot {
       ...(parsed
         ? { body: scrubText(parsed.text.trimEnd()), bodyProvenance: "recorded" as const, bodyNote: "The sent email's bytes, kept with the load's packs. The AWS key name in the footer is removed here." }
         : { bodyNote: "This load's claim email bytes were not stored (DockClock keeps them from 2026-10-20 on)." }),
-      attachments: (parsed?.attachments ?? []).map((a) => ({
-        ...a,
-        note: a.name.endsWith(".pem") ? "The public key to check the signature." : a.contentType === "application/json" ? "The signed evidence pack, exactly as sealed." : "",
-      })),
+      attachments: (parsed?.attachments ?? []).map((a) => ({ ...a, note: attachmentNote(a) })),
       provenance: "recorded",
     });
   }

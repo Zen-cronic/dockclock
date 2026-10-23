@@ -44,6 +44,8 @@ export interface LoadItem extends LoadState {
   retakeRequestedAt?: string;
   // When the first photo is used if no clearer one arrives.
   retakeUntil?: string;
+  // "demo" for judge, test and flagged operator loads: the console shows only these.
+  ws?: string;
 }
 
 // The detention notice: scheduled after the Arrived pin, sent by SES before free time ends, and

@@ -38,12 +38,28 @@ describe("dispatch escalation records", () => {
     expect(await notifyDispatch(load, "driver asked for dispatch")).toBe("ses-esc-1");
     const sent = ses.commandCalls(SendEmailCommand)[0]!.args[0].input;
     expect(sent.Content?.Simple?.Body?.Text?.Data).toContain("+15550100001");
+    // A plain-text part and a simple HTML part with the same facts; SES sends them as multipart/alternative.
+    const html = sent.Content?.Simple?.Body?.Html?.Data ?? "";
+    expect(html).toContain("Dispatch alert");
+    expect(html).toContain("Lakeshore DC, Columbus OH");
+    expect(html).not.toMatch(/<img|<script|<style/i);
+    expect(sent.Content?.Simple?.Body?.Text?.Data).toContain("DockClock, for the dispatch desk of Demo Carrier (fictional)");
+    // Not a demo-workspace load: no console link.
+    expect(sent.Content?.Simple?.Body?.Text?.Data).not.toContain("cloudfront.net");
     expect(sent.EmailTags).toEqual([{ Name: "purpose", Value: "dispatch_escalation" }, { Name: "loadId", Value: "4471" }]);
     const item = dynamo.commandCalls(PutCommand)[0]!.args[0].input.Item as Record<string, unknown>;
     expect(item.pk).toBe("LOAD#4471");
     expect(String(item.sk)).toMatch(/^EMAIL#escalation#.+#ses-esc-1$/);
     expect(item).toMatchObject({ purpose: "dispatch_escalation", sesMessageId: "ses-esc-1" });
     expect(String(item.text)).toContain("<phone removed>");
+    expect(findLeaks({ ...item, pk: undefined, sk: undefined })).toEqual([]);
+  });
+
+  it("links a demo-workspace load to its console page, and the stored record stays leak-free", async () => {
+    await notifyDispatch({ ...load, ws: "demo" }, "driver tapped Talk to dispatch");
+    const text = ses.commandCalls(SendEmailCommand)[0]!.args[0].input.Content?.Simple?.Body?.Text?.Data ?? "";
+    expect(text).toContain("Open this load: https://d3djuoqhg6b8o2.cloudfront.net/loads/4471");
+    const item = dynamo.commandCalls(PutCommand)[0]!.args[0].input.Item as Record<string, unknown>;
     expect(findLeaks({ ...item, pk: undefined, sk: undefined })).toEqual([]);
   });
 

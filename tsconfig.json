@@ -17,6 +17,9 @@
       "path": "packages/sanitize"
     },
     {
+      "path": "packages/mail"
+    },
+    {
       "path": "packages/agent"
     },
     {

@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { BatchGetCommand, DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { clauseById, evaluate } from "@dockclock/clause-engine";
 import { buildPack, corroborate, facilityById, LocalSigner, sealPack, toLoadEvidence, type LoadRecord } from "@dockclock/evidence";
+import { buildMime } from "@dockclock/mail";
 import { findLeaks } from "@dockclock/sanitize";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { handler } from "../api/handler.js";
@@ -216,5 +218,41 @@ describe("console read API", () => {
     expect((await get("/api/messages?channel=fax")).statusCode).toBe(400);
     expect((await get("/api/loads?limit=0")).statusCode).toBe(400);
     expect((await get("/api/nope")).statusCode).toBe(404);
+  });
+
+  it("shows a text-and-HTML claim email's plain-text part and lists its PDF and pack with their hashes", async () => {
+    const items = partitions["SMOKE-RCS-1"]!;
+    const meta = items[0]!;
+    const pdf = Buffer.from("%PDF-1.7\n% fake claim summary\n%%EOF\n");
+    const packJson = String(objects[`packs/SMOKE-RCS-1/${String(meta.sealedPackId)}.json`]);
+    const text = "Dear Freightline Digital (fictional broker),\n\nWe claim detention.\n\nAmount due: $1.00\n\nPublic key: https://d3djuoqhg6b8o2.cloudfront.net/keys/public-key.pem";
+    objects["packs/SMOKE-RCS-1/claim.eml"] = buildMime({
+      from: "DockClock Claims <claims@claims.kaungzinhein.com>",
+      to: `someone+dc-broker@gmail.com`,
+      replyTo: "dispatch@gmail.com",
+      subject: "Detention claim: Load SMOKE-RCS-1 at Lakeshore DC, Columbus OH, $1.00",
+      date: new Date(T(17, 40)),
+      text,
+      html: `<table><tr><td>${text}</td></tr></table>`,
+      attachments: [
+        { filename: "detention-claim-SMOKE-RCS-1.pdf", contentType: "application/pdf", content: pdf },
+        { filename: `${String(meta.sealedPackId)}.json`, contentType: "application/json", content: packJson },
+      ],
+    });
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: "CLAIM", status: "sent", sentAt: T(17, 40), subject: "Detention claim", mimeKey: "packs/SMOKE-RCS-1/claim.eml", pdfKey: "packs/SMOKE-RCS-1/claim.pdf" });
+    const view = JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data as { emails: Array<{ id: string; attachments: Array<{ name: string; contentType: string; sha256: string; note: string }> }> };
+    const claim = view.emails.find((e) => e.id === "claim")!;
+    expect(claim.attachments).toEqual([
+      { name: "detention-claim-SMOKE-RCS-1.pdf", contentType: "application/pdf", sha256: createHash("sha256").update(pdf).digest("hex"), note: "The one-page claim summary, as sent." },
+      { name: `${String(meta.sealedPackId)}.json`, contentType: "application/json", sha256: createHash("sha256").update(packJson).digest("hex"), note: "The signed evidence pack, exactly as sealed." },
+    ]);
+    const res = await get("/api/loads/SMOKE-RCS-1/emails/claim");
+    expect(res.statusCode).toBe(200);
+    const email = JSON.parse(res.body).data as { body: string; bodyNote: string };
+    expect(email.body).toBe(text);
+    expect(email.body).not.toContain("<td>");
+    expect(email.bodyNote).toBe("The sent email's bytes, kept with the load's packs. Its plain-text part is shown.");
+    expect(findLeaks(JSON.parse(res.body), ACCOUNT)).toEqual([]);
+    expect(res.body).not.toContain("gmail.com");
   });
 });

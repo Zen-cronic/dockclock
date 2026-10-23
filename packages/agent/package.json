@@ -20,6 +20,8 @@
     "@aws-sdk/client-sesv2": "^3.1152.0",
     "@aws-sdk/lib-dynamodb": "^3.1152.0",
     "@dockclock/clause-engine": "0.1.0",
-    "@dockclock/evidence": "0.1.0"
+    "@dockclock/evidence": "0.1.0",
+    "@dockclock/mail": "0.1.0",
+    "pdf-lib": "^1.17.1"
   }
 }

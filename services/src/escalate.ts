@@ -3,6 +3,7 @@ import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { PutCommand } from "@aws-sdk/lib-dynamodb";
 import { clauseById } from "@dockclock/clause-engine";
 import { facilityById, isoToLocalDateTime } from "@dockclock/evidence";
+import { CARRIER_NAME, loadPageUrl, renderHtml, renderText, type Letter } from "@dockclock/mail";
 import { scrubText } from "@dockclock/sanitize";
 import { ddb, type LoadItem } from "./store.js";
 import { env, log } from "./config.js";
@@ -62,32 +63,43 @@ export function escalationTopic(reason: string, load: Pick<LoadItem, "loadId" | 
   return { subject: reason, summary: `Reason: ${reason}.` };
 }
 
-export function escalationEmail(load: LoadItem, reason: string, options: { unreachable?: boolean; pack?: EscalationPack } = {}): { subject: string; text: string } {
+export function escalationEmail(load: LoadItem, reason: string, options: { unreachable?: boolean; pack?: EscalationPack } = {}): { subject: string; text: string; html: string } {
   const facility = facilityById(load.facilityId);
   const topic = escalationTopic(reason, load, options.pack);
   const at = (iso: string | undefined) => (iso ? isoToLocalDateTime(iso, facility.timeZone) : "not yet");
   const confidence = options.pack?.confidence;
   const amount = options.pack?.amountUsd && options.pack.amountUsd > 0 ? `$${options.pack.amountUsd.toFixed(2)}` : null;
-  const text = [
-    topic.summary,
-    "",
-    `Load: ${load.loadId} at ${facility.name}`,
-    `Arrived: ${at(load.arrived?.serverAt)}`,
-    `Released: ${at(load.released?.serverAt)}`,
-    // The amount once: in the first line when it names it, otherwise here.
-    ...(amount && !topic.summary.includes(amount) ? [`Contract amount: ${amount}`] : []),
-    ...(confidence ? [`Evidence: ${EVIDENCE[confidence] ?? confidence}`] : []),
-    contactLine(load, options.unreachable === true),
-    `Driver's language: ${LANGUAGE_NAMES[load.language] ?? load.language}`,
-  ].join("\n");
-  return { subject: `Load ${load.loadId} needs dispatch: ${topic.subject}`, text };
+  const capital = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
+  const contact = capital(contactLine(load, options.unreachable === true).replace(/^Driver: /, ""));
+  const subject = `Load ${load.loadId} needs dispatch: ${topic.subject}`;
+  const link = loadPageUrl(load.loadId, load.ws);
+  const letter: Letter = {
+    kind: "Dispatch alert",
+    summary: topic.summary,
+    facts: [
+      { label: "Load", value: load.loadId },
+      { label: "Facility", value: facility.name },
+      { label: "Arrived", value: at(load.arrived?.serverAt) },
+      { label: "Released", value: at(load.released?.serverAt) },
+      // The amount once: in the first line when it names it, otherwise here.
+      ...(amount && !topic.summary.includes(amount) ? [{ label: "Contract amount", value: amount, strong: true }] : []),
+      ...(confidence ? [{ label: "Evidence", value: capital(EVIDENCE[confidence] ?? confidence) }] : []),
+      { label: "Driver", value: contact },
+      { label: "Driver's language", value: LANGUAGE_NAMES[load.language] ?? load.language },
+    ],
+    closing: "Please follow up on this load.",
+    signature: [`DockClock, for the dispatch desk of ${CARRIER_NAME}`, "Sent automatically from the load's workflow."],
+    links: link ? [{ label: "Open this load", href: link }] : [],
+    notes: [],
+  };
+  return { subject, text: renderText(letter), html: renderHtml(letter, subject) };
 }
 
 // Tells a person at dispatch that a driver needs them. Email via SES, so the claim of
 // "dispatch has been notified" in the driver's chat is backed by a real message. The stored reason
 // is the caller's own (services/api/view.ts matches it), the email the plain version.
 export async function notifyDispatch(load: LoadItem, reason: string, options: { unreachable?: boolean; pack?: EscalationPack } = {}): Promise<string | null> {
-  const { subject, text } = escalationEmail(load, reason, options);
+  const { subject, text, html } = escalationEmail(load, reason, options);
   if (load.synthetic) {
     log("dispatch_notify_skipped", { loadId: load.loadId, reason, why: "synthetic test load" });
     await recordEscalation(load.loadId, { subject, text, reason, notSentReason: "Not sent: test loads never email dispatch." });
@@ -98,7 +110,7 @@ export async function notifyDispatch(load: LoadItem, reason: string, options: { 
       FromEmailAddress: env.fromEmail(),
       Destination: { ToAddresses: [env.dispatchEmail()] },
       ConfigurationSetName: env.configurationSet(),
-      Content: { Simple: { Subject: { Data: subject }, Body: { Text: { Data: text } } } },
+      Content: { Simple: { Subject: { Data: subject }, Body: { Text: { Data: text }, Html: { Data: html } } } },
       EmailTags: [
         { Name: "purpose", Value: "dispatch_escalation" },
         { Name: "loadId", Value: load.loadId },

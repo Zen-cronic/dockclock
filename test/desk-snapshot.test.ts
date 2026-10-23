@@ -5,9 +5,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { clauseById, evaluate } from "@dockclock/clause-engine";
 import { buildPack, corroborate, facilityById, LocalSigner, sealPack, toLoadEvidence, type LoadRecord } from "@dockclock/evidence";
-import { buildClaimMime } from "@dockclock/agent";
 import { describe, expect, it } from "vitest";
-import { textMime } from "../services/src/mime.js";
+import { buildMime } from "@dockclock/mail";
 import { renderWhatsApp } from "../services/src/outbound.js";
 import { dispatchTemplate } from "../services/src/sender.js";
 import { findLeaks } from "@dockclock/sanitize";
@@ -105,16 +104,17 @@ async function sources() {
     },
     { pk: "LOAD#LIVE-test1", sk: "CLAIM", status: "sent", amountUsd: evaluation.amountUsd, amountCents: Math.round(evaluation.amountUsd * 100), packDigest: "d", sentAt: T(17, 32), subject: "Detention claim", mimeKey: "packs/LIVE-test1/claim.eml" },
   ];
-  const claim = buildClaimMime({
+  // A claim in the older layout, whose footer named the KMS key: the export must remove it.
+  const claim = buildMime({
     from: "DockClock Claims <claims@example.com>",
     to: "broker+dc-shipper@example.com",
     subject: "Detention claim – LIVE-test1",
-    body: "Body of the claim.",
-    packFileName: `${pack.packId}.json`,
-    packJson: JSON.stringify(signedPack),
-    footer: `Signed with AWS KMS key ${ARN}.`,
+    date: new Date(T(17, 32)),
+    text: `Body of the claim.\n\nSigned with AWS KMS key ${ARN}.`,
+    html: `<p>Body of the claim.</p><p>Signed with AWS KMS key ${ARN}.</p>`,
+    attachments: [{ filename: `${pack.packId}.json`, contentType: "application/json", content: JSON.stringify(signedPack) }],
   });
-  const notice = textMime({ from: "claims@example.com", to: "broker+dc-shipper@example.com", subject: "Detention notice: load LIVE-test1", text: "Notice text.", date: new Date(T(15, 20)) });
+  const notice = buildMime({ from: "claims@example.com", to: "broker+dc-shipper@example.com", subject: "Detention notice: load LIVE-test1", text: "Notice text.", html: "<p>Notice text.</p>", date: new Date(T(15, 20)) });
   return { items, receipts: { "out-1": { deliveredAt: T(13, 1), readAt: T(13, 2) } }, signedPack, emails: { notice, claim }, spkiSha256: "spki", exportedAt: T(18, 0) };
 }
 

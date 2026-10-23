@@ -8,6 +8,7 @@ import type { Context, SNSEvent } from "aws-lambda";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { stepSatisfied } from "../src/lifecycle.js";
+import { findLeaks, parseMime } from "@dockclock/sanitize";
 import { handler, noticeEmail, noticeTime } from "../src/notice.js";
 import type { LoadItem } from "../src/store.js";
 
@@ -59,6 +60,7 @@ describe("detention notice", () => {
       ORIGINATION_PHONE_ID: "phone-number-id-test",
       IDENTITY_SECRET_ARN: "arn:secret",
       EVIDENCE_BUCKET: "evidence",
+      DISPATCH_EMAIL: "dispatch@example.com",
     });
   });
 
@@ -110,23 +112,56 @@ describe("detention notice", () => {
   });
 
   it("states the check-in, when free time ends and the clause's rate", () => {
-    const { subject, text } = noticeEmail(load as unknown as LoadItem, "2026-10-17T20:00:00.000Z");
+    const { subject, text } = noticeEmail(load as unknown as LoadItem, "2026-10-17T20:00:00.000Z", "DockClock Claims <claims@example.com>", "dispatch@example.com");
     expect(subject).toBe("Detention notice: Load 4471 at Lakeshore DC, Columbus OH, free time ends 16:00 EDT");
-    expect(text).toContain("Atlas Brokerage (fictional broker)");
-    expect(text).toContain("$50.00 per hour");
+    expect(text.split("\n")[0]).toBe("Dear Atlas Brokerage (fictional broker),");
+    expect(text).toContain("Detention rate: $50.00 per hour");
     // Dated in full, so an evening check-in does not read as the next UTC day.
     expect(text).toContain("Checked in: 2026-10-17 13:40 EDT");
     expect(text).toContain("Free time ends: 2026-10-17 16:00 EDT");
-    // The time appears once in the body, in the details.
+    // The time appears once in the body, in the facts.
     expect(text.split("2026-10-17 16:00 EDT")).toHaveLength(2);
-    expect(text).toContain("WhatsApp server timestamp");
+    // The pin was checked against the fence, not assumed.
+    expect(text).toContain("Source: Location pin inside the facility's geofence, WhatsApp server time");
+    // Signed by DockClock Claims for the carrier, with the reply route the Reply-To header gives.
+    expect(text).toContain("DockClock Claims, on behalf of Demo Carrier (fictional)\nclaims@example.com\nReply to this email to reach the carrier's dispatch desk.");
+    // Not a demo-workspace load: no console link (it would answer 404).
+    expect(text).not.toContain("cloudfront.net");
+  });
+
+  it("never claims a geofence the record does not show", () => {
+    const outside = { ...load, arrived: { ...(load.arrived as object), lat: 40.5, lon: -83.5 } };
+    const text = noticeEmail(outside as unknown as LoadItem, "2026-10-17T20:00:00.000Z").text;
+    expect(text).toContain("Source: Location pin recorded with WhatsApp server time");
+    expect(text).not.toContain("geofence");
+    // The judge demo yard accepts any location and says so.
+    const demo = { ...load, clauseId: "judge-demo", facilityId: "judge-demo", ws: "demo", demo: true };
+    const demoText = noticeEmail(demo as unknown as LoadItem, "2026-10-17T20:00:00.000Z").text;
+    expect(demoText).toContain("Source: Location pin recorded with WhatsApp server time; the demo yard accepts any location");
+    expect(demoText).not.toContain("geofence");
+    expect(demoText).toContain("View this load: https://d3djuoqhg6b8o2.cloudfront.net/loads/4471");
   });
 
   it("never gives a test load's synthetic pin a platform server time", () => {
-    const { text } = noticeEmail({ ...load, synthetic: true } as unknown as LoadItem, "2026-10-17T20:00:00.000Z");
-    expect(text).not.toContain("server time");
-    expect(text).toContain("synthetic test pin");
-    expect(noticeEmail({ ...load, channel: "rcs" } as unknown as LoadItem, "2026-10-17T20:00:00.000Z").text).toContain("RCS server timestamp");
+    const { text, html } = noticeEmail({ ...load, synthetic: true } as unknown as LoadItem, "2026-10-17T20:00:00.000Z");
+    for (const part of [text, html]) {
+      expect(part).not.toContain("server time");
+      expect(part).not.toMatch(/tapped/i);
+      expect(part).toContain("Synthetic test pin (test load)");
+    }
+    expect(noticeEmail({ ...load, channel: "rcs" } as unknown as LoadItem, "2026-10-17T20:00:00.000Z").text).toContain("RCS server time");
+    const demoTest = noticeEmail({ ...load, synthetic: true, clauseId: "judge-demo", facilityId: "judge-demo" } as unknown as LoadItem, "2026-10-17T20:00:00.000Z").text;
+    expect(demoTest).toContain("Synthetic test pin (test load); the demo yard accepts any location");
+    expect(demoTest).not.toContain("geofence");
+  });
+
+  it("renders the same facts as simple HTML with no images, scripts or tracking", () => {
+    const { text, html } = noticeEmail(load as unknown as LoadItem, "2026-10-17T20:00:00.000Z", "claims@example.com", "dispatch@example.com");
+    expect(html).toContain("DockClock");
+    expect(html).toContain("2026-10-17 16:00 EDT");
+    expect(html).toContain("Location pin inside the facility&#39;s geofence, WhatsApp server time");
+    expect(html).not.toMatch(/<img|<script|<link|<style|url\(/i);
+    expect(findLeaks({ text, html })).toEqual([]);
   });
 
   it("creates one schedule that invokes this function and deletes itself", async () => {
@@ -154,8 +189,13 @@ describe("detention notice", () => {
     const raw = Buffer.from(ses.commandCalls(SendEmailCommand)[0]!.args[0].input.Content!.Raw!.Data!).toString("utf8");
     expect(raw).toContain("Subject: Detention notice: Load 4471 at Lakeshore DC, Columbus OH, free time ends 16:00 EDT");
     expect(raw).toContain("To: broker@example.com");
-    const body = Buffer.from(raw.split("\r\n\r\n")[1]!.replace(/\r\n/g, ""), "base64").toString("utf8");
-    expect(body).toContain("Free time ends: 2026-10-17 16:00 EDT");
+    // Replies go to the carrier's dispatch desk, as the signature says.
+    expect(raw).toMatch(/^Reply-To: dispatch@example\.com\r$/m);
+    expect(raw).toContain("Content-Type: multipart/alternative;");
+    const parsed = parseMime(raw);
+    expect(parsed.text).toContain("Free time ends: 2026-10-17 16:00 EDT");
+    expect(parsed.hasHtml).toBe(true);
+    expect(parsed.attachments).toEqual([]);
     const put = s3.commandCalls(PutObjectCommand)[0]!.args[0].input;
     expect(put).toMatchObject({ Bucket: "evidence", Key: "packs/4471/notice.eml", ContentType: "message/rfc822" });
     expect(put.Body).toBe(raw);

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { findLeaks, parseMime, scrub, scrubText, sniffImage, stripImageMetadata } from "../src/index.js";
@@ -46,6 +47,45 @@ describe("parseMime", () => {
   it("reads a base64 text/plain message", () => {
     const raw = ["From: a@example.com", "Subject: =?UTF-8?B?" + Buffer.from("Notice – ü").toString("base64") + "?=", "Content-Transfer-Encoding: base64", "", Buffer.from("Hello\n").toString("base64")].join("\r\n");
     expect(parseMime(raw)).toMatchObject({ subject: "Notice – ü", text: "Hello\n", attachments: [] });
+  });
+
+  it("reads the text part of multipart/alternative, alone or inside multipart/mixed with attachments", () => {
+    const b64 = (v: string | Buffer) => Buffer.from(v).toString("base64");
+    const alternative = (b: string) => [`--${b}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", b64("Plain body\n"), `--${b}`, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", b64("<p>HTML body</p>"), `--${b}--`, ""];
+    const alone = ["From: a@example.com", "Subject: Notice", 'Content-Type: multipart/alternative; boundary="x-alt"', "", ...alternative("x-alt")].join("\r\n");
+    expect(parseMime(alone)).toMatchObject({ text: "Plain body\n", hasHtml: true, attachments: [] });
+    const pdf = Buffer.from("%PDF-1.7 fake");
+    const mixed = [
+      "From: a@example.com",
+      "Subject: Claim",
+      'Content-Type: multipart/mixed; boundary="x"',
+      "",
+      "--x",
+      'Content-Type: multipart/alternative; boundary="x-alt"',
+      "",
+      ...alternative("x-alt"),
+      "--x",
+      'Content-Type: application/pdf; name="claim.pdf"',
+      'Content-Disposition: attachment; filename="claim.pdf"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      b64(pdf),
+      "--x",
+      'Content-Type: application/json; name="p.json"',
+      'Content-Disposition: attachment; filename="p.json"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      b64("{}"),
+      "--x--",
+      "",
+    ].join("\r\n");
+    const parsed = parseMime(mixed);
+    expect(parsed.text).toBe("Plain body\n");
+    expect(parsed.hasHtml).toBe(true);
+    expect(parsed.attachments).toEqual([
+      { name: "claim.pdf", contentType: "application/pdf", sha256: createHash("sha256").update(pdf).digest("hex") },
+      { name: "p.json", contentType: "application/json", sha256: createHash("sha256").update("{}").digest("hex") },
+    ]);
   });
 });
 

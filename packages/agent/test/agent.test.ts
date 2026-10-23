@@ -1,7 +1,7 @@
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { mockClient } from "aws-sdk-client-mock";
 import { describe, expect, it } from "vitest";
-import { buildClaimMime, CEDAR_POLICIES, checkClaim, readBol, SYSTEM_PROMPT, TOOLS, type ClaimRequest, type SealedClaimBasis } from "../src/index.js";
+import { CEDAR_POLICIES, checkClaim, readBol, SYSTEM_PROMPT, TOOLS, type ClaimRequest, type SealedClaimBasis } from "../src/index.js";
 
 const basis: SealedClaimBasis = {
   loadId: "LIVE-abc",
@@ -14,7 +14,7 @@ const basis: SealedClaimBasis = {
   alreadySentAt: null,
 };
 const body = "Detention claim for load LIVE-abc at Lakeshore DC. The driver arrived on time and was released 80 minutes past free time. Amount owed: $80.00. Signed evidence attached.";
-const request: ClaimRequest = { loadId: "LIVE-abc", subject: "Detention claim, load LIVE-abc", body, amountCents: 8000, packDigest: "d1", approvalId: "appr-1" };
+const request: ClaimRequest = { loadId: "LIVE-abc", body, amountCents: 8000, packDigest: "d1", approvalId: "appr-1" };
 
 describe("checkClaim: the agent words the claim, the sealed pack decides it", () => {
   it("accepts a claim that matches the sealed pack and the approval", () => {
@@ -27,6 +27,10 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["a different digest", { packDigest: "x" }, /digest/],
     ["no approval", { approvalId: "other" }, /not approved/],
     ["an amount missing from the text", { body: body.replace("$80.00", "eighty dollars") }, /must state the contract amount/],
+    ["a whole letter instead of an opening", { body: `${body} ${"More detail. ".repeat(40)}` }, /opening must be 80-600 characters/],
+    ["an opening too short to say what is claimed", { body: "LIVE-abc $80.00" }, /opening must be 80-600 characters/],
+    ["an AWS resource name in the opening", { body: `${body} Key arn:aws:kms:us-east-1:111122223333:key/x.` }, /AWS resource name/],
+    ["a phone number in the opening", { body: `${body} Call +14165550100.` }, /phone number/],
   ])("refuses %s", (_label, change, reason) => {
     const result = checkClaim({ ...request, ...change }, basis);
     expect(result.ok).toBe(false);
@@ -38,32 +42,6 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     expect(checkClaim(request, { ...basis, verdict: "NEEDS_HUMAN" }).ok).toBe(false);
     expect(checkClaim(request, { ...basis, approvalId: null }).ok).toBe(false);
     expect(checkClaim(request, { ...basis, alreadySentAt: "2026-10-18T12:00:00Z" }).ok).toBe(false);
-  });
-});
-
-describe("claim email", () => {
-  it("carries the agent's text, the fixed verification footer and the signed pack as an attachment", () => {
-    const mime = buildClaimMime({ from: "claims@example.com", to: "broker@example.com", subject: "Détention claim", body, packFileName: "p.json", packJson: '{"a":1}', footer: "Verify with KMS" }, "b1");
-    expect(mime).toContain('Content-Type: multipart/mixed; boundary="b1"');
-    expect(mime).toContain('filename="p.json"');
-    expect(mime).toMatch(/^Subject: =\?UTF-8\?B\?/m);
-    const parts = mime.split("--b1");
-    expect(Buffer.from(parts[1]!.split("\r\n\r\n")[1]!.replace(/\r\n/g, ""), "base64").toString()).toContain("Verify with KMS");
-    expect(Buffer.from(parts[2]!.split("\r\n\r\n")[1]!.replace(/\r\n/g, ""), "base64").toString()).toBe('{"a":1}');
-    expect(mime).not.toMatch(/^Reply-To:/m);
-  });
-
-  it("attaches the evidence key's public half when given", () => {
-    const pem = "-----BEGIN PUBLIC KEY-----\nAAAA\n-----END PUBLIC KEY-----\n";
-    const mime = buildClaimMime({ from: "c@example.com", to: "b@example.com", subject: "Claim", body, packFileName: "p.json", packJson: "{}", publicKeyPem: pem, footer: "f" }, "b1");
-    expect(mime).toContain('filename="dockclock-public-key.pem"');
-    const parts = mime.split("--b1");
-    expect(Buffer.from(parts[3]!.split("\r\n\r\n")[1]!.replace(/\r\n/g, ""), "base64").toString()).toBe(pem);
-  });
-
-  it("sends replies to the carrier's dispatch desk", () => {
-    const mime = buildClaimMime({ from: "claims@example.com", to: "broker@example.com", replyTo: "dispatch@example.com", subject: "Claim", body, packFileName: "p.json", packJson: "{}", footer: "f" }, "b1");
-    expect(mime).toMatch(/^Reply-To: dispatch@example\.com\r$/m);
   });
 });
 
@@ -80,7 +58,12 @@ describe("tool contracts and policy", () => {
     expect(SYSTEM_PROMPT).toContain("Never combine a local time with the date of a UTC timestamp.");
     expect(SYSTEM_PROMPT).toContain("You never change its verdict or amount");
     expect(SYSTEM_PROMPT).toContain("A claim above $5,000 is never filed by you");
-    expect(SYSTEM_PROMPT).toContain("Subject: 'Detention claim: Load <load id> at <facility name>, <amount>'");
+    expect(SYSTEM_PROMPT).toContain("If the verdict is not BILLABLE or there is no dispatch approval, stop and say why.");
+    expect(SYSTEM_PROMPT).toContain("If a tool refuses, report the refusal reason and stop. Do not retry with different numbers.");
+    expect(SYSTEM_PROMPT).toContain("Quote times exactly as get_load_evidence gives them: the facility's local date, time and zone.");
+    // The layout is the tool's template; the agent writes only the opening.
+    expect(SYSTEM_PROMPT).toContain("You write only body, the opening: one or two formal, plain sentences (80 to 600 characters)");
+    expect(TOOLS.find((t) => t.name === "send_detention_claim")!.inputSchema.required).toEqual(["loadId", "body", "amountCents", "packDigest", "approvalId"]);
   });
 });
 

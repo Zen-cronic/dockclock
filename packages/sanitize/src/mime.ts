@@ -1,11 +1,16 @@
 import { createHash } from "node:crypto";
 
-// MIME: just enough for the formats DockClock sends (text/plain and multipart/mixed, base64).
+// MIME: just enough for the formats DockClock sends: text/plain (older notices), multipart/mixed
+// with a text body (older claims), and multipart/alternative (text and HTML), alone or as the first
+// part of a multipart/mixed message with attachments. Base64 throughout.
 export interface ParsedEmail {
   from: string;
   subject: string;
   date: string | null;
+  // The plain-text part: what the console shows.
   text: string;
+  // Whether the message also carried an HTML alternative. Its markup is never published.
+  hasHtml: boolean;
   attachments: Array<{ name: string; contentType: string; sha256: string }>;
 }
 
@@ -28,22 +33,30 @@ function decodeBody(body: string, encoding: string | undefined): Buffer {
   return encoding?.toLowerCase() === "base64" ? Buffer.from(body.replace(/\s+/g, ""), "base64") : Buffer.from(body, "utf8");
 }
 
+// Walks one MIME entity: multiparts recurse, a named part is an attachment, and the first
+// text/plain part without a name is the body.
+function walk(headers: Record<string, string>, body: string, out: ParsedEmail): void {
+  const contentType = headers["content-type"] ?? "text/plain";
+  const type = contentType.split(";")[0]!.trim().toLowerCase();
+  const boundary = /boundary="?([^";]+)"?/i.exec(contentType)?.[1];
+  if (type.startsWith("multipart/") && boundary) {
+    for (const part of body.split(`--${boundary}`).slice(1)) {
+      if (part.startsWith("--")) break;
+      const p = splitHead(part.replace(/^\r\n/, ""));
+      walk(p.headers, p.body, out);
+    }
+    return;
+  }
+  const bytes = decodeBody(body, headers["content-transfer-encoding"]);
+  const name = /filename="?([^";]+)"?/i.exec(headers["content-disposition"] ?? "")?.[1];
+  if (name) out.attachments.push({ name, contentType: type, sha256: createHash("sha256").update(bytes).digest("hex") });
+  else if (type === "text/plain" && !out.text) out.text = bytes.toString("utf8");
+  else if (type === "text/html") out.hasHtml = true;
+}
+
 export function parseMime(raw: string): ParsedEmail {
   const { headers, body } = splitHead(raw);
-  const out: ParsedEmail = { from: headers.from ?? "", subject: decodeWords(headers.subject ?? ""), date: headers.date ?? null, text: "", attachments: [] };
-  const boundary = /boundary="?([^";]+)"?/i.exec(headers["content-type"] ?? "")?.[1];
-  if (!boundary) {
-    out.text = decodeBody(body, headers["content-transfer-encoding"]).toString("utf8");
-    return out;
-  }
-  for (const part of body.split(`--${boundary}`).slice(1)) {
-    if (part.startsWith("--")) break;
-    const p = splitHead(part.replace(/^\r\n/, ""));
-    const bytes = decodeBody(p.body, p.headers["content-transfer-encoding"]);
-    const type = (p.headers["content-type"] ?? "text/plain").split(";")[0]!.trim();
-    const name = /filename="?([^";]+)"?/i.exec(p.headers["content-disposition"] ?? "")?.[1];
-    if (name) out.attachments.push({ name, contentType: type, sha256: createHash("sha256").update(bytes).digest("hex") });
-    else if (type === "text/plain" && !out.text) out.text = bytes.toString("utf8");
-  }
+  const out: ParsedEmail = { from: headers.from ?? "", subject: decodeWords(headers.subject ?? ""), date: headers.date ?? null, text: "", hasHtml: false, attachments: [] };
+  walk(headers, body, out);
   return out;
 }

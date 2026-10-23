@@ -35,6 +35,8 @@ import type {
 import {
   addressOnly,
   agentRunsOf,
+  attachmentNote,
+  claimBodyNote,
   isSynthetic,
   buttonAction,
   checkEngineInput,
@@ -475,10 +477,7 @@ function emailsOf(p: Parts, mime: { notice?: ParsedEmail; claim?: ParsedEmail })
       from: addressOnly(mime.claim?.from ?? ""),
       to: counterparty,
       subject: scrubText(mime.claim?.subject ?? String(claim.subject ?? "")),
-      attachments: (mime.claim?.attachments ?? []).map((a) => ({
-        ...a,
-        note: a.name.endsWith(".pem") ? "The public key to check the signature." : a.contentType === "application/json" ? "The signed evidence pack, exactly as sealed." : "",
-      })),
+      attachments: (mime.claim?.attachments ?? []).map((a) => ({ ...a, note: attachmentNote(a) })),
       bodyStored: mime.claim !== undefined,
       provenance: "recorded",
     });
@@ -751,6 +750,6 @@ export function emailViewOf(sources: LoadSources, emailId: string): EmailView | 
   }
   const mime = info.purpose === "notice" ? parsed.notice : parsed.claim;
   return mime
-    ? { ...info, body: scrubText(mime.text.trimEnd()), bodyNote: info.purpose === "claim" ? "The sent email's bytes, kept with the load's packs. The AWS key name in the footer is removed." : "The sent email's bytes, kept with the load's packs." }
+    ? { ...info, body: scrubText(mime.text.trimEnd()), bodyNote: info.purpose === "claim" ? claimBodyNote(mime.text) : "The sent email's bytes, kept with the load's packs." }
     : { ...info, body: null, bodyNote: "This email's bytes were not stored (DockClock keeps them from 2026-10-20 on)." };
 }

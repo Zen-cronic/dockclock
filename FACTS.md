@@ -51,6 +51,8 @@ Status key:
 | Claim amounts reach Cedar as integer cents (0 < amount ≤ $5,000) | `packages/agent/src/definitions.ts`; `packages/agent/test/agent.test.ts` | tested |
 | A second filing for the same load is refused | Second `file_claim` run refused; the tool reserves the claim before calling SES and keeps the reservation once SES accepts (`packages/agent/src/tools.ts`). This is our own guard; we do not claim exactly-once delivery from the email provider | live (integration) + tested |
 | The claim tool refuses a different amount, a different digest, no approval, an unsealed or non-billable load | `packages/agent/test/agent.test.ts` | tested |
+| The claim email is a fixed template filled from the sealed pack: plain text and HTML (no images, no tracking), a one-page PDF claim summary (`detention-claim-<load>.pdf`) and the signed pack attached, and the public key linked rather than attached. The agent writes only the opening sentence, which must state the sealed amount and the load id. No key ARN or account id appears in the body or the PDF | `packages/agent/src/claim-email.ts`, `packages/agent/src/claim-pdf.ts`; `packages/agent/test/claim-email.test.ts`, `packages/agent/test/tools.test.ts`. Not yet sent live | tested |
+| The detention notice names the source of the check-in time from the record: a synthetic test pin on a test load, "the demo yard accepts any location" on the judge demo, and "inside the facility's geofence" only when the pin was checked inside | `services/src/notice.ts`, `packages/mail/src/wording.ts`; `services/test/notice.test.ts` | tested |
 
 ## Notice, retake and the judge path
 | Claim | Evidence | Status |

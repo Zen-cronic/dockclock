@@ -2,5 +2,5 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "rootDir": "src", "outDir": "dist" },
   "include": ["src"],
-  "references": [{ "path": "../clause-engine" }, { "path": "../evidence" }]
+  "references": [{ "path": "../clause-engine" }, { "path": "../evidence" }, { "path": "../mail" }]
 }

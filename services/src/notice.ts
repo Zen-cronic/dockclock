@@ -4,7 +4,8 @@ import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context, SNSEvent } from "aws-lambda";
 import { clauseById, detentionStartsAt } from "@dockclock/clause-engine";
-import { facilityById, isoToLocalClock, isoToLocalDateTime, zoneAbbreviation } from "@dockclock/evidence";
+import { acceptsAnyLocation, checkGeofence, facilityById, isoToLocalClock, isoToLocalDateTime, zoneAbbreviation } from "@dockclock/evidence";
+import { buildMime, FICTIONAL_NOTE, loadPageUrl, pinSource, renderHtml, renderText, signatureLines, type Letter } from "@dockclock/mail";
 import { ddb, getLoad, type LoadItem } from "./store.js";
 import { send, sendRcs, type Body } from "./sender.js";
 import { rcsText } from "./rcs.js";
@@ -12,7 +13,7 @@ import { COPY, type Language } from "./messages.js";
 import { notifyDispatch } from "./escalate.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
-import { emailKey, textMime } from "./mime.js";
+import { emailKey } from "./mime.js";
 
 const scheduler = new SchedulerClient({ maxAttempts: 3 });
 const ses = new SESv2Client({ maxAttempts: 3 });
@@ -33,33 +34,45 @@ export function noticeTime(load: Pick<LoadItem, "clauseId" | "appointmentAt">, a
   return { sendAt: new Date(sendAt).toISOString(), detentionStartAt };
 }
 
-export function noticeEmail(load: LoadItem, detentionStartAt: string): { subject: string; text: string } {
+export interface ComposedEmail {
+  subject: string;
+  text: string;
+  html: string;
+}
+
+export function noticeEmail(load: LoadItem, detentionStartAt: string, from = process.env.CLAIMS_FROM_EMAIL ?? "", replyTo = process.env.DISPATCH_EMAIL): ComposedEmail {
   const clause = clauseById(load.clauseId);
   const facility = facilityById(load.facilityId);
   // A full local date, time and zone in the body: the notice is evidence, and after 20:00 Eastern
   // the UTC date has already turned. The subject carries the clock time and zone only.
   const at = (iso: string) => isoToLocalDateTime(iso, facility.timeZone);
   const ends = `${isoToLocalClock(detentionStartAt, facility.timeZone)} ${zoneAbbreviation(detentionStartAt, facility.timeZone)}`;
-  const rate = `$${clause.ratePerHourUsd.toFixed(2)} per hour`;
-  // Where the check-in time came from. A test load's pins are synthetic, so it never claims a
-  // platform's server time.
-  const source = load.synthetic
-    ? "a synthetic test pin (test load)"
-    : `a location pin inside the facility's geofence, ${load.channel === "rcs" ? "RCS" : "WhatsApp"} server timestamp`;
+  const anyLocation = acceptsAnyLocation(facility);
+  const pin = load.arrived!;
+  // Checked here, not assumed: the notice goes out before sealing, so a pin outside the fence is
+  // still possible. A test load's pins are synthetic, so it never claims a platform's server time.
+  const inside = typeof pin.lat === "number" && typeof pin.lon === "number" ? checkGeofence([pin.lon, pin.lat], facility).inside : null;
+  const source = pinSource({ synthetic: load.synthetic === true, channel: load.channel, anyLocation, insideGeofence: inside, pins: 1 });
   const subject = `Detention notice: Load ${load.loadId} at ${facility.name}, free time ends ${ends}`;
-  const text = [
-    `To ${clause.counterparty},`,
-    "",
-    `This is notice that load ${load.loadId} is still waiting at ${facility.name}. When free time under the rate confirmation ends, detention accrues under your terms.`,
-    "Please release the truck, or tell us why the clock should not run.",
-    "",
-    `Checked in: ${at(load.arrived!.serverAt)} (${source})`,
-    `Free time ends: ${at(detentionStartAt)}`,
-    `Detention rate: ${rate}`,
-    "",
-    "Sent automatically by DockClock for the carrier. Any claim will include the signed evidence pack.",
-  ].join("\n");
-  return { subject, text };
+  const link = loadPageUrl(load.loadId, load.ws);
+  const letter: Letter = {
+    kind: "Detention notice",
+    salutation: `Dear ${clause.counterparty},`,
+    summary: `This is notice that load ${load.loadId} is still at the dock at ${facility.name}. When free time ends, detention accrues under your terms.`,
+    facts: [
+      { label: "Load", value: load.loadId },
+      { label: "Facility", value: facility.name },
+      { label: "Checked in", value: at(pin.serverAt) },
+      { label: "Source", value: source },
+      { label: "Free time ends", value: at(detentionStartAt), strong: true },
+      { label: "Detention rate", value: `$${clause.ratePerHourUsd.toFixed(2)} per hour` },
+    ],
+    closing: "Please release the truck, or tell us why the clock should not run.",
+    signature: signatureLines(from, replyTo),
+    links: link ? [{ label: "View this load", href: link }] : [],
+    notes: ["Any claim will include the signed evidence pack.", FICTIONAL_NOTE],
+  };
+  return { subject, text: renderText(letter), html: renderHtml(letter, subject) };
 }
 
 function noticeSentTemplate(language: Language, loadId: string, freeTimeEnds: string, counterparty: string): Body {
@@ -120,7 +133,8 @@ async function sendNotice(loadId: string): Promise<{ sent: boolean }> {
   if (load.notice?.sentAt) return { sent: false };
   const clause = clauseById(load.clauseId);
   const { detentionStartAt } = noticeTime(load, load.arrived.serverAt);
-  const { subject, text } = noticeEmail(load, detentionStartAt);
+  const replyTo = process.env.DISPATCH_EMAIL;
+  const { subject, text, html } = noticeEmail(load, detentionStartAt, env.claimsFromEmail(), replyTo);
   const sentAt = new Date().toISOString();
   // Reserve first, so a redelivered schedule cannot email twice.
   try {
@@ -139,7 +153,7 @@ async function sendNotice(loadId: string): Promise<{ sent: boolean }> {
   }
   // Raw MIME built here rather than by SES, so the stored copy is byte-for-byte what was sent.
   const to = env.counterpartyEmail(clause.role);
-  const raw = textMime({ from: env.claimsFromEmail(), to, subject, text, date: new Date(sentAt) });
+  const raw = buildMime({ from: env.claimsFromEmail(), to, replyTo, subject, text, html, date: new Date(sentAt) });
   let messageId: string | undefined;
   try {
     const out = await ses.send(

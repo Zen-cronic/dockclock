@@ -40,6 +40,11 @@ export const JUDGE_DEMO_FACILITY: Facility = {
   ],
 };
 
+// A yard whose geofence is the whole map accepts any location, so nothing may claim a geofence check.
+export function acceptsAnyLocation(facility: Pick<Facility, "id">): boolean {
+  return facility.id === JUDGE_DEMO_FACILITY.id;
+}
+
 // Facilities supplied at runtime, such as a private demo yard whose polygon must not live in the
 // repository. Registered ids may not shadow the built-in fixtures.
 const registered = new Map<string, Facility>();

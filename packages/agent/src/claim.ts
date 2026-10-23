@@ -14,13 +14,18 @@ export interface SealedClaimBasis {
 
 export interface ClaimRequest {
   loadId: string;
-  subject: string;
+  // The agent's one- or two-sentence opening. Every other line of the email, the subject and the
+  // PDF come from the sealed pack through the template in claim-email.ts.
   body: string;
   // Integer cents, so policy and code compare exact whole numbers.
   amountCents: number;
   packDigest: string;
   approvalId: string;
 }
+
+// The agent's opening must fit the template: one or two sentences, never a whole letter.
+export const SUMMARY_MIN = 80;
+export const SUMMARY_MAX = 600;
 
 export type ClaimDecision = { ok: true } | { ok: false; reason: string };
 
@@ -46,64 +51,7 @@ export function checkClaim(request: ClaimRequest, basis: SealedClaimBasis): Clai
   }
   if (!request.body.includes(amount)) return refuse(`the email must state the contract amount ${amount}`);
   if (!request.body.includes(basis.loadId)) return refuse("the email must name the load id");
-  if (request.subject.length === 0 || request.subject.length > 160) return refuse("subject must be 1-160 characters");
-  if (request.body.length < 80 || request.body.length > 6000) return refuse("body must be 80-6000 characters");
+  if (/arn:aws|\+\d{10,15}|(^|\D)\d{12}(\D|$)/.test(request.body)) return refuse("the opening may not hold an AWS resource name, account id or phone number");
+  if (request.body.length < SUMMARY_MIN || request.body.length > SUMMARY_MAX) return refuse(`the opening must be ${SUMMARY_MIN}-${SUMMARY_MAX} characters (one or two sentences)`);
   return { ok: true };
-}
-
-export interface ClaimEmailParts {
-  from: string;
-  to: string;
-  // Where the counterparty's reply goes: the carrier's dispatch desk.
-  replyTo?: string | undefined;
-  subject: string;
-  body: string;
-  packFileName: string;
-  packJson: string;
-  // The signing key's public half, so the recipient can check the pack without any other source.
-  publicKeyPem?: string | undefined;
-  footer: string;
-}
-
-export const PUBLIC_KEY_FILE = "dockclock-public-key.pem";
-
-function encodeHeader(value: string): string {
-  return /^[\x20-\x7e]*$/.test(value) ? value : `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
-}
-
-// A multipart message: the agent's text plus a fixed verification footer, and the signed pack.
-export function buildClaimMime(parts: ClaimEmailParts, boundary = `dockclock-${Date.now().toString(36)}`): string {
-  const wrap = (b64: string) => b64.replace(/.{1,76}/g, "$&\r\n");
-  return [
-    `From: ${parts.from}`,
-    `To: ${parts.to}`,
-    ...(parts.replyTo ? [`Reply-To: ${parts.replyTo}`] : []),
-    `Subject: ${encodeHeader(parts.subject)}`,
-    "MIME-Version: 1.0",
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    "",
-    `--${boundary}`,
-    "Content-Type: text/plain; charset=UTF-8",
-    "Content-Transfer-Encoding: base64",
-    "",
-    wrap(Buffer.from(`${parts.body}\n\n${parts.footer}\n`, "utf8").toString("base64")),
-    `--${boundary}`,
-    `Content-Type: application/json; name="${parts.packFileName}"`,
-    `Content-Disposition: attachment; filename="${parts.packFileName}"`,
-    "Content-Transfer-Encoding: base64",
-    "",
-    wrap(Buffer.from(parts.packJson, "utf8").toString("base64")),
-    ...(parts.publicKeyPem
-      ? [
-          `--${boundary}`,
-          `Content-Type: application/x-pem-file; name="${PUBLIC_KEY_FILE}"`,
-          `Content-Disposition: attachment; filename="${PUBLIC_KEY_FILE}"`,
-          "Content-Transfer-Encoding: base64",
-          "",
-          wrap(Buffer.from(parts.publicKeyPem, "utf8").toString("base64")),
-        ]
-      : []),
-    `--${boundary}--`,
-    "",
-  ].join("\r\n");
 }

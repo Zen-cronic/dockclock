@@ -39,18 +39,17 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "send_detention_claim",
     description:
-      "Email the detention claim to the load's counterparty with the signed evidence pack attached. Refused unless the load is sealed BILLABLE, dispatch approved it, and amountCents and packDigest equal the sealed values from get_load_evidence.",
+      "Email the detention claim to the load's counterparty: a fixed template filled from the sealed pack (subject, facts, signature, links), a one-page PDF claim summary and the signed evidence pack attached, with your opening as its first paragraph. Refused unless the load is sealed BILLABLE, dispatch approved it, and amountCents and packDigest equal the sealed values from get_load_evidence.",
     inputSchema: {
       type: "object",
       properties: {
         loadId,
-        subject: { type: "string", description: "Email subject, under 160 characters" },
-        body: { type: "string", description: "Plain-text email body citing the clause, the evidence and the amount" },
+        body: { type: "string", description: "The claim's opening: one or two plain sentences (80 to 600 characters) naming the load id, the facility and the amount as $123.45. The tool adds everything else" },
         amountCents: { type: "integer", description: "The contract amount in cents, exactly as returned by get_load_evidence" },
         packDigest: { type: "string", description: "The evidence pack digest exactly as returned by get_load_evidence" },
         approvalId: { type: "string", description: "The dispatch approval id from get_load_evidence" },
       },
-      required: ["loadId", "subject", "body", "amountCents", "packDigest", "approvalId"],
+      required: ["loadId", "body", "amountCents", "packDigest", "approvalId"],
     },
   },
 ];
@@ -76,8 +75,8 @@ export const SYSTEM_PROMPT = [
   "Quote times exactly as get_load_evidence gives them: the facility's local date, time and zone. Never combine a local time with the date of a UTC timestamp.",
   "The clause engine decides whether detention is owed and how much. You never change its verdict or amount: copy amountCents and packDigest exactly from get_load_evidence.",
   "When asked to review a load: call get_load_evidence, then read_bill_of_lading if a photo exists and no reading is recorded. Report whether the photo is legible and whether its times agree with the pins and the driver's entries.",
-  "When asked to file a claim: call get_load_evidence. If the verdict is not BILLABLE or there is no dispatch approval, stop and say why. Otherwise write a short, factual, polite email to the counterparty that names the load id, the facility, the clause terms (free time, rate, notice), the server-timestamped arrival and release times, the detention minutes and the amount in the form $123.45, and says the signed evidence pack is attached. Then call send_detention_claim once.",
-  "Make the claim easy to scan. Subject: 'Detention claim: Load <load id> at <facility name>, <amount>'. Body, in plain text: a greeting to the counterparty; one sentence saying what is claimed (detention for the load at the facility, the amount); then one fact per line, each starting with its label: Clause, Arrived, Released, Detention, Amount due; then one sentence saying the signed evidence pack and its public key are attached and listed below; then a one-line close. No headings, no markdown, no other sections, and no verification details (a fixed footer adds them).",
+  "When asked to file a claim: call get_load_evidence. If the verdict is not BILLABLE or there is no dispatch approval, stop and say why. Otherwise write the claim's opening and call send_detention_claim once.",
+  "The claim email and its PDF are a fixed template filled from the sealed pack: the tool adds the subject, the greeting, the facts (claim number, load, facility, arrival and release times, detention, amount due), the closing, the signature, the links and the attachments. You write only body, the opening: one or two formal, plain sentences (80 to 600 characters) saying that detention is claimed for the load id at the facility under the rate confirmation, with the amount in the form $123.45. No greeting, no sign-off, no list of facts, no markdown and no verification details.",
   "Never name companies, documents or sources other than the load's counterparty and facility as given by the tools.",
   "If a tool refuses, report the refusal reason and stop. Do not retry with different numbers. A claim above $5,000 is never filed by you; say it needs a person.",
 ].join("\n");

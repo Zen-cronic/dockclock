@@ -243,3 +243,16 @@ export function checkEngineInput(input: EngineInput, ctx: { loadId: string; clau
     throw new Error(`rebuilt engine inputs give ${recomputed.verdict} $${recomputed.amountUsd}, but the pack says ${ctx.evaluation.verdict} $${ctx.evaluation.amountUsd}`);
   }
 }
+
+// What each claim attachment is, for the console's Emails tab.
+export function attachmentNote(a: { name: string; contentType: string }): string {
+  if (a.name.endsWith(".pem")) return "The public key to check the signature.";
+  if (a.contentType === "application/pdf") return "The one-page claim summary, as sent.";
+  if (a.contentType === "application/json") return "The signed evidence pack, exactly as sealed.";
+  return "";
+}
+
+// Claims sent before 2026-10-23 named the KMS key in their footer; the console removes it.
+export function claimBodyNote(rawText: string): string {
+  return /arn:aws/.test(rawText) ? "The sent email's bytes, kept with the load's packs. The AWS key name in the footer is removed." : "The sent email's bytes, kept with the load's packs. Its plain-text part is shown.";
+}

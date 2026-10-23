@@ -7,7 +7,9 @@ import type { Context } from "aws-lambda";
 import { clauseById } from "@dockclock/clause-engine";
 import { facilityById, isoToLocalClock, isoToLocalDateTime, KmsSigner, normalizeClock, registerFacility, sha256Hex, type Facility } from "@dockclock/evidence";
 import { readBol, type BolReading } from "./bol-reader.js";
-import { buildClaimMime, checkClaim, formatUsd, PUBLIC_KEY_FILE, toCents, type ClaimRequest } from "./claim.js";
+import { checkClaim, toCents, type ClaimRequest } from "./claim.js";
+import { buildClaimMime, claimFactsOf, claimPdfName, claimSubject, type SealedPackView } from "./claim-email.js";
+import { buildClaimPdf } from "./claim-pdf.js";
 
 if (process.env.DEMO_FACILITY) registerFacility(JSON.parse(process.env.DEMO_FACILITY) as Facility);
 
@@ -15,7 +17,7 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), { marshallOption
 const s3 = new S3Client({});
 const publicKeys = new Map<string, Promise<{ pem: string; spkiSha256: string }>>();
 
-// The evidence key's public half, fetched once per key and attached to every claim email. A failed
+// The evidence key's public half, fetched once per key; its fingerprint goes in every claim PDF. A failed
 // fetch is forgotten, so one transient KMS error does not break every later claim in this container.
 export function publicKeyOf(keyId: string, fetchDer: (keyId: string) => Promise<Buffer> = (id) => new KmsSigner(id).publicKeyDer()): Promise<{ pem: string; spkiSha256: string }> {
   let key = publicKeys.get(keyId);
@@ -58,6 +60,8 @@ interface LoadMeta {
   bolReading?: BolReading & { page: number; model: string; readAt: string };
   sealedPackId?: string;
   verdict?: string;
+  synthetic?: boolean;
+  ws?: string;
 }
 
 interface PackItem {
@@ -69,7 +73,7 @@ interface PackItem {
 }
 
 interface SignedPackFile {
-  pack: { packId: string; evaluation: { verdict: string; reasons: string[]; amountUsd: number; detentionMinutes: number; billableMinutes: number; clockStartAt: string | null } };
+  pack: SealedPackView & { evaluation: { verdict: string; reasons: string[]; clockStartAt: string | null } };
 }
 
 async function item<T>(loadId: string, sk: string): Promise<T | null> {
@@ -202,19 +206,23 @@ async function sendDetentionClaim(input: ClaimRequest) {
   const clause = clauseById(load.clauseId);
   const to = recipientFor(clause.role);
   const publicKey = await publicKeyOf(pack.keyId);
-  const footer = [
-    "--",
-    "Attached:",
-    `- ${load.sealedPackId}.json: the signed evidence pack (sha256 ${pack.digest})`,
-    `- ${PUBLIC_KEY_FILE}: the public key (SPKI sha256 ${publicKey.spkiSha256})`,
-    "",
-    `Contract amount: ${formatUsd(evaluation.amountUsd)}, computed by the clause engine, not by the agent.`,
-    "",
-    `To verify: the pack is signed with AWS KMS key ${pack.keyId}: ECDSA P-256 (signatureBase64, DER) over the SHA-256 of the file's "pack" field written as canonical JSON (object keys sorted at every level, no spaces), not over the file's own bytes. DockClock's verifier, npm run verify:pack, applies exactly this rule.`,
-    "",
-    "Sent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
-  ].join("\n");
-  const raw = buildClaimMime({ from: env("CLAIMS_FROM_EMAIL"), to, replyTo: env("REPLY_TO_EMAIL"), subject: input.subject, body: input.body, packFileName: `${load.sealedPackId}.json`, packJson: file.json, publicKeyPem: publicKey.pem, footer });
+  // One set of facts, from the sealed pack and the clause, feeds the email and the PDF alike.
+  const issuedAt = new Date();
+  const facts = claimFactsOf({
+    loadId: load.loadId,
+    workspace: load.ws,
+    synthetic: load.synthetic === true,
+    clause,
+    facility: facilityById(load.facilityId),
+    pack: file.signed.pack,
+    packDigest: pack.digest,
+    spkiSha256: publicKey.spkiSha256,
+    issuedAt,
+  });
+  const from = env("CLAIMS_FROM_EMAIL");
+  const pdf = await buildClaimPdf(facts, { from, issuedAt });
+  const subject = claimSubject(facts);
+  const raw = buildClaimMime({ from, to, replyTo: env("REPLY_TO_EMAIL"), date: issuedAt, facts, opening: input.body, pdf, packFileName: `${load.sealedPackId}.json`, packJson: file.json });
   const configurationSet = env("SES_CONFIGURATION_SET");
   // Reserve the claim before sending, so a retried tool call can never email the broker twice.
   try {
@@ -249,15 +257,15 @@ async function sendDetentionClaim(input: ClaimRequest) {
   }
   // From here the email is out. A failure to record it keeps the reservation, so no retry re-sends.
   const sentAt = new Date().toISOString();
-  const mimeKey = await storeClaimEmail(load.loadId, raw);
+  const [mimeKey, pdfKey] = await Promise.all([storeClaimFile(claimEmailKey(load.loadId), raw, "message/rfc822", load.loadId), storeClaimFile(claimPdfKey(load.loadId), pdf, "application/pdf", load.loadId)]);
   try {
     await ddb.send(
       new UpdateCommand({
         TableName: env("TABLE_NAME"),
         Key: key(load.loadId, "CLAIM"),
-        UpdateExpression: `SET #s = :s, sentAt = :t, sesMessageId = :m, subject = :sub${mimeKey ? ", mimeKey = :k" : ""}`,
+        UpdateExpression: `SET #s = :s, sentAt = :t, sesMessageId = :m, subject = :sub${mimeKey ? ", mimeKey = :k" : ""}${pdfKey ? ", pdfKey = :p, pdfName = :pn" : ""}`,
         ExpressionAttributeNames: { "#s": "status" },
-        ExpressionAttributeValues: { ":s": "sent", ":t": sentAt, ":m": sesMessageId, ":sub": input.subject, ...(mimeKey ? { ":k": mimeKey } : {}) },
+        ExpressionAttributeValues: { ":s": "sent", ":t": sentAt, ":m": sesMessageId, ":sub": subject, ...(mimeKey ? { ":k": mimeKey } : {}), ...(pdfKey ? { ":p": pdfKey, ":pn": claimPdfName(load.loadId) } : {}) },
       }),
     );
   } catch (error) {
@@ -267,16 +275,16 @@ async function sendDetentionClaim(input: ClaimRequest) {
   return { sent: true, sentAt, sesMessageId, recipientRole: clause.role, amountUsd: evaluation.amountUsd };
 }
 
-// The claim email's exact bytes, kept next to the load's packs under the same Object Lock retention.
-// The email is already out, so a failure here is logged and returns null instead of throwing.
+// The claim email's exact bytes and its PDF, kept next to the load's packs under the same Object Lock
+// retention. The email is already out, so a failure here is logged and returns null instead of throwing.
 export const claimEmailKey = (loadId: string) => `packs/${loadId}/claim.eml`;
-async function storeClaimEmail(loadId: string, raw: string): Promise<string | null> {
-  const mimeKey = claimEmailKey(loadId);
+export const claimPdfKey = (loadId: string) => `packs/${loadId}/claim.pdf`;
+async function storeClaimFile(objectKey: string, body: string | Uint8Array, contentType: string, loadId: string): Promise<string | null> {
   try {
-    await s3.send(new PutObjectCommand({ Bucket: env("EVIDENCE_BUCKET"), Key: mimeKey, Body: raw, ContentType: "message/rfc822" }));
-    return mimeKey;
+    await s3.send(new PutObjectCommand({ Bucket: env("EVIDENCE_BUCKET"), Key: objectKey, Body: body, ContentType: contentType }));
+    return objectKey;
   } catch (error) {
-    console.log(JSON.stringify({ kind: "claim_email_unstored", loadId, error: (error as Error).name }));
+    console.log(JSON.stringify({ kind: "claim_file_unstored", loadId, objectKey, error: (error as Error).name }));
     return null;
   }
 }
