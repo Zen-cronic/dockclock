@@ -2,14 +2,22 @@ import type { Channel, MessageStatus, Source } from "../model/model.js";
 import { IconCheck, IconClose, IconEmail, IconRcs, IconSms, IconWhatsApp } from "./icons.js";
 
 // ProvenanceBadge: where the data on screen came from. Always visible, never a paragraph.
-export function ProvenanceBadge({ kind, label }: { kind: Source | "computed" | "test" | "recorded"; label?: string }) {
+export function ProvenanceBadge({ kind, label, title }: { kind: Source | "computed" | "test" | "recorded"; label?: string; title?: string }) {
   const text = label ?? { live: "Live", fixture: "Recorded", replay: "Replay", computed: "Computed", test: "Test", recorded: "Recorded" }[kind];
   return (
-    <span className={`badge ${kind}`} title={TITLES[kind]}>
+    <span className={`badge ${kind}`} title={title ?? TITLES[kind]}>
       {kind === "live" && <i aria-hidden="true" />}
       {text}
     </span>
   );
+}
+
+// The page's data source. While the live API is failing, the recorded copy says so and that live
+// is being retried.
+export function SourceBadge({ data }: { data: { source: Source; fallback?: boolean } }) {
+  if (!data.fallback) return <ProvenanceBadge kind={data.source} />;
+  const base = data.source === "fixture" ? "Recorded" : data.source === "replay" ? "Replay" : "Live";
+  return <ProvenanceBadge kind={data.source} label={`${base} ∙ reconnecting`} title="The live API did not answer. Showing recorded data and trying live again." />;
 }
 
 const TITLES: Record<string, string> = {

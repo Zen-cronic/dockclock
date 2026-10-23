@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { hasRecordedDetail, useLoads } from "../model/client.js";
 import { usd } from "../format.js";
 import { Page } from "../ui/AppShell.js";
-import { ChannelBadge, ProvenanceBadge, Stamp } from "../ui/badges.js";
+import { ChannelBadge, SourceBadge, Stamp } from "../ui/badges.js";
 import { EmptyState } from "../ui/EmptyState.js";
 
 const RUN_WORDS: Record<string, string> = { phone: "Real phone", demo: "Judge demo", operator: "Operator tap", integration: "Test run" };
@@ -12,7 +12,7 @@ export function Loads() {
   const nav = useNavigate();
   const loads = q.data?.data ?? [];
   return (
-    <Page crumbs={[{ label: "Loads" }]} badges={q.data && <ProvenanceBadge kind={q.data.source} />}>
+    <Page crumbs={[{ label: "Loads" }]} badges={q.data && <SourceBadge data={q.data} />}>
       <div className="card">
         {loads.length === 0 ? (
           <EmptyState title="No loads yet" />

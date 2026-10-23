@@ -33,5 +33,11 @@ export function EmailView({ email, timeZone, body, note }: { email: ConsoleEmail
 export function EmailBody({ load, email }: { load: LoadDetail; email: ConsoleEmail }) {
   const q = useEmailBody(load, email);
   if (q.isLoading) return <p className="small">Loading…</p>;
+  if (q.isError)
+    return (
+      <p className="small">
+        Couldn't load the email. <button className="linkbtn" onClick={() => void q.refetch()}>Retry</button>
+      </p>
+    );
   return <EmailView email={email} timeZone={load.timeZone} body={q.data?.body ?? null} note={q.data?.note ?? ""} />;
 }

@@ -302,3 +302,47 @@ describe("drawer focus", () => {
     expect(src).toMatch(/\}, \[\]\);/);
   });
 });
+
+// One failed live fetch must not strand the console on recorded data.
+describe("live fallback and recovery", async () => {
+  const { ApiFetchError, backoffMs, failureOf, refetchMs, withFallback, POLL_MS } = await import("../src/model/fetching.js");
+  const down = (status: number | null) => async () => {
+    throw status === null ? new ApiFetchError("unavailable", null, "network") : failureOf(status, `HTTP ${status}`);
+  };
+
+  it("tells a real 404 from a 5xx, a 429 or a network failure", () => {
+    expect(failureOf(404, "x").kind).toBe("not_found");
+    for (const status of [500, 502, 503, 429, 400]) expect(failureOf(status, "x").kind).toBe("unavailable");
+  });
+
+  it("falls back to recorded data while live fails, keeps retrying with backoff, and recovers", async () => {
+    let failures = 0;
+    for (const expected of [1, 2, 3]) {
+      const out = await withFallback({ live: down(503), fixture: () => "recorded", replay: () => "replay", failuresBefore: failures });
+      expect(out).toMatchObject({ data: "recorded", source: "fixture", fallback: true, liveError: "unavailable", liveFailures: expected });
+      failures = out.liveFailures;
+      expect(refetchMs(out)).toBe(backoffMs(expected));
+    }
+    expect([1, 2, 3, 4, 5, 9].map(backoffMs)).toEqual([POLL_MS, 6000, 12000, 24000, 30000, 30000]);
+    const back = await withFallback({ live: async () => ({ data: "live", pollMs: 3000 }), fixture: () => "recorded", replay: () => "replay", failuresBefore: failures });
+    expect(back).toMatchObject({ data: "live", source: "live", fallback: false, liveFailures: 0 });
+    expect(refetchMs(back)).toBe(POLL_MS);
+  });
+
+  it("keeps retrying a judge's own load that has no recording, so the page can say Reconnecting", async () => {
+    const out = await withFallback<string, null>({ live: down(null), fixture: () => { throw new Error("no fixture"); }, replay: () => null, failuresBefore: 0 });
+    expect(out).toMatchObject({ data: null, source: "replay", fallback: true, liveError: "unavailable" });
+    expect(refetchMs(out, { onlyWhilePolling: true })).toBe(POLL_MS);
+  });
+
+  it("stops on a real 404 with nothing recorded: the load is not found", async () => {
+    const out = await withFallback<string, null>({ live: down(404), fixture: () => { throw new Error("no fixture"); }, replay: () => null, failuresBefore: 2 });
+    expect(out).toMatchObject({ data: null, fallback: false, liveError: "not_found", liveFailures: 0 });
+    expect(refetchMs(out)).toBe(false);
+  });
+
+  it("stops polling a finished live load and never polls recorded-only data", () => {
+    expect(refetchMs({ source: "live", fallback: false, liveFailures: 0, pollMs: null }, { onlyWhilePolling: true })).toBe(false);
+    expect(refetchMs({ source: "replay", fallback: false, liveFailures: 0, pollMs: null })).toBe(false);
+  });
+});

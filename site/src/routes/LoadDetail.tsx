@@ -7,7 +7,7 @@ import type { ConsoleEmail, LoadDetail, TimelineItem } from "../model/model.js";
 import { clock, clockOn, placeName, usd } from "../format.js";
 import { AgentFlow } from "../ui/AgentFlow.js";
 import { Page } from "../ui/AppShell.js";
-import { ChannelBadge, ProvenanceBadge, Stamp } from "../ui/badges.js";
+import { ChannelBadge, SourceBadge, Stamp } from "../ui/badges.js";
 import { ConversationView, failoverMarkers } from "../ui/ConversationView.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
 import { Drawer, Json } from "../ui/Drawer.js";
@@ -125,7 +125,7 @@ export function LoadDetailRoute() {
   if (!load)
     return (
       <Page crumbs={[{ to: "/loads", label: "Loads" }, { label: id ?? "" }]}>
-        <EmptyState title={q.isLoading ? "Loading" : "Load not found"} />
+        <EmptyState title={q.isLoading ? "Loading" : q.data?.liveError === "unavailable" ? "Reconnecting…" : "Load not found"} />
       </Page>
     );
   const upTo = play.cursor ? Date.parse(play.cursor) : undefined;
@@ -133,7 +133,7 @@ export function LoadDetailRoute() {
   return (
     <Page
       crumbs={[{ to: "/loads", label: "Loads" }, { label: load.summary.id }]}
-      badges={q.data && <ProvenanceBadge kind={q.data.source} />}
+      badges={q.data && <SourceBadge data={q.data} />}
       strip={testStrip(load)}
     >
       <LoadHeader load={shown ?? load} />
@@ -211,7 +211,16 @@ export function LoadDetailRoute() {
           </div>
         </div>
       )}
-      {tab === "evidence" && (pack.data ? <EvidencePanel pack={pack.data} timeZone={load.timeZone} photos={load.photos} /> : <EmptyState title={load.packSummary ? "Loading the pack" : "Not sealed yet"} />)}
+      {tab === "evidence" &&
+        (pack.data ? (
+          <EvidencePanel pack={pack.data} timeZone={load.timeZone} photos={load.photos} />
+        ) : pack.isError ? (
+          <EmptyState title="Couldn't load the pack">
+            <button className="btn small" onClick={() => void pack.refetch()}>Retry</button>
+          </EmptyState>
+        ) : (
+          <EmptyState title={load.packSummary ? "Loading the pack" : "Not sealed yet"} />
+        ))}
       {tab === "whatif" && <WhatIfPanel load={load} />}
       {record && (
         <Drawer title={record.title} onClose={() => setRecord(null)}>

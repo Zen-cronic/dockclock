@@ -5,7 +5,7 @@ import { FEATURED_LOAD, FEATURED_RCS_LOAD, useLoad, usePack } from "../model/cli
 import type { LoadDetail } from "../model/model.js";
 import { clock, duration, placeName, usd } from "../format.js";
 import { Page } from "../ui/AppShell.js";
-import { Mark, ProvenanceBadge, StatusPill } from "../ui/badges.js";
+import { Mark, ProvenanceBadge, SourceBadge, StatusPill } from "../ui/badges.js";
 import { ConversationView, failoverMarkers } from "../ui/ConversationView.js";
 import { IconAgent, IconCheck, IconChevron, IconClock, IconClose, IconDoc, IconEmail, IconLock, IconPin, IconRcs, IconWhatsApp } from "../ui/icons.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
@@ -59,8 +59,12 @@ function SignatureCard({ load, broken }: { load: LoadDetail; broken?: boolean })
       <div className={`vres ${s === "valid" ? "good" : s === "invalid" ? "bad" : ""}`} aria-live="polite">
         <span className="ic">{s === "valid" ? <IconCheck /> : s === "invalid" ? <IconClose /> : "…"}</span>
         <div>
-          <b>{s === "valid" ? "Signature valid" : s === "invalid" ? "Signature broken" : s === "error" ? "Couldn't check" : "Checking"}</b>
-          <span className="small">KMS ∙ in your browser</span>
+          <b>{pack.isError ? "Couldn't load the pack" : s === "valid" ? "Signature valid" : s === "invalid" ? "Signature broken" : s === "error" ? "Couldn't check" : "Checking"}</b>
+          {pack.isError ? (
+            <button className="linkbtn small" onClick={() => void pack.refetch()}>Retry</button>
+          ) : (
+            <span className="small">KMS ∙ in your browser</span>
+          )}
         </div>
       </div>
       {broken && <ul className="diffs"><li>amount {usd(load.verdict?.amountUsd ?? 0)} → {usd(9999)}</li></ul>}
@@ -315,7 +319,7 @@ export function Judges() {
   }
 
   return (
-    <Page crumbs={[{ label: "Judges path" }]} badges={q.data && <ProvenanceBadge kind={q.data.source} />} strip={load ? testStrip(load) : null}>
+    <Page crumbs={[{ label: "Judges path" }]} badges={q.data && <SourceBadge data={q.data} />} strip={load ? testStrip(load) : null}>
       <div className="judge">
         <div className="steps-m" aria-hidden="true">
           <span className="mono">{i + 1} / {JUDGE_STEPS.length}</span>
@@ -339,7 +343,7 @@ export function Judges() {
               </div>
             )}
             {!load ? (
-              <EmptyState title={lane === "rcs" && !rcsLoad ? "No RCS recording yet" : q.isLoading ? "Loading" : "This load isn't in this data set"} />
+              <EmptyState title={lane === "rcs" && !rcsLoad ? "No RCS recording yet" : q.isLoading ? "Loading" : q.data?.liveError === "unavailable" ? "Reconnecting…" : "This load isn't in this data set"} />
             ) : (
               <>
                 {kicker && <p className="kicker">{kicker}</p>}

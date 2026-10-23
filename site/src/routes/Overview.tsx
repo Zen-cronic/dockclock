@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { FEATURED_LOAD, useLoad, useOverview } from "../model/client.js";
 import { clock, dayLabel, dayShort, placeName, usd } from "../format.js";
-import { ChannelBadge, ProvenanceBadge, channelName } from "../ui/badges.js";
+import { ChannelBadge, SourceBadge, channelName } from "../ui/badges.js";
 import { Page } from "../ui/AppShell.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
 import { KpiTile } from "../ui/KpiTile.js";
@@ -16,7 +16,7 @@ export function Overview() {
   return (
     <Page
       crumbs={[{ label: "Overview" }]}
-      badges={ov.data && <ProvenanceBadge kind={ov.data.source} />}
+      badges={ov.data && <SourceBadge data={ov.data} />}
       actions={
         <Link className="btn primary" to="/judges">
           Judges path

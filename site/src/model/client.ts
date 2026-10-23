@@ -11,6 +11,7 @@ import { detailFromApi, feedFromApi, overviewFromApi, summaryFromApi } from "./f
 import { detailFromReplay, feedFromDetails, overviewFromDetails } from "./fromReplay.js";
 import type { ConsoleEmail, FeedRow, LoadDetail, LoadSummary, Overview, Source } from "./model.js";
 import { FEATURED } from "../featured.js";
+import { ApiFetchError, failureOf, ONE_SHOT_RETRIES, oneShotDelay, POLL_MS, refetchMs, withFallback, type Sourced } from "./fetching.js";
 
 const replayModules = import.meta.glob<ReplaySnapshot>("../../replay/*.json", { eager: true, import: "default" });
 const replays: ReplaySnapshot[] = Object.values(replayModules).sort((a, b) => (b.clock.arrivedAt ?? "").localeCompare(a.clock.arrivedAt ?? ""));
@@ -19,7 +20,7 @@ const fixturePhotos = import.meta.glob<string>("../../fixtures/api/photos/*", { 
 
 export const FEATURED_LOAD = FEATURED.whatsapp;
 export const FEATURED_RCS_LOAD = FEATURED.rcs;
-export const POLL_MS = 3000;
+export { POLL_MS };
 
 type Mode = "live" | "fixtures" | "replay";
 
@@ -95,48 +96,62 @@ async function get<T>(path: string, m: Mode): Promise<Api.ApiResponse<T>> {
   let body: Api.ApiResponse<T> | Api.ApiError;
   if (m === "fixtures") body = fixtureFor(path) as Api.ApiResponse<T> | Api.ApiError;
   else {
-    const res = await fetch(path, { headers: { accept: "application/json" } });
+    let res: Response;
+    try {
+      res = await fetch(path, { headers: { accept: "application/json" } });
+    } catch (error) {
+      throw new ApiFetchError("unavailable", null, `${path}: ${(error as Error).message}`);
+    }
+    // Not the API's JSON (a CloudFront error page, a proxy): live did not answer.
     const type = res.headers.get("content-type") ?? "";
-    if (!type.includes("json")) throw new Error(`${path}: HTTP ${res.status}`);
-    body = (await res.json()) as Api.ApiResponse<T> | Api.ApiError;
+    if (!type.includes("json")) throw new ApiFetchError("unavailable", res.status, `${path}: HTTP ${res.status}`);
+    try {
+      body = (await res.json()) as Api.ApiResponse<T> | Api.ApiError;
+    } catch {
+      throw new ApiFetchError("unavailable", res.status, `${path}: unreadable JSON`);
+    }
   }
-  if ("error" in body) throw new Error(body.error.message);
-  if (body.schema !== "dockclock.api/1") throw new Error(`${path}: unexpected schema`);
+  if ("error" in body) throw failureOf(body.error.status, body.error.message);
+  if (body.schema !== "dockclock.api/1") throw new ApiFetchError("unavailable", null, `${path}: unexpected schema`);
   return body;
 }
 
-export interface Sourced<T> {
-  data: T;
-  source: Source;
-  pollMs: number | null;
-}
+export type { Sourced } from "./fetching.js";
 
-// Fetch from the chosen source. When /api is unreachable, fall back to the recorded API responses
-// in site/fixtures/api (badged RECORDED), then to the bundled replays (badged REPLAY).
-async function load<A, T>(path: string, fromApi: (r: Api.ApiResponse<A>, s: Source) => T, fromReplay: () => T): Promise<Sourced<T>> {
+// Live failures in a row, by path, for the backoff.
+const liveFailures = new Map<string, number>();
+
+// Fetch from the chosen source. When /api fails, fall back to the recorded API responses in
+// site/fixtures/api (badged RECORDED), then to the bundled replays (badged REPLAY), and keep
+// asking live (with backoff) until it answers again. A real 404 is not retried.
+async function load<A, T, R = T>(path: string, fromApi: (r: Api.ApiResponse<A>, s: Source) => T, fromReplay: () => R): Promise<Sourced<T | R>> {
   const m = mode();
-  const order: Mode[] = m === "live" ? ["live", "fixtures"] : m === "fixtures" ? ["fixtures"] : [];
-  for (const source of order) {
-    try {
-      const r = await get<A>(path, source);
-      const s: Source = source === "fixtures" ? "fixture" : "live";
-      return { data: fromApi(r, s), source: s, pollMs: source === "live" ? r.pollMs : null };
-    } catch (error) {
-      // Say why in the console for whoever is debugging, then try the next source.
-      console.warn(`DockClock: ${path} from ${source} unavailable (${(error as Error).message})`);
-    }
-  }
-  return { data: fromReplay(), source: "replay", pollMs: null };
+  const out = await withFallback<T, R>({
+    live:
+      m === "live"
+        ? async () => {
+            const r = await get<A>(path, "live");
+            return { data: fromApi(r, "live"), pollMs: r.pollMs };
+          }
+        : null,
+    fixture: m === "replay" ? null : async () => fromApi(await get<A>(path, "fixtures"), "fixture"),
+    replay: fromReplay,
+    failuresBefore: liveFailures.get(path) ?? 0,
+    // Say why in the console for whoever is debugging.
+    warn: (message) => console.warn(`DockClock: ${path}: ${message}`),
+  });
+  liveFailures.set(path, out.liveFailures);
+  return out;
 }
 
 const replayDetails = (): LoadDetail[] => replays.map((s) => detailFromReplay(s, "replay"));
-const livePoll = (q: { state: { data?: { source: Source } | undefined } }) => (q.state.data?.source === "live" ? POLL_MS : false);
+const poll = (q: { state: { data?: Sourced<unknown> | undefined } }) => refetchMs(q.state.data);
 
 export function useOverview() {
   return useQuery({
     queryKey: ["overview"],
     queryFn: () => load<Api.Overview, Overview>("/api/overview", (r, s) => overviewFromApi(r.data, s, r.generatedAt), () => overviewFromDetails(replayDetails(), "replay")),
-    refetchInterval: livePoll,
+    refetchInterval: poll,
   });
 }
 
@@ -151,7 +166,7 @@ export function useLoads() {
         (r, s) => r.data.loads.map((l) => ({ ...summaryFromApi(l, s), timeZone: l.facility.timeZone, runLabel: l.runLabel })),
         () => replayDetails().map((d) => ({ ...d.summary, timeZone: d.timeZone })),
       ),
-    refetchInterval: livePoll,
+    refetchInterval: poll,
   });
 }
 
@@ -160,12 +175,13 @@ export function useLoad(id: string | undefined) {
     queryKey: ["load", id],
     enabled: Boolean(id),
     queryFn: () =>
-      load<Api.LoadView, LoadDetail | null>(
+      load<Api.LoadView, LoadDetail, LoadDetail | null>(
         `/api/loads/${encodeURIComponent(id ?? "")}`,
         (r, s) => detailFromApi(r.data, s, s === "fixture" ? fixturePhotoUrl : (u) => u),
         () => replayDetails().find((d) => d.summary.id === id) ?? null,
       ),
-    refetchInterval: (q) => (q.state.data?.source === "live" && q.state.data.pollMs ? POLL_MS : false),
+    // A finished load stops polling; a load shown in place of a failing live API keeps retrying.
+    refetchInterval: (q) => refetchMs(q.state.data, { onlyWhilePolling: true }),
   });
 }
 
@@ -173,11 +189,14 @@ export function useMessages() {
   return useQuery({
     queryKey: ["messages"],
     queryFn: () => load<Api.MessageFeed, FeedRow[]>("/api/messages?limit=200", (r) => feedFromApi(r.data), () => feedFromDetails(replayDetails())),
-    refetchInterval: livePoll,
+    refetchInterval: poll,
   });
 }
 
-// The full signed pack: with the load for replays, from /api/loads/:id/pack otherwise.
+// The full signed pack: with the load for replays, otherwise from /api/loads/:id/pack, then the
+// recorded response, then the bundled replay of the same load. It is immutable once sealed, so a
+// copy from any source is the same bytes. When none has it the query fails (and retries), and the
+// page offers Retry instead of "Checking" forever.
 export function usePack(load: LoadDetail | null | undefined) {
   return useQuery({
     queryKey: ["pack", load?.summary.id, load?.packSummary?.packId],
@@ -185,14 +204,28 @@ export function usePack(load: LoadDetail | null | undefined) {
     queryFn: async (): Promise<SignedPackInfo | null> => {
       if (!load) return null;
       if (load.pack) return load.pack;
-      const r = await get<SignedPackInfo>(`/api/loads/${encodeURIComponent(load.summary.id)}/pack`, load.summary.source === "fixture" ? "fixtures" : "live");
-      return r.data;
+      const id = load.summary.id;
+      const path = `/api/loads/${encodeURIComponent(id)}/pack`;
+      const m = mode();
+      const out = await withFallback<SignedPackInfo, SignedPackInfo | null>({
+        live: m === "live" ? async () => ({ data: (await get<SignedPackInfo>(path, "live")).data, pollMs: null }) : null,
+        fixture: m === "replay" ? null : async () => (await get<SignedPackInfo>(path, "fixtures")).data,
+        replay: () => replays.find((r) => r.load.loadId === id)?.pack ?? null,
+        failuresBefore: 0,
+        warn: (message) => console.warn(`DockClock: ${path}: ${message}`),
+      });
+      if (!out.data) throw new Error("Couldn't load the pack");
+      return out.data;
     },
+    retry: ONE_SHOT_RETRIES,
+    retryDelay: oneShotDelay,
     staleTime: Number.POSITIVE_INFINITY,
   });
 }
 
-// An email's body: with the load for replays, from /api/loads/:id/emails/:emailId otherwise.
+// An email's body: with the load for replays, otherwise from /api/loads/:id/emails/:emailId, then
+// the recorded response. When neither answers the query fails (and retries), and the page offers
+// Retry rather than saying the body was not stored.
 export function useEmailBody(load: LoadDetail | null | undefined, email: ConsoleEmail | null) {
   return useQuery({
     queryKey: ["email", email?.id],
@@ -201,9 +234,20 @@ export function useEmailBody(load: LoadDetail | null | undefined, email: Console
       if (!load || !email) return { body: null, note: "" };
       if (email.body !== undefined || load.summary.source === "replay") return { body: email.body ?? null, note: email.body ? "" : "Body not stored for this load." };
       const localId = email.id.split(":").pop() ?? email.id;
-      const r = await get<Api.EmailView>(`/api/loads/${encodeURIComponent(load.summary.id)}/emails/${encodeURIComponent(localId)}`, load.summary.source === "fixture" ? "fixtures" : "live");
-      return { body: r.data.body, note: r.data.bodyNote };
+      const path = `/api/loads/${encodeURIComponent(load.summary.id)}/emails/${encodeURIComponent(localId)}`;
+      const m = mode();
+      const out = await withFallback<Api.EmailView, null>({
+        live: m === "live" ? async () => ({ data: (await get<Api.EmailView>(path, "live")).data, pollMs: null }) : null,
+        fixture: m === "replay" ? null : async () => (await get<Api.EmailView>(path, "fixtures")).data,
+        replay: () => null,
+        failuresBefore: 0,
+        warn: (message) => console.warn(`DockClock: ${path}: ${message}`),
+      });
+      if (!out.data) throw new Error("Couldn't load the email");
+      return { body: out.data.body, note: out.data.bodyNote };
     },
+    retry: ONE_SHOT_RETRIES,
+    retryDelay: oneShotDelay,
     staleTime: Number.POSITIVE_INFINITY,
   });
 }

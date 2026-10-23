@@ -6,7 +6,7 @@ import { FEED_SORTS, STATUS_FILTERS, filterFeed, orderFeed, parseSort } from "..
 import type { Channel, FeedRow } from "../model/model.js";
 import { clock, dayLabel, dayShort } from "../format.js";
 import { Page } from "../ui/AppShell.js";
-import { ChannelBadge, ChannelIcon, ProvenanceBadge, StatusPill, channelName } from "../ui/badges.js";
+import { ChannelBadge, ChannelIcon, SourceBadge, StatusPill, channelName } from "../ui/badges.js";
 import { ConversationView } from "../ui/ConversationView.js";
 import { Drawer } from "../ui/Drawer.js";
 import { EmailBody } from "../ui/EmailView.js";
@@ -81,7 +81,7 @@ export function Messages() {
     setParams(next);
   };
   return (
-    <Page crumbs={[{ label: "Messages" }]} badges={q.data && <ProvenanceBadge kind={q.data.source} />}>
+    <Page crumbs={[{ label: "Messages" }]} badges={q.data && <SourceBadge data={q.data} />}>
       <div className="toolbar">
         <div className="segctl" role="group" aria-label="Channel">
           <button aria-pressed={!channel} onClick={() => set("channel", null)}>All</button>
@@ -177,7 +177,7 @@ function FeedDetail({ row }: { row: FeedRow }) {
   const q = useLoad(row.loadId);
   const d = q.data?.data;
   if (q.isLoading) return <p className="small">Loading…</p>;
-  if (!d) return <p className="small">Load not found.</p>;
+  if (!d) return <p className="small">{q.data?.liveError === "unavailable" ? "Reconnecting…" : "Load not found."}</p>;
   if (row.isEmail) {
     const email = d.emails.find((e) => (e.id.split(":").pop() ?? e.id) === row.localId);
     return email ? <EmailBody load={d} email={email} /> : <p className="small">Email not found.</p>;
