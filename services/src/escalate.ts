@@ -15,7 +15,12 @@ const ses = new SESv2Client({ maxAttempts: 3 });
 // How dispatch can reach the driver. The dispatcher works for the carrier, so the driver's own number
 // is given. "unreachable" comes from the failover path (messages to the driver are failing), never
 // from reading the reason's wording, so the email does not point dispatch back at a failing channel.
-export function contactLine(load: Pick<LoadItem, "address" | "channel">, unreachable: boolean): string {
+// A judge's DEMO load runs on the judge's own phone: dispatch (our test mailbox) never gets their
+// number. Real carrier loads keep it, because calling the driver is the email's job.
+export const DEMO_CONTACT_LINE = "Driver: the judge's DEMO phone (number not included)";
+
+export function contactLine(load: Pick<LoadItem, "address" | "channel"> & { demo?: boolean | undefined }, unreachable: boolean): string {
+  if (load.demo === true) return DEMO_CONTACT_LINE;
   const channel = load.channel === "rcs" ? "RCS" : "WhatsApp";
   if (load.address.kind === "phone") {
     return unreachable ? `Driver: ${load.address.e164}. Messages are not getting through on ${channel}; call them.` : `Driver: ${load.address.e164}, on ${channel}. Message them there or call them.`;
@@ -70,7 +75,8 @@ export function escalationEmail(load: LoadItem, reason: string, options: { unrea
   const confidence = options.pack?.confidence;
   const amount = options.pack?.amountUsd && options.pack.amountUsd > 0 ? `$${options.pack.amountUsd.toFixed(2)}` : null;
   const capital = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
-  const contact = capital(contactLine(load, options.unreachable === true).replace(/^Driver: /, ""));
+  const line = contactLine(load, options.unreachable === true).replace(/^Driver: /, "");
+  const contact = load.demo === true ? line : capital(line);
   const subject = `Load ${load.loadId} needs dispatch: ${topic.subject}`;
   const link = loadPageUrl(load.loadId, load.ws);
   const letter: Letter = {

@@ -4,7 +4,7 @@ import type { Context, SNSEvent } from "aws-lambda";
 import { mockClient } from "aws-sdk-client-mock";
 import { findLeaks, parseMime } from "@dockclock/sanitize";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { notifyDispatch } from "../src/escalate.js";
+import { escalationEmail, notifyDispatch } from "../src/escalate.js";
 import { handler as noticeHandler } from "../src/notice.js";
 import type { LoadItem } from "../src/store.js";
 
@@ -74,6 +74,28 @@ describe("dispatch escalation records", () => {
     expect(text).toContain("Open this load: https://d3djuoqhg6b8o2.cloudfront.net/loads/4471");
     const item = dynamo.commandCalls(PutCommand)[0]!.args[0].input.Item as Record<string, unknown>;
     expect(findLeaks({ ...item, pk: undefined, sk: undefined })).toEqual([]);
+  });
+
+  it("never puts a judge's DEMO phone number in the dispatch email; a carrier load keeps it", async () => {
+    const e164 = /\+\d{8,15}/;
+    for (const unreachable of [false, true]) {
+      const demo = escalationEmail({ ...load, demo: true, ws: "demo" } as LoadItem, "driver tapped Talk to dispatch", { unreachable });
+      expect(demo.text).toContain("Driver: the judge's DEMO phone (number not included)");
+      expect(demo.html).toMatch(/the judge(&#39;|&#x27;|')s DEMO phone \(number not included\)/);
+      expect(demo.text).not.toMatch(e164);
+      expect(demo.html).not.toMatch(e164);
+      const carrier = escalationEmail(load, "driver tapped Talk to dispatch", { unreachable });
+      expect(carrier.text).toContain("+15550100001");
+      expect(carrier.text).not.toContain("DEMO phone");
+    }
+    // And the email actually sent for a demo load.
+    await notifyDispatch({ ...load, demo: true, ws: "demo" } as LoadItem, "driver tapped Talk to dispatch");
+    const sent = sentMail();
+    expect(sent.parsed.text).toContain("Driver: the judge's DEMO phone (number not included)");
+    expect(sent.raw).not.toMatch(e164);
+    expect(sent.html).not.toMatch(e164);
+    const stored = dynamo.commandCalls(PutCommand)[0]!.args[0].input.Item as Record<string, unknown>;
+    expect(String(stored.text)).toContain("number not included");
   });
 
   it("records a test load's escalation as not sent, and emails nobody", async () => {
