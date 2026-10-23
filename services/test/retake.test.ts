@@ -60,12 +60,12 @@ describe("photo retake request", () => {
   it("tells the driver the minutes left and a zone-labelled time, in every language", () => {
     expect(COPY.en_US.retakeAsk(10, "21:10", "EDT", true)).toContain("one more of the paper");
     expect(COPY.en_US.retakeAsk(60, "13:10", "CDT", false)).toContain("one more of the signed bill of lading");
-    expect(COPY.en_US.retakeAsk(10, "21:10", "EDT", true)).toContain("If none arrives within 10 minutes (by 21:10 EDT), we use the first photo.");
-    expect(COPY.es_MX.retakeAsk(10, "21:10", "EDT", true)).toContain("10 minutos (antes de las 21:10 EDT)");
-    expect(COPY.fr_CA.retakeAsk(10, "21:10", "EDT", true)).toContain("10 minutes (avant 21:10 EDT)");
-    expect(COPY.en_US.retakeAsk(1, "21:10", "EDT", true)).toContain("within 1 minute (by");
-    expect(COPY.es_MX.retakeAsk(1, "21:10", "EDT", true)).toContain("en 1 minuto (antes");
-    expect(COPY.fr_CA.retakeAsk(1, "21:10", "EDT", true)).toContain("d'ici 1 minute (avant");
+    expect(COPY.en_US.retakeAsk(10, "21:10", "EDT", true)).toContain("If none arrives by 21:10 EDT (10 minutes), we use the first photo.");
+    expect(COPY.es_MX.retakeAsk(10, "21:10", "EDT", true)).toContain("antes de las 21:10 EDT (10 minutos)");
+    expect(COPY.fr_CA.retakeAsk(10, "21:10", "EDT", true)).toContain("avant 21:10 EDT (10 minutes)");
+    expect(COPY.en_US.retakeAsk(1, "21:10", "EDT", true)).toContain("(1 minute), we use");
+    expect(COPY.es_MX.retakeAsk(1, "21:10", "EDT", true)).toContain("(1 minuto), usamos");
+    expect(COPY.fr_CA.retakeAsk(1, "21:10", "EDT", true)).toContain("(1 minute), nous utilisons");
   });
 
   it("is re-sent over RCS when the WhatsApp ask fails, while the load still waits", () => {
@@ -122,7 +122,7 @@ describe("an outbox entry from an older build", () => {
     const { drainOutbox } = await import("../src/ingest.js");
     expect(await drainOutbox("DEMO-1")).toBe(2);
     const sent = messaging.commandCalls(SendWhatsAppMessageCommand).map((c) => JSON.parse(Buffer.from(c.args[0].input.message as Uint8Array).toString()).text.body);
-    expect(sent).toEqual(["Got it. Your photo and times are saved with this load's evidence."]);
+    expect(sent).toEqual(["Got it. Your photo and times are saved with this load."]);
   });
 });
 

@@ -24,7 +24,7 @@ export function rcsDispatchCard(language: Language, loadId: string, nonce: strin
 
 export function rcsReleaseOffer(language: Language, loadId: string, nonce: string, facility: string, time: string): RcsMessageContent {
   const copy = COPY[language];
-  return card(copy.rcs.dispatchTitle(loadId), copy.rcs.checkedIn(facility, time), [
+  return card(copy.rcs.dispatchTitle(loadId), copy.checkedIn(facility, time), [
     reply(copy.released, "released", loadId, nonce),
     reply(copy.talkToDispatch, "dispatch", loadId, nonce),
   ]);
@@ -40,8 +40,8 @@ export function rcsLocationRequest(language: Language, step: "arrived" | "releas
   };
 }
 
-export function rcsBolRequest(language: Language, facility: string): RcsMessageContent {
-  return rcsText(COPY[language].rcs.bolRequest(facility));
+export function rcsBolRequest(language: Language, facility: string, time: string): RcsMessageContent {
+  return rcsText(COPY[language].rcs.bolRequest(facility, time));
 }
 
 export function rcsText(body: string): RcsMessageContent {

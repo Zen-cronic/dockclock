@@ -1,9 +1,10 @@
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
-import { clauseById, type ReasonCode } from "@dockclock/clause-engine";
+import { clauseById } from "@dockclock/clause-engine";
 import { getLoad } from "./store.js";
 import { send, sendRcs, textMessage } from "./sender.js";
 import { rcsText } from "./rcs.js";
 import type { Language } from "./messages.js";
+import { reasonWords } from "./reasons.js";
 import { ddb } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
@@ -15,87 +16,69 @@ type OutcomeInput =
   | { kind: "filed"; loadId: string }
   | { kind: "held"; loadId: string };
 
-const REASONS: Record<Language, Record<ReasonCode, string>> = {
+interface OutcomeCopy {
+  billable: (id: string, usd: string, approver: string) => string;
+  notBillable: (id: string, why: string) => string;
+  notBillablePlain: (id: string) => string;
+  needsHuman: (id: string, why: string) => string;
+  // No reason codes came with the verdict.
+  needsHumanPlain: (id: string) => string;
+  filed: (id: string, usd: string, to: string, digest: string) => string;
+  held: (id: string) => string;
+  you: string;
+  dispatch: string;
+}
+
+// Lead with the result. The pack digest appears once, shortened, in the filed message, so the driver
+// (or a judge) can match it against the pack the email carried.
+const TEXT: Record<Language, OutcomeCopy> = {
   en_US: {
-    MISSING_TIMESTAMP: "an arrival or release pin is missing",
-    PIN_OUTSIDE_GEOFENCE: "a pin was outside the facility",
-    BOL_TIMESTAMP_CONFLICT: "the bill-of-lading times differ from the pins",
-    LATE_ARRIVAL: "the truck arrived after the appointment",
-    WITHIN_FREE_TIME: "the wait stayed within free time",
-    NOTICE_MISSING: "the contract needs a notice before detention and none was sent",
-    NOTICE_LATE: "the notice went out after the contract's deadline",
-    NO_STATEMENT_OF_RECORD: "the contract needs a signed bill of lading with both times",
-    CLAIM_WINDOW_EXPIRED: "the claim window has closed",
-    SHIPPER_CONFIRMATION_REQUIRED: "the contract needs the shipper's confirmation",
-    CAP_APPLIED: "the contract's cap applies",
+    billable: (id, usd, approver) => `Load ${id}: the contract owes ${usd} in detention. ${approver}`,
+    notBillable: (id, why) => `Load ${id}: no claim, because ${why}.`,
+    notBillablePlain: (id) => `Load ${id}: no claim.`,
+    needsHuman: (id, why) => `Load ${id}: no claim yet. A person will review it first, because ${why}.`,
+    needsHumanPlain: (id) => `Load ${id}: no claim yet. A person will review it first.`,
+    filed: (id, usd, to, digest) => `Claim filed: ${usd} for load ${id}, emailed to ${to} with the signed evidence pack (fingerprint ${digest}).`,
+    held: (id) => `No claim was sent for load ${id}.`,
+    you: "Approve the claim in the next message.",
+    dispatch: "Dispatch decides whether to send the claim.",
   },
   es_MX: {
-    MISSING_TIMESTAMP: "falta una ubicación de llegada o de salida",
-    PIN_OUTSIDE_GEOFENCE: "una ubicación quedó fuera de la instalación",
-    BOL_TIMESTAMP_CONFLICT: "las horas del BOL no coinciden con las ubicaciones",
-    LATE_ARRIVAL: "el camión llegó después de la cita",
-    WITHIN_FREE_TIME: "la espera quedó dentro del tiempo libre",
-    NOTICE_MISSING: "el contrato exige un aviso antes de la demora y no se envió",
-    NOTICE_LATE: "el aviso salió después del plazo del contrato",
-    NO_STATEMENT_OF_RECORD: "el contrato exige un BOL firmado con ambas horas",
-    CLAIM_WINDOW_EXPIRED: "el plazo para reclamar ya cerró",
-    SHIPPER_CONFIRMATION_REQUIRED: "el contrato exige la confirmación del embarcador",
-    CAP_APPLIED: "se aplica el tope del contrato",
+    billable: (id, usd, approver) => `Carga ${id}: el contrato debe ${usd} por demora. ${approver}`,
+    notBillable: (id, why) => `Carga ${id}: sin reclamo, porque ${why}.`,
+    notBillablePlain: (id) => `Carga ${id}: sin reclamo.`,
+    needsHuman: (id, why) => `Carga ${id}: aún sin reclamo. Una persona la revisará primero, porque ${why}.`,
+    needsHumanPlain: (id) => `Carga ${id}: aún sin reclamo. Una persona la revisará primero.`,
+    filed: (id, usd, to, digest) => `Reclamo enviado: ${usd} por la carga ${id}, por correo a ${to} con el paquete de evidencia firmado (huella ${digest}).`,
+    held: (id) => `No se envió reclamo para la carga ${id}.`,
+    you: "Apruebe el reclamo en el siguiente mensaje.",
+    dispatch: "Despacho decide si se envía el reclamo.",
   },
   fr_CA: {
-    MISSING_TIMESTAMP: "une position d'arrivée ou de départ manque",
-    PIN_OUTSIDE_GEOFENCE: "une position était hors de l'installation",
-    BOL_TIMESTAMP_CONFLICT: "les heures du connaissement diffèrent des positions",
-    LATE_ARRIVAL: "le camion est arrivé après le rendez-vous",
-    WITHIN_FREE_TIME: "l'attente est restée dans le temps alloué",
-    NOTICE_MISSING: "le contrat exige un avis avant le temps d'attente et aucun n'a été envoyé",
-    NOTICE_LATE: "l'avis est parti après le délai du contrat",
-    NO_STATEMENT_OF_RECORD: "le contrat exige un connaissement signé avec les deux heures",
-    CLAIM_WINDOW_EXPIRED: "le délai de réclamation est écoulé",
-    SHIPPER_CONFIRMATION_REQUIRED: "le contrat exige la confirmation de l'expéditeur",
-    CAP_APPLIED: "le plafond du contrat s'applique",
+    billable: (id, usd, approver) => `Chargement ${id} : le contrat doit ${usd} en temps d'attente. ${approver}`,
+    notBillable: (id, why) => `Chargement ${id} : aucune réclamation, car ${why}.`,
+    notBillablePlain: (id) => `Chargement ${id} : aucune réclamation.`,
+    needsHuman: (id, why) => `Chargement ${id} : pas encore de réclamation. Une personne le révisera d'abord, car ${why}.`,
+    needsHumanPlain: (id) => `Chargement ${id} : pas encore de réclamation. Une personne le révisera d'abord.`,
+    filed: (id, usd, to, digest) => `Réclamation envoyée : ${usd} pour le chargement ${id}, par courriel à ${to} avec le dossier de preuve signé (empreinte ${digest}).`,
+    held: (id) => `Aucune réclamation n'a été envoyée pour le chargement ${id}.`,
+    you: "Approuvez la réclamation dans le prochain message.",
+    dispatch: "La répartition décide d'envoyer ou non la réclamation.",
   },
 };
 
-const TEXT: Record<Language, { billable: (id: string, usd: string, approver: string) => string; notBillable: (id: string, why: string) => string; needsHuman: (id: string, why: string) => string; filed: (id: string, usd: string, to: string, digest: string) => string; held: (id: string) => string; you: string; dispatch: string }> = {
-  en_US: {
-    billable: (id, usd, approver) => `Load ${id} is sealed and signed. The contract owes ${usd} in detention. ${approver}`,
-    notBillable: (id, why) => `Load ${id} is sealed and signed. No claim: ${why}.`,
-    needsHuman: (id, why) => `Load ${id} is sealed and signed. A person will review it before any claim: ${why}.`,
-    filed: (id, usd, to, digest) => `Claim filed for load ${id}: ${usd} emailed to ${to} with the signed evidence pack (digest ${digest}).`,
-    held: (id) => `No claim was sent for load ${id}.`,
-    you: "Approve it in the next message.",
-    dispatch: "Dispatch is approving the claim.",
-  },
-  es_MX: {
-    billable: (id, usd, approver) => `La carga ${id} quedó sellada y firmada. El contrato debe ${usd} por demora. ${approver}`,
-    notBillable: (id, why) => `La carga ${id} quedó sellada y firmada. Sin reclamo: ${why}.`,
-    needsHuman: (id, why) => `La carga ${id} quedó sellada y firmada. Una persona la revisará antes de reclamar: ${why}.`,
-    filed: (id, usd, to, digest) => `Reclamo enviado para la carga ${id}: ${usd} por correo a ${to} con el paquete de evidencia firmado (huella ${digest}).`,
-    held: (id) => `No se envió reclamo para la carga ${id}.`,
-    you: "Apruébelo en el siguiente mensaje.",
-    dispatch: "Despacho está aprobando el reclamo.",
-  },
-  fr_CA: {
-    billable: (id, usd, approver) => `Le chargement ${id} est scellé et signé. Le contrat doit ${usd} en temps d'attente. ${approver}`,
-    notBillable: (id, why) => `Le chargement ${id} est scellé et signé. Aucune réclamation : ${why}.`,
-    needsHuman: (id, why) => `Le chargement ${id} est scellé et signé. Une personne le révisera avant toute réclamation : ${why}.`,
-    filed: (id, usd, to, digest) => `Réclamation envoyée pour le chargement ${id} : ${usd} par courriel à ${to} avec le dossier de preuve signé (empreinte ${digest}).`,
-    held: (id) => `Aucune réclamation n'a été envoyée pour le chargement ${id}.`,
-    you: "Approuvez-la dans le prochain message.",
-    dispatch: "La répartition approuve la réclamation.",
-  },
-};
+// The digest's first 8 hex characters: enough to match it by eye against the pack.
+export const DIGEST_SHOWN = 8;
 
 export function outcomeText(input: OutcomeInput, language: Language, demo: boolean, extra: { counterparty: string; digest: string; amountUsd: number }): string {
   const t = TEXT[language];
   const usd = (n: number) => `$${n.toFixed(2)}`;
-  const why = (reasons: string[]) => reasons.map((r) => REASONS[language][r as ReasonCode] ?? r).join("; ");
-  if (input.kind === "filed") return t.filed(input.loadId, usd(extra.amountUsd), extra.counterparty, extra.digest.slice(0, 12));
+  if (input.kind === "filed") return t.filed(input.loadId, usd(extra.amountUsd), extra.counterparty, extra.digest.slice(0, DIGEST_SHOWN));
   if (input.kind === "held") return t.held(input.loadId);
   if (input.verdict === "BILLABLE") return t.billable(input.loadId, usd(input.amountUsd), demo ? t.you : t.dispatch);
-  if (input.verdict === "NOT_BILLABLE") return t.notBillable(input.loadId, why(input.reasons));
-  return t.needsHuman(input.loadId, why(input.reasons));
+  const why = reasonWords(input.reasons, language);
+  if (input.verdict === "NOT_BILLABLE") return why ? t.notBillable(input.loadId, why) : t.notBillablePlain(input.loadId);
+  return why ? t.needsHuman(input.loadId, why) : t.needsHumanPlain(input.loadId);
 }
 
 export async function handler(input: OutcomeInput): Promise<{ sent: boolean }> {

@@ -57,11 +57,46 @@ const ZONE_WORDS: Record<string, Record<Language, string>> = {
 };
 const zone = (language: Language) => ZONE_WORDS[JUDGE_DEMO_FACILITY.timeZone]?.[language] ?? JUDGE_DEMO_FACILITY.timeZone;
 
+// One message: what the demo is, the four steps, then the fine print after a blank line.
 const INTRO: Record<Language, string> = {
-  en_US: `DockClock demo, about ${DEMO_MINUTES} minutes (${RETAKE_MINUTES} more if a photo has to be retaken). You are the truck driver and the dispatcher. 1) Tap Arrived and share your location (any location counts in the demo). 2) Free time is ${MINUTES} minutes: wait longer than that, then tap Released and share your location again. 3) On a piece of paper write the arrival and release times the chat and the form show (${zone("en_US")} in the demo), photograph it in the form and keep the times it suggests. 4) Approve the claim. The claim email goes to a fictional receiver whose mail lands in our test mailbox, never to you; we tell you here what was sent. Send DEMO again to start over (${PER_SENDER_PER_DAY} a day per number, reset at 00:00 UTC). We store your pins and photo with this demo load, as we would for a carrier; the signed pack records the times and the photo's hash, not your location.`,
-  es_MX: `Demo de DockClock, unos ${DEMO_MINUTES} minutos (${RETAKE_MINUTES} más si hay que repetir una foto). Usted es el chofer y el despachador. 1) Toque Llegué y comparta su ubicación (cualquier lugar vale en la demo). 2) El tiempo libre es de ${MINUTES} minutos: espere más, toque Liberado y comparta su ubicación otra vez. 3) Escriba en un papel las horas de llegada y salida que muestran el chat y el formulario (${zone("es_MX")} en la demo), fotografíelo en el formulario y deje las horas que sugiere. 4) Apruebe el reclamo. El correo va a un receptor ficticio cuyo correo llega a nuestro buzón de prueba, nunca a usted; aquí le decimos qué se envió. Envíe DEMO otra vez para empezar de nuevo (${PER_SENDER_PER_DAY} al día por número, se reinicia a las 00:00 UTC). Guardamos sus ubicaciones y su foto con esta carga de demo, como lo haríamos para un transportista; el paquete firmado registra las horas y la huella de la foto, no su ubicación.`,
-  fr_CA: `Démo DockClock, environ ${DEMO_MINUTES} minutes (${RETAKE_MINUTES} de plus s'il faut reprendre une photo). Vous êtes le chauffeur et le répartiteur. 1) Touchez Arrivé et partagez votre position (n'importe où compte pour la démo). 2) Le temps alloué est de ${MINUTES} minutes : attendez plus longtemps, touchez Libéré et partagez votre position de nouveau. 3) Écrivez sur un papier les heures d'arrivée et de départ affichées dans la conversation et le formulaire (${zone("fr_CA")} pour la démo), photographiez-le dans le formulaire et gardez les heures proposées. 4) Approuvez la réclamation. Le courriel va à un destinataire fictif dont le courrier arrive dans notre boîte de test, jamais à vous; nous vous disons ici ce qui a été envoyé. Envoyez DEMO de nouveau pour recommencer (${PER_SENDER_PER_DAY} par jour par numéro, remis à zéro à 00 h 00 UTC). Nous conservons vos positions et votre photo avec ce chargement de démo, comme pour un transporteur; le dossier signé consigne les heures et l'empreinte de la photo, pas votre position.`,
+  en_US: [
+    `DockClock demo, about ${DEMO_MINUTES} minutes (${RETAKE_MINUTES} more if a photo has to be retaken). You are the truck driver and the dispatcher.`,
+    "1. Tap Arrived and share your location (any location counts).",
+    `2. Free time is ${MINUTES} minutes. Wait past it, then tap Released and share your location again.`,
+    `3. Write the arrival and release times from the chat on any paper (${zone("en_US")}). Photograph it in the form and keep the times it fills in.`,
+    "4. Approve the claim.",
+    "",
+    "The contract and receiver are fictional. Emails go to our test mailbox, never to you; we tell you here what was sent.",
+    `Send DEMO again to start over (${PER_SENDER_PER_DAY} a day per number, reset at 00:00 UTC).`,
+    "We keep your pins and photo with this demo. The signed pack records the times and the photo's hash, not your location.",
+  ].join("\n"),
+  es_MX: [
+    `Demo de DockClock, unos ${DEMO_MINUTES} minutos (${RETAKE_MINUTES} más si hay que repetir una foto). Usted es el chofer y el despachador.`,
+    "1. Toque Llegué y comparta su ubicación (cualquier lugar vale).",
+    `2. El tiempo libre es de ${MINUTES} minutos. Espere más, toque Liberado y comparta su ubicación otra vez.`,
+    `3. Escriba en cualquier papel las horas de llegada y salida del chat (${zone("es_MX")}). Fotografíelo en el formulario y deje las horas que propone.`,
+    "4. Apruebe el reclamo.",
+    "",
+    "El contrato y el receptor son ficticios. Los correos llegan a nuestro buzón de prueba, nunca a usted; aquí le decimos qué se envió.",
+    `Envíe DEMO otra vez para empezar de nuevo (${PER_SENDER_PER_DAY} al día por número, se reinicia a las 00:00 UTC).`,
+    "Guardamos sus ubicaciones y su foto con esta demo. El paquete firmado registra las horas y la huella de la foto, no su ubicación.",
+  ].join("\n"),
+  fr_CA: [
+    `Démo DockClock, environ ${DEMO_MINUTES} minutes (${RETAKE_MINUTES} de plus s'il faut reprendre une photo). Vous êtes le chauffeur et le répartiteur.`,
+    "1. Touchez Arrivé et partagez votre position (n'importe où).",
+    `2. Le temps alloué est de ${MINUTES} minutes. Attendez plus, puis touchez Libéré et partagez votre position de nouveau.`,
+    `3. Écrivez sur un papier les heures d'arrivée et de départ de la conversation (${zone("fr_CA")}). Photographiez-le dans le formulaire et gardez les heures proposées.`,
+    "4. Approuvez la réclamation.",
+    "",
+    "Le contrat et le destinataire sont fictifs. Les courriels vont à notre boîte de test, jamais à vous; nous vous disons ici ce qui a été envoyé.",
+    `Envoyez DEMO de nouveau pour recommencer (${PER_SENDER_PER_DAY} par jour par numéro, remise à zéro à 00 h 00 UTC).`,
+    "Nous conservons vos positions et votre photo avec cette démo. Le dossier signé consigne les heures et l'empreinte de la photo, pas votre position.",
+  ].join("\n"),
 };
+
+// The demo's own copy, exported for the length guard in services/test/copy-length.test.ts.
+export const DEMO_INTRO = INTRO;
+export const DEMO_LIMIT_TEXT = "The DockClock demo has reached today's limit. Please try again tomorrow.";
 
 // Called by ingest for a DEMO text, before any load routing.
 export async function handleDemo(event: InboundEvent, language: Language, candidateKeys: string[]): Promise<void> {
@@ -78,7 +113,7 @@ export async function handleDemo(event: InboundEvent, language: Language, candid
   const target = { address, driverKey: key };
   const day = now.toISOString().slice(0, 10);
   if (!(await take(day, `SENDER#${key}`, PER_SENDER_PER_DAY)) || !(await take(day, "ALL", env.demoDailyLimit()))) {
-    await send(target, textMessage("The DockClock demo has reached today's limit. Please try again tomorrow."), "demo_limit", "-");
+    await send(target, textMessage(DEMO_LIMIT_TEXT), "demo_limit", "-");
     log("demo_refused", { reason: "daily limit" });
     return;
   }

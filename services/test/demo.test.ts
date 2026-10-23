@@ -97,13 +97,13 @@ describe("judge demo", () => {
   it("tells the judge the verdict and, after filing, what was sent", () => {
     const extra = { counterparty: "Demo Receiving Co. (fictional)", digest: "abcdef0123456789", amountUsd: 8.5 };
     expect(outcomeText({ kind: "verdict", loadId: "DEMO-1", verdict: "BILLABLE", amountUsd: 8.5, reasons: [] }, "en_US", true, extra)).toBe(
-      "Load DEMO-1 is sealed and signed. The contract owes $8.50 in detention. Approve it in the next message.",
+      "Load DEMO-1: the contract owes $8.50 in detention. Approve the claim in the next message.",
     );
     expect(outcomeText({ kind: "verdict", loadId: "DEMO-1", verdict: "NOT_BILLABLE", amountUsd: 0, reasons: ["WITHIN_FREE_TIME"] }, "en_US", true, extra)).toBe(
-      "Load DEMO-1 is sealed and signed. No claim: the wait stayed within free time.",
+      "Load DEMO-1: no claim, because the wait stayed within free time.",
     );
     expect(outcomeText({ kind: "filed", loadId: "DEMO-1" }, "en_US", true, extra)).toBe(
-      "Claim filed for load DEMO-1: $8.50 emailed to Demo Receiving Co. (fictional) with the signed evidence pack (digest abcdef012345).",
+      "Claim filed: $8.50 for load DEMO-1, emailed to Demo Receiving Co. (fictional) with the signed evidence pack (fingerprint abcdef01).",
     );
   });
 });

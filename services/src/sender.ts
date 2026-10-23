@@ -74,6 +74,9 @@ export function releaseButtons(language: Language, loadId: string, nonce: string
 }
 
 export interface ReleaseFlowData {
+  // Zone-labelled release time for the message body ("16:02 EDT"); the hints below are plain HH:MM
+  // because the Flow's time fields take them as they are.
+  releasedAt: string;
   loadLabel: string;
   arrivedHint: string;
   releasedHint: string;
@@ -85,7 +88,7 @@ export function releaseFlowMessage(language: Language, loadId: string, nonce: st
     type: "interactive",
     interactive: {
       type: "flow",
-      body: { text: copy.releaseFlowBody(facility) },
+      body: { text: copy.releaseFlowBody(facility, data.releasedAt) },
       action: {
         name: "flow",
         parameters: {

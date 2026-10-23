@@ -136,6 +136,8 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
   const facility = facilityById(load.facilityId);
   const language: Language = load.language ?? "en_US";
   const clock = (iso: string | undefined) => (iso ? isoToLocalClock(iso, facility.timeZone) : "");
+  // What the driver reads: the clock time with its zone ("14:25 EDT").
+  const zoned = (iso: string | undefined) => (iso ? `${clock(iso)} ${zoneAbbreviation(iso, facility.timeZone)}` : "");
   const target = targetOf(load);
   // Every prompt goes out on the load's current channel; a failover switches it to RCS.
   const deliver = (purpose: string, whatsapp: () => Body, rcs: () => RcsMessageContent) =>
@@ -146,7 +148,7 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
       await deliver(`location_${effect.step}`, () => locationRequest(language, effect.step), () => rcsLocationRequest(language, effect.step));
       return;
     case "offer_release": {
-      const at = clock(load.arrived?.serverAt);
+      const at = zoned(load.arrived?.serverAt);
       await deliver(
         "offer_release",
         () => releaseButtons(language, load.loadId, load.nonce, facility.name, at),
@@ -159,11 +161,12 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
         "release_flow",
         () =>
           releaseFlowMessage(language, load.loadId, load.nonce, facility.name, {
+            releasedAt: zoned(load.released?.serverAt),
             loadLabel: `${load.loadId} · ${facility.name}`,
             arrivedHint: clock(load.arrived?.serverAt),
             releasedHint: clock(load.released?.serverAt),
           }),
-        () => rcsBolRequest(language, facility.name),
+        () => rcsBolRequest(language, facility.name, zoned(load.released?.serverAt)),
       );
       return;
     case "send_dispatch":

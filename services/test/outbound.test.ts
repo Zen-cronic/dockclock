@@ -67,7 +67,7 @@ describe("outbound message records", () => {
     expect(buttons.buttons).toEqual(["Released", "Talk to dispatch"]);
     expect(JSON.stringify(buttons)).not.toContain("dc1.");
     expect(renderWhatsApp(locationRequest("en_US", "arrived"))).toMatchObject({ kind: "location_request", text: expect.stringContaining("Share your location") });
-    const flow = renderWhatsApp(releaseFlowMessage("en_US", "4471", "n1", "Lakeshore DC", { loadLabel: "4471", arrivedHint: "", releasedHint: "" }));
+    const flow = renderWhatsApp(releaseFlowMessage("en_US", "4471", "n1", "Lakeshore DC", { releasedAt: "16:02 EDT", loadLabel: "4471", arrivedHint: "", releasedHint: "" }));
     expect(flow).toMatchObject({ kind: "flow", flowCta: "Add BOL photo" });
     expect(JSON.stringify(flow)).not.toContain("flow_token");
   });

@@ -47,7 +47,7 @@ describe("RCS driver prompts", () => {
   });
 
   it("asks for a photo reply where WhatsApp would open the release Flow", () => {
-    expect(rcsBolRequest("en_US", "Lakeshore DC").Content?.TextMessage?.Body).toContain("Reply with a photo of the signed bill of lading");
+    expect(rcsBolRequest("en_US", "Lakeshore DC", "16:02 EDT").Content?.TextMessage?.Body).toContain("Reply with a photo of the signed bill of lading");
   });
 });
 

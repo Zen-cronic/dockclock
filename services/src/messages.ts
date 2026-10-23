@@ -7,16 +7,19 @@ interface Copy {
   locale: string;
   locationArrived: string;
   locationReleased: string;
+  // The time arrives zone-labelled ("14:25 EDT").
   checkedIn: (facility: string, time: string) => string;
   released: string;
   talkToDispatch: string;
-  releaseFlowBody: (facility: string) => string;
+  // The release time, zone-labelled, so the driver has both times in the chat before the form.
+  releaseFlowBody: (facility: string, time: string) => string;
   releaseFlowCta: string;
   replies: Record<MessageKey, string>;
-  // The RCS twin of the dockclock_notice_sent template, same wording.
+  // The RCS twin of the dockclock_notice_sent template. RCS has no template review, so this is the
+  // shorter wording the template would get if it were resubmitted.
   noticeSent: (loadId: string, freeTimeEnds: string, counterparty: string) => string;
-  // The one retake request: minutes left and a zone-labelled clock time after which the first photo
-  // is used. A demo load asks for "the paper" (judges photograph any paper); others for the signed BOL.
+  // The one retake request: a zone-labelled clock time and the minutes left, after which the first
+  // photo is used. A demo load asks for "the paper" (judges photograph any paper); others for the BOL.
   retakeAsk: (minutes: number, at: string, zone: string, demo: boolean) => string;
   stopped: string;
   resumed: string;
@@ -24,42 +27,44 @@ interface Copy {
 }
 
 // RCS has no templates and no Flows: the dispatch is a rich card, the bill of lading a photo reply.
+// The check-in card uses the WhatsApp wording (checkedIn above).
 interface RcsCopy {
   arrived: string;
   shareLocation: string;
   dispatchTitle: (loadId: string) => string;
   dispatch: (facility: string, appointment: string) => string;
-  checkedIn: (facility: string, time: string) => string;
-  bolRequest: (facility: string) => string;
+  bolRequest: (facility: string, time: string) => string;
 }
 
 // Free-form driver messages, sent inside the 24-hour window the dispatch template opens. Template
 // wording lives in packages/whatsapp/templates.json; these are the in-conversation replies.
+// One message, one job: the first line says what happened or what to do now. Kept short enough to
+// read on a phone without scrolling (services/test/copy-length.test.ts holds them to it).
 export const COPY: Record<Language, Copy> = {
   en_US: {
     locale: "en-US",
     locationArrived: "Share your location to start the dock clock. Only send it while parked.",
     locationReleased: "Share your location once more to stop the dock clock.",
-    checkedIn: (facility, time) => `Checked in at ${facility} at ${time} (WhatsApp server time). Tap Released when you are unloaded and leaving the door.`,
+    checkedIn: (facility, time) => `Checked in at ${facility}, ${time}.\nTap Released when you are unloaded and leaving the door.`,
     released: "Released",
     talkToDispatch: "Talk to dispatch",
-    releaseFlowBody: (facility) => `Clock stopped at ${facility}. Add a photo of the signed bill of lading so the times on paper back up your pins.`,
+    releaseFlowBody: (facility, time) => `Clock stopped at ${facility}, ${time}.\nAdd a photo of the signed bill of lading to back up your times.`,
     releaseFlowCta: "Add BOL photo",
     replies: {
       tap_arrived_first: "Tap Arrived and share your location first.",
-      dispatch_notified: "Dispatch has been notified and will contact you shortly.",
-      bol_received: "Got it. Your photo and times are saved with this load's evidence.",
+      dispatch_notified: "We emailed dispatch. They will contact you.",
+      bol_received: "Got it. Your photo and times are saved with this load.",
       bol_incomplete: "We need at least one photo and your OK to share it. Please try again.",
       bol_partial: "Some pages could not be saved. Dispatch has been told and will follow up.",
       bol_times_unreadable: "We could not read one of the times. Please enter them like 13:52 or 1:52 PM.",
       flow_limit: "We could not save your paperwork. Dispatch has been told and will follow up.",
       load_closed: "That load is already closed. Please use the newest message from dispatch.",
-      use_bol_button: "Please send the bill of lading with the Add BOL photo button so it is saved with this load.",
-      bol_photo_received: "Got it. Your photo is saved with this load's evidence.",
+      use_bol_button: "Please use the Add BOL photo button, so the photo is saved with this load.",
+      bol_photo_received: "Got it. Your photo is saved with this load.",
     },
     retakeAsk: (minutes, at, zone, demo) =>
-      `That photo is hard to read. Please take one more of ${demo ? "the paper" : "the signed bill of lading"}: flat, in good light and in focus. If none arrives within ${minutes} ${minutes === 1 ? "minute" : "minutes"} (by ${at} ${zone}), we use the first photo.`,
-    noticeSent: (loadId, ends, counterparty) => `Load ${loadId}: free time ends at ${ends}. We emailed ${counterparty} the detention notice your contract requires. Updates will arrive in this chat.`,
+      `That photo is hard to read. Please take one more of ${demo ? "the paper" : "the signed bill of lading"}: flat, well lit and in focus.\nIf none arrives by ${at} ${zone} (${minutes} ${minutes === 1 ? "minute" : "minutes"}), we use the first photo.`,
+    noticeSent: (loadId, ends, counterparty) => `Detention notice sent to ${counterparty} for load ${loadId}. Free time ends at ${ends}.`,
     stopped: "You will not get more load messages from DockClock. Reply START to turn them back on.",
     resumed: "Load messages are back on.",
     rcs: {
@@ -67,36 +72,35 @@ export const COPY: Record<Language, Copy> = {
       shareLocation: "Share location",
       dispatchTitle: (loadId) => `Load ${loadId}`,
       dispatch: (facility, appointment) =>
-        `Booked: ${facility}, appointment ${appointment}. When you are parked at the dock, tap Arrived and we will start the detention clock. Reply STOP to stop load messages.`,
-      checkedIn: (facility, time) => `Checked in at ${facility} at ${time} (server time). Tap Released when you are unloaded and leaving the door.`,
-      bolRequest: (facility) =>
-        `Clock stopped at ${facility}. Reply with a photo of the signed bill of lading. It is saved with this load's evidence and shared with the broker on this load only.`,
+        `${facility}, appointment ${appointment}.\nTap Arrived when you are parked at the dock to start the detention clock.\nReply STOP to stop load messages.`,
+      bolRequest: (facility, time) =>
+        `Clock stopped at ${facility}, ${time}.\nReply with a photo of the signed bill of lading. We share it only with the broker on this load.`,
     },
   },
   es_MX: {
     locale: "es-MX",
     locationArrived: "Comparta su ubicación para iniciar el reloj en el andén. Envíela solo cuando esté estacionado.",
     locationReleased: "Comparta su ubicación otra vez para detener el reloj.",
-    checkedIn: (facility, time) => `Registro en ${facility} a las ${time} (hora del servidor de WhatsApp). Toque Liberado cuando termine la descarga y salga del andén.`,
+    checkedIn: (facility, time) => `Registro en ${facility}, ${time}.\nToque Liberado cuando termine la descarga y salga del andén.`,
     released: "Liberado",
     talkToDispatch: "Hablar con despacho",
-    releaseFlowBody: (facility) => `Reloj detenido en ${facility}. Agregue una foto del BOL firmado para que las horas en papel respalden sus ubicaciones.`,
+    releaseFlowBody: (facility, time) => `Reloj detenido en ${facility}, ${time}.\nAgregue una foto del BOL firmado para respaldar sus horas.`,
     releaseFlowCta: "Agregar foto del BOL",
     replies: {
       tap_arrived_first: "Primero toque Llegué y comparta su ubicación.",
-      dispatch_notified: "Avisamos a despacho; se comunicarán con usted pronto.",
-      bol_received: "Listo. Su foto y sus horas quedaron guardadas con la evidencia de esta carga.",
+      dispatch_notified: "Avisamos a despacho por correo. Se comunicarán con usted.",
+      bol_received: "Listo. Su foto y sus horas quedaron guardadas con esta carga.",
       bol_incomplete: "Necesitamos al menos una foto y su permiso para compartirla. Intente de nuevo.",
       bol_partial: "Algunas páginas no se pudieron guardar. Avisamos a despacho y le darán seguimiento.",
       bol_times_unreadable: "No pudimos leer una de las horas. Escríbalas como 13:52 o 1:52 PM.",
       flow_limit: "No pudimos guardar sus documentos. Avisamos a despacho y le darán seguimiento.",
       load_closed: "Esa carga ya está cerrada. Use el mensaje más reciente de despacho.",
-      use_bol_button: "Envíe el BOL con el botón Agregar foto del BOL para guardarlo con esta carga.",
-      bol_photo_received: "Listo. Su foto quedó guardada con la evidencia de esta carga.",
+      use_bol_button: "Use el botón Agregar foto del BOL, para que la foto quede guardada con esta carga.",
+      bol_photo_received: "Listo. Su foto quedó guardada con esta carga.",
     },
     retakeAsk: (minutes, at, zone, demo) =>
-      `Esa foto no se lee bien. Tome otra ${demo ? "del papel" : "del BOL firmado"}: plano, con buena luz y enfocado. Si no llega en ${minutes} ${minutes === 1 ? "minuto" : "minutos"} (antes de las ${at} ${zone}), usamos la primera foto.`,
-    noticeSent: (loadId, ends, counterparty) => `Carga ${loadId}: el tiempo libre termina a las ${ends}. Enviamos por correo a ${counterparty} el aviso de demora que exige su contrato. Las novedades llegarán a este chat.`,
+      `Esa foto no se lee bien. Tome otra ${demo ? "del papel" : "del BOL firmado"}: plano, con buena luz y enfocado.\nSi no llega antes de las ${at} ${zone} (${minutes} ${minutes === 1 ? "minuto" : "minutos"}), usamos la primera foto.`,
+    noticeSent: (loadId, ends, counterparty) => `Aviso de demora enviado a ${counterparty} para la carga ${loadId}. El tiempo libre termina a las ${ends}.`,
     stopped: "Ya no recibirá mensajes de cargas de DockClock. Responda START para activarlos otra vez.",
     resumed: "Los mensajes de cargas están activos otra vez.",
     rcs: {
@@ -104,36 +108,35 @@ export const COPY: Record<Language, Copy> = {
       shareLocation: "Compartir ubicación",
       dispatchTitle: (loadId) => `Carga ${loadId}`,
       dispatch: (facility, appointment) =>
-        `Confirmada: ${facility}, cita ${appointment}. Cuando esté estacionado en el andén, toque Llegué y empezaremos a contar el tiempo de espera. Responda STOP para dejar de recibir estos mensajes.`,
-      checkedIn: (facility, time) => `Registro en ${facility} a las ${time} (hora del servidor). Toque Liberado cuando termine la descarga y salga del andén.`,
-      bolRequest: (facility) =>
-        `Reloj detenido en ${facility}. Responda con una foto del BOL firmado. Se guarda con la evidencia de esta carga y se comparte solo con el bróker de esta carga.`,
+        `${facility}, cita ${appointment}.\nToque Llegué cuando esté estacionado en el andén para empezar a contar el tiempo de espera.\nResponda STOP para dejar de recibir estos mensajes.`,
+      bolRequest: (facility, time) =>
+        `Reloj detenido en ${facility}, ${time}.\nResponda con una foto del BOL firmado. Solo la compartimos con el bróker de esta carga.`,
     },
   },
   fr_CA: {
     locale: "fr-CA",
     locationArrived: "Partagez votre position pour lancer le chrono au quai. Envoyez-la seulement une fois stationné.",
     locationReleased: "Partagez votre position encore une fois pour arrêter le chrono.",
-    checkedIn: (facility, time) => `Arrivée enregistrée à ${facility} à ${time} (heure du serveur WhatsApp). Appuyez sur Libéré une fois déchargé et sorti du quai.`,
+    checkedIn: (facility, time) => `Arrivée enregistrée à ${facility}, ${time}.\nAppuyez sur Libéré une fois déchargé et sorti du quai.`,
     released: "Libéré",
     talkToDispatch: "Joindre répartiteur",
-    releaseFlowBody: (facility) => `Chrono arrêté à ${facility}. Ajoutez une photo du connaissement signé pour que les heures sur papier confirment vos positions.`,
+    releaseFlowBody: (facility, time) => `Chrono arrêté à ${facility}, ${time}.\nAjoutez une photo du connaissement signé pour appuyer vos heures.`,
     releaseFlowCta: "Ajouter la photo",
     replies: {
       tap_arrived_first: "Appuyez d'abord sur Arrivé et partagez votre position.",
-      dispatch_notified: "La répartition a été avisée et vous contactera sous peu.",
-      bol_received: "C'est noté. Votre photo et vos heures sont enregistrées avec la preuve de ce chargement.",
+      dispatch_notified: "Nous avons avisé la répartition par courriel. Elle vous contactera.",
+      bol_received: "C'est noté. Votre photo et vos heures sont enregistrées avec ce chargement.",
       bol_incomplete: "Il faut au moins une photo et votre accord pour la partager. Veuillez réessayer.",
       bol_partial: "Certaines pages n'ont pas pu être enregistrées. La répartition a été avisée et fera le suivi.",
       bol_times_unreadable: "Nous n'avons pas pu lire une des heures. Inscrivez-les comme 13:52 ou 13 h 52.",
       flow_limit: "Nous n'avons pas pu enregistrer vos documents. La répartition a été avisée et fera le suivi.",
       load_closed: "Ce chargement est déjà fermé. Utilisez le message le plus récent de la répartition.",
-      use_bol_button: "Envoyez le connaissement avec le bouton Ajouter la photo pour l'enregistrer avec ce chargement.",
-      bol_photo_received: "C'est noté. Votre photo est enregistrée avec la preuve de ce chargement.",
+      use_bol_button: "Utilisez le bouton Ajouter la photo, pour que la photo soit enregistrée avec ce chargement.",
+      bol_photo_received: "C'est noté. Votre photo est enregistrée avec ce chargement.",
     },
     retakeAsk: (minutes, at, zone, demo) =>
-      `Cette photo est difficile à lire. Prenez-en une autre ${demo ? "du papier" : "du connaissement signé"} : à plat, bien éclairé et net. Si aucune n'arrive d'ici ${minutes} ${minutes === 1 ? "minute" : "minutes"} (avant ${at} ${zone}), nous utilisons la première photo.`,
-    noticeSent: (loadId, ends, counterparty) => `Chargement ${loadId} : le temps alloué se termine à ${ends}. Nous avons envoyé par courriel à ${counterparty} l'avis de temps d'attente exigé par votre contrat. Les mises à jour arriveront dans cette conversation.`,
+      `Cette photo est difficile à lire. Prenez-en une autre ${demo ? "du papier" : "du connaissement signé"} : à plat, bien éclairé et net.\nSi aucune n'arrive avant ${at} ${zone} (${minutes} ${minutes === 1 ? "minute" : "minutes"}), nous utilisons la première photo.`,
+    noticeSent: (loadId, ends, counterparty) => `Avis de temps d'attente envoyé à ${counterparty} pour le chargement ${loadId}. Le temps alloué se termine à ${ends}.`,
     stopped: "Vous ne recevrez plus de messages de chargement de DockClock. Répondez START pour les réactiver.",
     resumed: "Les messages de chargement sont réactivés.",
     rcs: {
@@ -141,10 +144,9 @@ export const COPY: Record<Language, Copy> = {
       shareLocation: "Partager ma position",
       dispatchTitle: (loadId) => `Chargement ${loadId}`,
       dispatch: (facility, appointment) =>
-        `Confirmé : ${facility}, rendez-vous ${appointment}. Une fois stationné au quai, appuyez sur Arrivé et nous lancerons le chrono d'attente. Répondez STOP pour ne plus recevoir ces messages.`,
-      checkedIn: (facility, time) => `Arrivée enregistrée à ${facility} à ${time} (heure du serveur). Appuyez sur Libéré une fois déchargé et sorti du quai.`,
-      bolRequest: (facility) =>
-        `Chrono arrêté à ${facility}. Répondez avec une photo du connaissement signé. Elle est enregistrée avec la preuve de ce chargement et partagée seulement avec le courtier de ce chargement.`,
+        `${facility}, rendez-vous ${appointment}.\nUne fois stationné au quai, appuyez sur Arrivé pour lancer le chrono d'attente.\nRépondez STOP pour ne plus recevoir ces messages.`,
+      bolRequest: (facility, time) =>
+        `Chrono arrêté à ${facility}, ${time}.\nRépondez avec une photo du connaissement signé. Nous la partageons seulement avec le courtier de ce chargement.`,
     },
   },
 };
