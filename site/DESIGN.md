@@ -5,6 +5,7 @@ The console is where DockClock's messaging is monitored: WhatsApp, RCS and email
 Rules:
 - It is an app, not a report. Each screen does one thing.
 - Dense detail (raw records, the pack JSON, email bodies, agent tool calls) sits behind a click, in a drawer or a tab.
+- Under 860 px, Loads, Messages and Emails are two-line rows, not squeezed tables; the load tabs scroll with the active tab brought into view and a fade at the cut edge.
 
 ## The story behind the palette
 **Door 05** is a loading-dock door at a distribution centre, the place a detention claim starts. A truck backs onto the door and waits.
@@ -87,19 +88,20 @@ White on safety yellow fails (1.4) and is never used.
 ## Components (`src/ui/`)
 | Component | File | Notes |
 |---|---|---|
+| LoadHeader | `routes/LoadDetail.tsx` | Place name, load id, channel, a quiet "Real phone" chip only for a real-phone run, then the stamp and amount. An owed load that was never filed says "Not filed: no approval" under the amount, in safety ink (it needs action; it is not a refusal). Under 860 px the stamp and amount share one row |
 | AppShell, NavRail, TopBar, Page | `AppShell.tsx` | The sign-black rail (Overview, Messages, Loads, Judges path). Under 860 px the rail becomes a top bar with four equal tabs, all reachable at 390 px with no sideways scroll. The TopBar has the breadcrumb, quiet badges and at most two actions |
 | KpiTile | `KpiTile.tsx` | One label and one number. The top rule carries the meaning: hazard stripe = money, green = good |
-| DockClockBand | `DockClockBand.tsx` | **The signature visual.** A dot-matrix "at the dock" clock, free and billable minutes, and a track with free time as a dashed floor marking and billable time as a hazard stripe, with records pinned at their true times. Plays the replay |
+| DockClockBand | `DockClockBand.tsx` | **The signature visual.** A dot-matrix "at the dock" clock, free and billable minutes, and a track with free time as a dashed floor marking and billable time as a hazard stripe, with records pinned at their true times. Plays the replay. The track is scaled to the stay plus a margin; records long after release (a seal hours later, an approval timeout days later) sit in a short "later" stub past a break mark. In and out marks that would collide merge into one label |
 | ProvenanceBadge | `badges.tsx` | LIVE (green, pulsing) · RECORDED (responses recorded from the read API) · REPLAY (ink) · COMPUTED (pink) · TEST (outline). Always present, never a paragraph |
 | ChannelBadge, ChannelIcon | `badges.tsx` | WhatsApp, RCS, Email, SMS, with neutral line icons. SMS appears only when SMS records exist |
 | StatusPill | `badges.tsx` | accepted → sent → delivered → read, then failed / failover / received / not sent |
 | Stamp | `badges.tsx` | Stencil stamp, rotated −2°: Owed (green), Not owed (red), Review (dark yellow) |
 | ConversationView | `ConversationView.tsx` | A neutral phone frame drawn from message records. On WhatsApp, buttons sit under the bubble. On RCS, a rich card with suggestion chips and a "Share location" chip. A failover shows as one chip: "WhatsApp failed → resent on RCS". Dashed bubbles were never sent. It copies neither app's branding |
 | EmailView | `EmailView.tsx` | From, To with its test-mailbox note, Sent, Subject, body, attachments with sha256 on hover |
-| AgentFlow | `AgentFlow.tsx` + `data/flow.ts` | The load's workflow as a vertical node graph built only from records: driver messages, notice, seal, **every agent run including refusals**, approval and claim email. Each node is tagged with its AWS services. An inferred Cedar decision is marked |
+| AgentFlow | `AgentFlow.tsx` + `model/flow.ts` | The load's workflow as a vertical node graph built only from records: driver messages, notice, seal, **every agent run including refusals**, approval and claim email. Each node is tagged with its AWS services. An inferred Cedar decision is marked. Steps the API marks `failed` are red (an approval nobody answered: "No answer from dispatch ∙ timed out"); steps marked `skipped` have a dashed node and no time ("No bill-of-lading photo ∙ pins only", "Claim not filed ∙ no approval"). The workflow's reason opens in the drawer. A node on a later day carries its date |
 | EvidencePanel | `EvidencePanel.tsx` | The pack as a canary carbon copy, the in-browser KMS signature check, three tamper switches with a was → now list, bill-of-lading photos with the agent's reading and the sha256 match, and the raw pack in a drawer |
 | WhatIfPanel | `WhatIfPanel.tsx` | The workflow's own clause engine, re-run with one fact changed: recorded vs computed stamps and the rule that failed |
-| Timeline | `Timeline.tsx` | One title row per record, grouped (driver replayed / workflow). The record opens in a drawer |
+| Timeline | `Timeline.tsx` | One title row per record, grouped (driver replayed / workflow). A list that crosses days gets a date row at each change of day. The record opens in a drawer |
 | Drawer, Json | `Drawer.tsx` | A right-hand sheet. Escape closes it, and focus returns to the opener |
 | EmptyState | `EmptyState.tsx` | One line and an optional hint |
 | TourCoach | `TourCoach.tsx` | A sign-black coach card with a yellow keyline, for guided steps |

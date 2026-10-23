@@ -45,6 +45,8 @@ const routes = [
   ["load-progress", "/loads/SMOKE-DEMO-mvh3xsdv?stage=at_dock"],
   ["load-rcs-conversation", "/loads/SMOKE-DEMO-mvh3xsdq/conversation"],
   ["load-rcs-evidence", "/loads/SMOKE-DEMO-mvh3xsdq/evidence"],
+  ["phone-timeline", "/loads/LIVE-mvheu9rl"],
+  ["phone-agent", "/loads/LIVE-mvheu9rl/agent"],
   ["judges-start", "/judges"],
   ["judges-proved", "/judges/proved"],
   ["judges-filed", "/judges/filed"],
