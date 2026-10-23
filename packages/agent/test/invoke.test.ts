@@ -60,6 +60,25 @@ describe("agent run record", () => {
   it("marks refusals and policy denials", () => {
     expect(keyResultFields('{"refused":"not approved by dispatch"}', "success")).toEqual({ refused: "not approved by dispatch" });
     expect(keyResultFields("Tool call was denied by the Cedar policy engine", "error")).toMatchObject({ policyDenied: true });
+    expect(keyResultFields('{"error":{"code":-32002,"message":"Tool Execution Denied: Tool call not allowed due to policy enforcement"}}', "error")).toMatchObject({ policyDenied: true });
+  });
+
+  it("calls any other tool failure a plain tool error, not a Cedar denial", () => {
+    for (const text of [
+      "AccessDeniedException: User is not authorized to perform s3:GetObject",
+      "Lambda function timed out",
+      "ThrottlingException: Rate exceeded",
+      "the claim was denied by the broker",
+      "Forbidden",
+    ]) {
+      const out = keyResultFields(text, "error");
+      expect(out.policyDenied, text).toBeUndefined();
+    }
+    // A refusal that happens to mention a policy stays a refusal.
+    expect(keyResultFields('{"refused":"the Cedar policy needs an approval id"}', "error").policyDenied).toBeUndefined();
+    // A successful result is never a denial.
+    expect(keyResultFields("policy enforcement is on", "success").policyDenied).toBeUndefined();
+    expect(keyResultFields('{"error":"bucket read failed: AccessDenied"}', "success")).toEqual({ error: "bucket read failed: AccessDenied" });
   });
 
   it("writes AGENT#<startedAt>#<task> into the load's partition", async () => {

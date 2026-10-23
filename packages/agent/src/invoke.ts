@@ -83,7 +83,11 @@ function unwrap(value: unknown): unknown {
   return value;
 }
 
-const POLICY_DENIAL = /cedar|policy|not authori[sz]ed|access ?denied|forbidden|denied/i;
+// A Gateway policy-engine denial, as opposed to any other tool failure. The words name the Cedar
+// policy engine or its enforcement; IAM's "AccessDenied"/"not authorized to perform", a tool's
+// own refusal and a plain error are not policy denials. The exact AgentCore wording has not been
+// captured from a live denial, so this matches its likely phrasings and nothing generic.
+const POLICY_DENIAL = /\bcedar\b|policy engine|policy enforcement|denied by (the )?(gateway'?s? )?(cedar |default |authorization )?polic(y|ies)|not allowed (due to|by) (the )?polic(y|ies)|no policy (applies|permits|allows)|tool execution denied|\bimplicit(ly)? den(y|ied)\b|\bforbid\b/i;
 const RESULT_FIELDS = ["refused", "error", "sent", "sentAt", "sesMessageId", "recipientRole", "amountUsd", "amountCents", "verdict", "reasons", "phase", "packDigest", "confidence", "claimSentAt"];
 
 // The fields of a tool result a reviewer needs: why it refused, what it sent, what the policy said.
@@ -93,6 +97,9 @@ export function keyResultFields(raw: string, status: string | null): Record<stri
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const v = value as Record<string, unknown>;
     for (const k of RESULT_FIELDS) if (v[k] !== undefined && v[k] !== null) out[k] = v[k];
+    // A JSON-RPC style error object: keep its message as the error text.
+    const err = v.error as { message?: unknown } | undefined;
+    if (err && typeof err === "object" && typeof err.message === "string") out.error = err.message.slice(0, 400);
     if ("approval" in v) out.approved = v.approval !== null && v.approval !== undefined;
     const reading = (v.reading ?? v.photoReading) as Record<string, unknown> | null | undefined;
     if (reading && typeof reading === "object") {
@@ -103,7 +110,10 @@ export function keyResultFields(raw: string, status: string | null): Record<stri
     out.text = value.slice(0, 400);
   }
   const errorText = typeof out.error === "string" ? out.error : typeof out.text === "string" ? out.text : "";
-  if ((status === "error" || errorText) && POLICY_DENIAL.test(errorText)) out.policyDenied = true;
+  // Only a failed call can be a denial: a successful result that mentions a policy is not one,
+  // and a tool's own refusal is recorded as a refusal.
+  const failed = status === "error" || typeof out.error === "string";
+  if (failed && out.refused === undefined && POLICY_DENIAL.test(errorText)) out.policyDenied = true;
   return stripSensitive(out) as Record<string, unknown>;
 }
 
