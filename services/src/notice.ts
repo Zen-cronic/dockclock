@@ -36,19 +36,28 @@ export function noticeTime(load: Pick<LoadItem, "clauseId" | "appointmentAt">, a
 export function noticeEmail(load: LoadItem, detentionStartAt: string): { subject: string; text: string } {
   const clause = clauseById(load.clauseId);
   const facility = facilityById(load.facilityId);
-  // A full local date, time and zone: the notice is evidence, and after 20:00 Eastern the UTC date
-  // has already turned.
+  // A full local date, time and zone in the body: the notice is evidence, and after 20:00 Eastern
+  // the UTC date has already turned. The subject carries the clock time and zone only.
   const at = (iso: string) => isoToLocalDateTime(iso, facility.timeZone);
-  const subject = `Detention notice: load ${load.loadId} at ${facility.name}`;
+  const ends = `${isoToLocalClock(detentionStartAt, facility.timeZone)} ${zoneAbbreviation(detentionStartAt, facility.timeZone)}`;
+  const rate = `$${clause.ratePerHourUsd.toFixed(2)} per hour`;
+  // Where the check-in time came from. A test load's pins are synthetic, so it never claims a
+  // platform's server time.
+  const source = load.synthetic
+    ? "a synthetic test pin (test load)"
+    : `a location pin inside the facility's geofence, ${load.channel === "rcs" ? "RCS" : "WhatsApp"} server timestamp`;
+  const subject = `Detention notice: Load ${load.loadId} at ${facility.name}, free time ends ${ends}`;
   const text = [
     `To ${clause.counterparty},`,
     "",
-    `This is notice that load ${load.loadId} is still waiting at ${facility.name}.`,
-    `The truck checked in at ${at(load.arrived!.serverAt)}, recorded by a location pin with a WhatsApp server timestamp inside the facility's geofence.`,
-    `Free time under the rate confirmation ends at ${at(detentionStartAt)}. From then, detention accrues at $${clause.ratePerHourUsd.toFixed(2)} per hour under your terms.`,
-    "Please release the truck or tell us of any reason the clock should not run.",
+    `This is notice that load ${load.loadId} is still waiting at ${facility.name}. When free time under the rate confirmation ends, detention accrues under your terms.`,
+    "Please release the truck, or tell us why the clock should not run.",
     "",
-    "Sent automatically by DockClock for the carrier. The signed evidence pack follows with any claim.",
+    `Checked in: ${at(load.arrived!.serverAt)} (${source})`,
+    `Free time ends: ${at(detentionStartAt)}`,
+    `Detention rate: ${rate}`,
+    "",
+    "Sent automatically by DockClock for the carrier. Any claim will include the signed evidence pack.",
   ].join("\n");
   return { subject, text };
 }

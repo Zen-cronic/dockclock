@@ -457,7 +457,7 @@ function emailsOf(p: Parts, mime: { notice?: ParsedEmail; claim?: ParsedEmail })
       ...(str(notice.bouncedAt) ? { bouncedAt: String(notice.bouncedAt) } : {}),
       from: addressOnly(mime.notice?.from ?? ""),
       to: counterparty,
-      subject: scrubText(mime.notice?.subject ?? `Detention notice: load ${p.loadId} at ${p.facility.name}`),
+      subject: scrubText(mime.notice?.subject ?? `Detention notice: Load ${p.loadId} at ${p.facility.name}`),
       attachments: [],
       bodyStored: mime.notice !== undefined,
       provenance: "recorded",

@@ -111,12 +111,22 @@ describe("detention notice", () => {
 
   it("states the check-in, when free time ends and the clause's rate", () => {
     const { subject, text } = noticeEmail(load as unknown as LoadItem, "2026-10-17T20:00:00.000Z");
-    expect(subject).toBe("Detention notice: load 4471 at Lakeshore DC, Columbus OH");
+    expect(subject).toBe("Detention notice: Load 4471 at Lakeshore DC, Columbus OH, free time ends 16:00 EDT");
     expect(text).toContain("Atlas Brokerage (fictional broker)");
     expect(text).toContain("$50.00 per hour");
     // Dated in full, so an evening check-in does not read as the next UTC day.
-    expect(text).toContain("checked in at 2026-10-17 13:40 EDT");
-    expect(text).toContain("ends at 2026-10-17 16:00 EDT");
+    expect(text).toContain("Checked in: 2026-10-17 13:40 EDT");
+    expect(text).toContain("Free time ends: 2026-10-17 16:00 EDT");
+    // The time appears once in the body, in the details.
+    expect(text.split("2026-10-17 16:00 EDT")).toHaveLength(2);
+    expect(text).toContain("WhatsApp server timestamp");
+  });
+
+  it("never gives a test load's synthetic pin a platform server time", () => {
+    const { text } = noticeEmail({ ...load, synthetic: true } as unknown as LoadItem, "2026-10-17T20:00:00.000Z");
+    expect(text).not.toContain("server time");
+    expect(text).toContain("synthetic test pin");
+    expect(noticeEmail({ ...load, channel: "rcs" } as unknown as LoadItem, "2026-10-17T20:00:00.000Z").text).toContain("RCS server timestamp");
   });
 
   it("creates one schedule that invokes this function and deletes itself", async () => {
@@ -142,10 +152,10 @@ describe("detention notice", () => {
   it("sends the notice as raw MIME and keeps those exact bytes with the load's packs", async () => {
     await handler({ kind: "send", loadId: "4471" }, context);
     const raw = Buffer.from(ses.commandCalls(SendEmailCommand)[0]!.args[0].input.Content!.Raw!.Data!).toString("utf8");
-    expect(raw).toContain("Subject: Detention notice: load 4471 at Lakeshore DC, Columbus OH");
+    expect(raw).toContain("Subject: Detention notice: Load 4471 at Lakeshore DC, Columbus OH, free time ends 16:00 EDT");
     expect(raw).toContain("To: broker@example.com");
     const body = Buffer.from(raw.split("\r\n\r\n")[1]!.replace(/\r\n/g, ""), "base64").toString("utf8");
-    expect(body).toContain("ends at 2026-10-17 16:00 EDT");
+    expect(body).toContain("Free time ends: 2026-10-17 16:00 EDT");
     const put = s3.commandCalls(PutObjectCommand)[0]!.args[0].input;
     expect(put).toMatchObject({ Bucket: "evidence", Key: "packs/4471/notice.eml", ContentType: "message/rfc822" });
     expect(put.Body).toBe(raw);

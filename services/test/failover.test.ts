@@ -177,7 +177,7 @@ describe("WhatsApp to RCS failover", () => {
     expect(sms.commandCalls(SendRcsMessageCommand)).toHaveLength(1);
     expect(ses.commandCalls(SendEmailCommand)).toHaveLength(1);
     const email = ses.commandCalls(SendEmailCommand)[0]!.args[0].input.Content?.Simple;
-    expect(String(email?.Subject?.Data)).toContain("RCS delivery failed (");
+    expect(String(email?.Subject?.Data)).toBe("Load 4471 needs dispatch: driver not reachable");
     // Failover marks the driver unreachable, so dispatch is told to call rather than message them.
     expect(String(email?.Body?.Text?.Data)).toContain("Messages are not getting through on RCS; call them.");
     expect(timeline.map((e) => e.outcome)).toEqual(["RESENT_OVER_RCS", "ESCALATED_UNREACHABLE"]);
