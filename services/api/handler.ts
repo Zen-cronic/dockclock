@@ -159,6 +159,8 @@ async function route(path: string, params: URLSearchParams, now: string): Promis
     if (parts.length === 4 && parts[2] === "photos") {
       const page = Number(parts[3]);
       if (!Number.isInteger(page) || page < 1 || page > 20) throw notFound("that photo");
+      // A judge DEMO load's photo came from the judge's own phone: kept with the load, never served.
+      if (items.find((i) => i.sk === "META")?.demo === true) throw new HttpError(404, "not_found", "this photo is kept with the load and not shown publicly");
       const bytes = await photoBytes(items, page);
       if (!bytes) throw notFound(`photo ${page} of load ${parts[1]}`);
       const stripped = stripImageMetadata(bytes);

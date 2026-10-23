@@ -184,6 +184,11 @@ export interface VerdictInfo {
   confidence: "high" | "medium" | "low";
   // The corroboration signals from the pack, for "how sure are we".
   signals: Array<{ name: string; ok: boolean; independent?: boolean; detail: string }>;
+  // False when the inputs rebuilt from the records do not reproduce the sealed verdict and amount:
+  // the site then hides the What-if and shows the sealed evaluation (whatIfNote says why). Absent
+  // means available.
+  whatIfAvailable?: boolean;
+  whatIfNote?: string;
   // The engine inputs, so tab 3 can re-run the same clause with one thing changed.
   engineInput: {
     appointmentAt: string;

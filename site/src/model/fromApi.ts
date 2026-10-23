@@ -62,6 +62,7 @@ function photosFromApi(v: Api.LoadView, resolveUrl: (u: string) => string): Phot
       matchesPack: p.matchesPack,
       badge: photoBadge(p.source),
       legible: p.legible ?? null,
+      ...(p.note ? { note: p.note } : {}),
     };
     if (p.reading) out.reading = { inTime: p.reading.inTime, outTime: p.reading.outTime, signed: p.reading.receiverSigned };
     return out;

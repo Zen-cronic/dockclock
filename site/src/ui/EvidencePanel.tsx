@@ -115,7 +115,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
             <div className="card-head"><h2>Bill of lading</h2></div>
             {photos.map((ph) => (
               <div className="card-body photo-ev" key={ph.index}>
-                {ph.url ? <img src={ph.url} alt={`Bill of lading page ${ph.index}`} /> : <div className="nophoto" aria-label="No image stored">—</div>}
+                {ph.url ? <img src={ph.url} alt={`Bill of lading page ${ph.index}`} /> : <div className="nophoto" aria-label={ph.note ?? "No image stored"}>{ph.note ?? "—"}</div>}
                 <div>
                   {ph.url && <span className="small">{ph.badge}</span>}
                   {ph.reading && (

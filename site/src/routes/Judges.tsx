@@ -102,7 +102,7 @@ function BreakIt({ load }: { load: LoadDetail }) {
 function PhotoTile({ photo }: { photo: LoadDetail["photos"][number] }) {
   return (
     <figure className="phototile">
-      {photo.url ? <img src={photo.url} alt="Bill of lading photo" /> : <div className="nophoto">no image</div>}
+      {photo.url ? <img src={photo.url} alt="Bill of lading photo" /> : <div className="nophoto">{photo.note ?? "no image"}</div>}
       <figcaption>
         <span className="small">{photo.badge}</span>
         {photo.legible === false && <span className="small">not legible ∙ retake asked</span>}

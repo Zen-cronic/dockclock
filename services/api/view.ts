@@ -74,6 +74,11 @@ export interface LoadSources {
 
 const RUN_LABEL: Record<RunKind, string> = { phone: "Real phone", operator: "Operator tap", integration: "Test run", demo: "Judge demo" };
 const COUNTERPARTY_NOTE = "Delivered to our test mailbox, not to a real company.";
+// A judge DEMO load runs on the judge's own phone and shows on the public console: their typed
+// text and their photo are kept with the load but not served. Taps, pins (already without
+// coordinates) and DockClock's own messages are shown.
+export const DEMO_TEXT_BODY = "Text reply (not shown publicly)";
+export const DEMO_PHOTO_NOTE = "Photo kept with the load; not shown publicly";
 
 function facilityOf(id: string): Facility & { known: boolean } {
   try {
@@ -105,14 +110,18 @@ interface Parts {
   approvalItem: Item | null;
   request: Item | null;
   claimItem: Item | null;
+  // A judge's DEMO load: the judge's own phone. Their typed text and photo stay off the public console.
+  demo: boolean;
+  now: string;
 }
 
-function partsOf(items: Item[]): Parts {
+function partsOf(items: Item[], now: string): Parts {
   const bySk = (sk: string) => items.find((i) => i.sk === sk) ?? null;
   const meta = bySk("META");
   if (!meta) throw new Error("no META item for this load");
   const approvalItem = bySk("APPROVAL");
   const synthetic = isSynthetic(meta);
+  const runKind = runKindOf(meta, approvalItem);
   const sorted = (prefix: string) => items.filter((i) => String(i.sk).startsWith(prefix)).sort((a, b) => String(a.sk).localeCompare(String(b.sk)));
   return {
     meta,
@@ -120,7 +129,7 @@ function partsOf(items: Item[]): Parts {
     clause: clauseById(String(meta.clauseId)),
     facility: facilityOf(String(meta.facilityId)),
     language: (["en_US", "es_MX", "fr_CA"].includes(String(meta.language)) ? meta.language : "en_US") as Language,
-    runKind: runKindOf(meta, approvalItem),
+    runKind,
     synthetic,
     driverProvenance: synthetic ? "synthetic_input" : "recorded",
     events: sorted("EVENT#"),
@@ -131,6 +140,8 @@ function partsOf(items: Item[]): Parts {
     approvalItem,
     request: bySk("APPROVAL_REQUEST"),
     claimItem: bySk("CLAIM"),
+    demo: runKind === "demo",
+    now,
   };
 }
 
@@ -153,10 +164,24 @@ function channelsOf(p: Parts): DriverChannel[] {
 // The workflow emails dispatch with this reason when nobody answers the approval request in two
 // days (infra/lib/messaging-stack.ts, "Tell dispatch approval timed out"). Nothing is filed after it.
 const APPROVAL_TIMEOUT_REASON = "no approval within two days";
+// The taskTimeout of "Ask dispatch to approve" (infra/lib/messaging-stack.ts).
+export const APPROVAL_WAIT_MS = 2 * 86_400_000;
 
+// An approval request with no decision is timed out once its two-day wait has passed, or when the
+// workflow wrote decision "timed_out" on it. The escalation email's reason is a second signal: that
+// record is best effort and may be missing.
 function approvalTimedOut(p: Parts): boolean {
-  if (!p.request || p.request.decision || p.approvalItem) return false;
+  if (!p.request || p.approvalItem) return false;
+  if (p.request.decision === "timed_out") return true;
+  if (p.request.decision) return false;
+  const requestedAt = Date.parse(String(p.request.requestedAt));
+  if (Number.isFinite(requestedAt) && Date.parse(p.now) >= requestedAt + APPROVAL_WAIT_MS) return true;
   return p.escalations.some((e) => String(e.reason ?? "").startsWith(APPROVAL_TIMEOUT_REASON));
+}
+
+// When dispatch approved: the tap on the request, or a test approval recorded from the command line.
+function approvedAtOf(p: Parts): string | null {
+  return str(p.request?.decidedAt) ?? str(p.approvalItem?.approvedAt);
 }
 
 function statusOf(p: Parts): LoadStatus {
@@ -173,7 +198,9 @@ function statusOf(p: Parts): LoadStatus {
   if (p.claimItem) return "filing";
   if (p.request?.decision === "hold") return "held";
   if (p.approvalItem) {
-    const finished = p.agentItems.filter((a) => a.task === "file_claim").length > 0;
+    // Only a filing run after the approval counts; one refused before it (no approval yet) does not.
+    const approvedAt = approvedAtOf(p);
+    const finished = p.agentItems.some((a) => a.task === "file_claim" && (!approvedAt || String(a.startedAt) >= approvedAt));
     return finished ? "needs_human" : "filing";
   }
   if (approvalTimedOut(p)) return "needs_human";
@@ -187,8 +214,8 @@ function isLive(status: LoadStatus): boolean {
   return ["waiting_for_arrival", "at_dock", "paperwork", "sealing", "awaiting_approval", "filing"].includes(status);
 }
 
-export function summaryOf(items: Item[]): LoadSummary {
-  const p = partsOf(items);
+export function summaryOf(items: Item[], now: string = new Date().toISOString()): LoadSummary {
+  const p = partsOf(items, now);
   const status = statusOf(p);
   const arrived = obj(p.meta.arrived);
   const bol = obj(p.meta.bol);
@@ -279,7 +306,9 @@ function conversation(p: Parts, photos: PhotoInfo[], receipts: Record<string, It
     const at = String(e.serverAt);
     const detail = obj(e.detail);
     const channel: DriverChannel = e.channel === "rcs" ? "rcs" : "whatsapp";
-    const record = obj(scrub({ ...e, sk: `EVENT#${at}` }));
+    // A judge's own typed text never reaches the public console, not even in the raw record.
+    const shown = p.demo && type === "text" ? { ...e, detail: { ...detail, text: undefined } } : e;
+    const record = obj(scrub({ ...shown, sk: `EVENT#${at}` }));
     if (type === "failover") {
       const escalated = outcome === "ESCALATED_UNREACHABLE";
       pending.push({
@@ -329,7 +358,7 @@ function conversation(p: Parts, photos: PhotoInfo[], receipts: Record<string, It
       const isBol = str(e.messageId) !== null && e.messageId === bol.messageId;
       message = { ...base, purpose: "photo", body: isBol ? "Bill of lading photo" : "Photo", ...(isBol && photos[0] ? { photoId: photos[0].id } : {}) };
     } else if (kind && type === "text") {
-      message = { ...base, purpose: "text", body: scrubText(String(detail.text ?? "")) };
+      message = { ...base, purpose: "text", body: p.demo ? DEMO_TEXT_BODY : scrubText(String(detail.text ?? "")) };
     }
     const photoId = message?.photoId;
     pending.push({
@@ -426,7 +455,8 @@ function photosOf(p: Parts, sources: LoadSources): PhotoInfo[] {
       mimeType: type ?? String(photo.mimeType ?? "application/octet-stream"),
       sha256: hash,
       matchesPack: packHashes && hash ? packHashes[index] === hash : null,
-      url: stored && type ? `/api/loads/${p.loadId}/photos/${page}` : null,
+      url: stored && type && !p.demo ? `/api/loads/${p.loadId}/photos/${page}` : null,
+      ...(stored && p.demo ? { note: DEMO_PHOTO_NOTE } : {}),
       servedBytes: "metadata_stripped",
       source,
       usedInEvidence: true,
@@ -507,9 +537,27 @@ function releasedAtOf(meta: Item): string | null {
   return str(obj(meta.releasedTap).serverAt) ?? str(obj(meta.released).serverAt);
 }
 
+// The workflow's wait for the Released tap ("Await released", infra/lib/messaging-stack.ts).
+const RELEASE_WAIT_MS = 3 * 86_400_000;
+
+// When a closed load that arrived and was never released stopped: the close time the workflow
+// wrote, or on loads closed before it was kept, the end of the release wait for a timed-out load
+// and the last record otherwise. Never later than now.
+function endedAtOf(p: Parts, arrivedAt: string | null, releasedAt: string | null): string | null {
+  if (!arrivedAt || releasedAt || phaseOf(p.meta) !== "closed") return null;
+  const closedAt = str(p.meta.closedAt);
+  const waitEnd = p.meta.outcome === "TIMED_OUT_NEEDS_HUMAN" ? new Date(Date.parse(arrivedAt) + RELEASE_WAIT_MS).toISOString() : null;
+  const lastRecord = latest(...p.events.map((e) => str(e.serverAt)), ...p.sends.map((s) => str(s.sentAt)), arrivedAt);
+  const end = closedAt ?? waitEnd ?? lastRecord ?? arrivedAt;
+  return end < p.now ? end : p.now;
+}
+
 function clockOf(p: Parts, now: string, signed: SignedPack | null): LiveClock {
   const arrivedAt = str(obj(p.meta.arrived).serverAt);
   const releasedAt = releasedAtOf(p.meta);
+  const tapAt = str(obj(p.meta.releasedTap).serverAt);
+  const releasePinAt = tapAt ? str(obj(p.meta.released).serverAt) : null;
+  const endedAt = endedAtOf(p, arrivedAt, releasedAt);
   const appointmentAt = String(p.meta.appointmentAt);
   const freeTimeEndsAt = arrivedAt ? detentionStartsAt(p.clause, appointmentAt, arrivedAt) : null;
   const clockStartAt = arrivedAt ? (p.clause.freeTimeAnchor === "appointment" && Date.parse(arrivedAt) < Date.parse(appointmentAt) ? appointmentAt : arrivedAt) : null;
@@ -520,11 +568,11 @@ function clockOf(p: Parts, now: string, signed: SignedPack | null): LiveClock {
     detention = evaluation.detentionMinutes;
     billable = evaluation.billableMinutes;
   } else if (freeTimeEndsAt) {
-    const end = Date.parse(releasedAt ?? now);
+    const end = Date.parse(releasedAt ?? endedAt ?? now);
     detention = Math.max(0, (end - Date.parse(freeTimeEndsAt)) / 60_000);
     billable = p.clause.capHoursPerDay ? Math.min(detention, p.clause.capHoursPerDay * 60) : detention;
   }
-  return { asOf: now, arrivedAt, releasedAt, clockStartAt: evaluation?.clockStartAt ?? clockStartAt, freeTimeEndsAt, detentionMinutes: detention, billableMinutes: billable, amountUsd: evaluation?.amountUsd ?? null, driverTimes: p.driverProvenance };
+  return { asOf: now, arrivedAt, releasedAt, releasePinAt, endedAt, clockStartAt: evaluation?.clockStartAt ?? clockStartAt, freeTimeEndsAt, detentionMinutes: detention, billableMinutes: billable, amountUsd: evaluation?.amountUsd ?? null, driverTimes: p.driverProvenance };
 }
 
 function workflowOf(p: Parts, status: LoadStatus, photos: PhotoInfo[]): WorkflowStep[] {
@@ -563,7 +611,7 @@ function workflowOf(p: Parts, status: LoadStatus, photos: PhotoInfo[]): Workflow
   if (!bolAt && phase === "sealed") Object.assign(paperworkStep, { detail: "No photo came within six hours, so the contract was decided on the pins alone." });
   steps.push(paperworkStep);
   const photoStep = step("photo_read", "Photo read by the agent's tool", ["Step Functions", "Lambda"], str(reading.readAt), phase === "documented" && photos.length > 0);
-  if (!str(reading.readAt) && (photos.length === 0 || photos.every((x) => x.url === null)) && (phase === "sealed" || closed)) Object.assign(photoStep, { state: "skipped", detail: "No readable photo was stored." });
+  if (!str(reading.readAt) && (photos.length === 0 || photos.every((x) => x.url === null && x.note === undefined)) && (phase === "sealed" || closed)) Object.assign(photoStep, { state: "skipped", detail: "No readable photo was stored." });
   steps.push(photoStep);
   const sealStep = step("sealed", verdict ? `Contract decided: ${verdictWords(verdict)}; evidence sealed and signed` : "Evidence sealed and signed", ["Lambda", "KMS", "S3 Object Lock"], sealedAt, phase === "documented");
   if (m.outcome === "SEAL_FAILED") Object.assign(sealStep, { state: "failed", detail: "Sealing failed after retries." });
@@ -617,15 +665,22 @@ function releaseStep(
   return step("released", label, services, tapAt, false, { detail: `${stopped} ${confirm}`, ...(late ? { state: "failed" as const } : {}) });
 }
 
+export const WHAT_IF_OFF_NOTE = "What-if is off for this load: its rebuilt inputs do not give the sealed decision. The sealed evaluation is shown.";
+
 function verdictOf(p: Parts, signed: SignedPack): VerdictInfo {
   const evaluation = signed.pack.evaluation;
   const engineInput = engineInputOf(p.meta, signed, p.facility.timeZone);
+  let mismatch = false;
   try {
     checkEngineInput(engineInput, { loadId: p.loadId, clause: p.clause, facilityName: p.facility.name, evaluation });
   } catch (error) {
+    mismatch = true;
     console.log(JSON.stringify({ kind: "api_engine_mismatch", loadId: p.loadId, error: (error as Error).message }));
   }
   return {
+    // The rebuilt inputs must reproduce the sealed verdict and amount, or the What-if's
+    // "Recorded" card could contradict the signed pack. The site hides the What-if then.
+    ...(mismatch ? { whatIfAvailable: false, whatIfNote: WHAT_IF_OFF_NOTE } : {}),
     verdict: evaluation.verdict,
     reasons: evaluation.reasons as VerdictInfo["reasons"],
     amountUsd: evaluation.amountUsd,
@@ -640,8 +695,8 @@ export function packDigestOf(signed: SignedPack): string {
 }
 
 export function buildLoadView(sources: LoadSources): LoadView {
-  const p = partsOf(sources.items);
-  const summary = summaryOf(sources.items);
+  const p = partsOf(sources.items, sources.now);
+  const summary = summaryOf(sources.items, sources.now);
   const signed = sources.signedPack;
   const parsed = { ...(sources.emails.notice ? { notice: parseMime(sources.emails.notice) } : {}), ...(sources.emails.claim ? { claim: parseMime(sources.emails.claim) } : {}) };
   const photos = photosOf(p, sources);
@@ -778,7 +833,7 @@ export function packInfoOf(signed: SignedPack, spkiSha256: string): SignedPackIn
 
 // GET /api/loads/:id/emails/:emailId: one email with its body.
 export function emailViewOf(sources: LoadSources, emailId: string): EmailView | null {
-  const p = partsOf(sources.items);
+  const p = partsOf(sources.items, sources.now);
   const parsed = { ...(sources.emails.notice ? { notice: parseMime(sources.emails.notice) } : {}), ...(sources.emails.claim ? { claim: parseMime(sources.emails.claim) } : {}) };
   const info = emailsOf(p, parsed).find((e) => e.id === emailId);
   if (!info) return null;

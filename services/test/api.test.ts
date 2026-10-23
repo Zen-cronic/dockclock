@@ -178,6 +178,93 @@ describe("console read API", () => {
     expect(view.timeline.map((t: { title: string }) => t.title)).toContain("Approval timed out after two days; dispatch emailed, nothing filed");
   });
 
+  it("times out an unanswered approval by its two-day wait even when the escalation record is missing", async () => {
+    const items = partitions["SMOKE-RCS-1"]!;
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: "APPROVAL_REQUEST", requestedAt: T(17, 31) });
+    // No escalation with the timeout reason: only the clock says the wait is over.
+    const view = JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data;
+    expect(view.summary.status).toBe("needs_human");
+    expect(view.workflow.find((s: { key: string }) => s.key === "approval")).toMatchObject({ state: "failed" });
+    // Inside the two days it is still waiting.
+    items.find((i) => i.sk === "APPROVAL_REQUEST")!.requestedAt = new Date(Date.now() - 3_600_000).toISOString();
+    expect(JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data.summary.status).toBe("awaiting_approval");
+    // The workflow's own mark counts at once.
+    items.find((i) => i.sk === "APPROVAL_REQUEST")!.decision = "timed_out";
+    expect(JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data.summary.status).toBe("needs_human");
+  });
+
+  it("counts only filing runs after the approval when deciding a load needs a person", async () => {
+    const items = partitions["SMOKE-RCS-1"]!;
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: "APPROVAL", approver: "dispatcher-whatsapp", approvedAt: T(18, 0) });
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: "APPROVAL_REQUEST", requestedAt: new Date(Date.now() - 3_600_000).toISOString(), decision: "approve", decidedAt: T(18, 0) });
+    // Refused before the approval existed: not the filing run.
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: `AGENT#${T(17, 45)}#file_claim`, task: "file_claim", startedAt: T(17, 45), toolCalls: [] });
+    expect(JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data.summary.status).toBe("filing");
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: `AGENT#${T(18, 1)}#file_claim`, task: "file_claim", startedAt: T(18, 1), toolCalls: [] });
+    expect(JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data.summary.status).toBe("needs_human");
+  });
+
+  it("stops the clock of a closed load that arrived and was never released at its close", async () => {
+    const meta = partitions["SMOKE-RCS-2"]![0]!;
+    Object.assign(meta, { phase: "closed", outcome: "TIMED_OUT_NEEDS_HUMAN" });
+    let clock = JSON.parse((await get("/api/loads/SMOKE-RCS-2")).body).data.clock;
+    // No close time recorded: the end of the three-day release wait.
+    expect(clock.endedAt).toBe("2026-10-16T13:50:00.000Z");
+    expect(clock.releasedAt).toBeNull();
+    const freeEnds = Date.parse(clock.freeTimeEndsAt);
+    expect(clock.detentionMinutes).toBe((Date.parse(clock.endedAt) - freeEnds) / 60_000);
+    meta.closedAt = T(15, 0);
+    clock = JSON.parse((await get("/api/loads/SMOKE-RCS-2")).body).data.clock;
+    expect(clock.endedAt).toBe(T(15, 0));
+    expect(clock.detentionMinutes).toBe(Math.max(0, (Date.parse(T(15, 0)) - freeEnds) / 60_000));
+    // A superseded load with no close time ends at its last record.
+    Object.assign(meta, { outcome: "SUPERSEDED", closedAt: undefined });
+    clock = JSON.parse((await get("/api/loads/SMOKE-RCS-2")).body).data.clock;
+    expect(clock.endedAt).toBe(T(14, 30));
+  });
+
+  it("turns the What-if off when the rebuilt inputs contradict the sealed pack", async () => {
+    let view = JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data;
+    expect(view.verdict.whatIfAvailable).toBeUndefined();
+    // The stored release pin no longer matches what was sealed.
+    (partitions["SMOKE-RCS-1"]![0]!.released as Record<string, unknown>).serverAt = T(19, 50);
+    view = JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data;
+    expect(view.verdict).toMatchObject({ whatIfAvailable: false, whatIfNote: expect.stringContaining("sealed evaluation") });
+    expect(view.verdict.verdict).toBe("BILLABLE");
+  });
+
+  it("keeps a judge DEMO load's typed text and photo off the public console", async () => {
+    const items = partitions["SMOKE-RCS-1"]!;
+    Object.assign(items[0]!, { demo: true, synthetic: false });
+    const typed = "Jane Roe here, the gate code is 4471";
+    const textEvent = items.find((i) => i.type === "text")!;
+    textEvent.detail = { text: typed };
+    const res = await get("/api/loads/SMOKE-RCS-1");
+    expect(res.statusCode).toBe(200);
+    const view = JSON.parse(res.body).data;
+    expect(view.summary.runKind).toBe("demo");
+    expect(res.body).not.toContain("Jane Roe");
+    expect(res.body).not.toContain("gate code");
+    expect(view.messages.find((m: { purpose: string }) => m.purpose === "text").body).toBe("Text reply (not shown publicly)");
+    // Taps and pins still show.
+    expect(view.messages.some((m: { purpose: string }) => m.purpose === "tap_arrived")).toBe(true);
+    expect(view.messages.some((m: { purpose: string }) => m.purpose === "location")).toBe(true);
+    expect(view.photos[0]).toMatchObject({ url: null, note: "Photo kept with the load; not shown publicly", sha256: "ab".repeat(32), matchesPack: true });
+    expect(findLeaks(JSON.parse(res.body), ACCOUNT)).toEqual([]);
+    const photo = await get("/api/loads/SMOKE-RCS-1/photos/1");
+    expect(photo.statusCode).toBe(404);
+    expect(photo.body).not.toContain("base64");
+    for (const path of ["/api/messages", "/api/overview", "/api/messages?loadId=SMOKE-RCS-1"]) {
+      const feed = await get(path);
+      expect(feed.statusCode).toBe(200);
+      expect(feed.body).not.toContain("Jane Roe");
+      expect(findLeaks(JSON.parse(feed.body), ACCOUNT)).toEqual([]);
+    }
+    // A test load's text is still shown (scrubbed).
+    Object.assign(items[0]!, { demo: false, synthetic: true });
+    expect((await get("/api/loads/SMOKE-RCS-1")).body).toContain("Jane Roe");
+  });
+
   it("serves a photo without its EXIF or GPS, naming the original's hash", async () => {
     const res = await get("/api/loads/SMOKE-RCS-1/photos/1");
     expect(res.statusCode).toBe(200);

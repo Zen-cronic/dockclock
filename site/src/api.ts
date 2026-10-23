@@ -310,6 +310,9 @@ export interface PhotoInfo {
   // GET /api/loads/:id/photos/:n. Null when the object is missing or is not an image. In fixtures,
   // a path relative to site/fixtures/api/.
   url: string | null;
+  // Why a stored photo has no url: on a judge DEMO load (the judge's own phone) the photo is kept
+  // with the load but not served publicly. Its hash and reading are still shown.
+  note?: string;
   // The served bytes have all metadata (EXIF, including any GPS) removed, so they hash differently
   // from sha256. Say so next to the hash.
   servedBytes: "metadata_stripped";

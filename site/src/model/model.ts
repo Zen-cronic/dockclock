@@ -22,6 +22,8 @@ export interface Photo {
   badge: string;
   legible: boolean | null;
   reading?: { inTime: string | null; outTime: string | null; signed: boolean | null; note?: string };
+  // Why there is no image (a judge demo's photo is kept, not shown publicly).
+  note?: string;
 }
 
 export interface ConsoleMessage {

@@ -78,7 +78,8 @@ export function whatIfs(d: LoadDetail): WhatIf[] {
 
 export function recordedInput(d: LoadDetail): LoadEvidence | null {
   const i = d.verdict?.engineInput;
-  if (!i) return null;
+  // Inputs that do not reproduce the sealed decision are never re-run (the API marks them).
+  if (!i || d.verdict?.whatIfAvailable === false) return null;
   return { loadId: d.summary.id, clauseId: d.clause.id, facility: d.snapshot?.load.facility.id ?? d.summary.facility, appointmentAt: i.appointmentAt, arrived: i.arrived, released: i.released, ...(i.releasePinAt ? { releasePinAt: i.releasePinAt } : {}), bol: i.bol, status214: i.status214, noticeSentAt: i.noticeSentAt, shipperConfirmed: i.shipperConfirmed, evaluatedAt: i.evaluatedAt };
 }
 
@@ -121,9 +122,27 @@ export function Outcome({ recorded, computed }: { recorded: Result; computed: Re
   );
 }
 
+// When the rebuilt inputs disagree with the pack: the sealed evaluation, and no What-if.
+function SealedOnly({ load }: { load: LoadDetail }) {
+  const v = load.verdict!;
+  return (
+    <div className="compare">
+      <div className="card">
+        <ProvenanceBadge kind="recorded" label="Sealed" />
+        <div style={{ marginTop: 14 }}>
+          <Stamp verdict={v.verdict} />
+        </div>
+        <div className="num">{usd(v.amountUsd)}</div>
+        <p className="small" style={{ marginTop: 10 }}>{v.whatIfNote ?? "What-if is off for this load."}</p>
+      </div>
+    </div>
+  );
+}
+
 // WhatIfPanel: the workflow's own clause engine, re-run in the browser with one fact changed.
 export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: string[] }) {
   const [on, setOn] = useState<Set<string>>(new Set(initial ?? []));
+  if (load.verdict?.whatIfAvailable === false) return <SealedOnly load={load} />;
   const base = recordedInput(load);
   if (!base) return <p className="small">No engine inputs recorded for this load.</p>;
   // Only the facts this contract can turn on; a rule it doesn't have stays in the list on the right.
@@ -181,6 +200,7 @@ export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: str
 // The judges path's short version: a few named facts, the two stamps and the reason. No rule table.
 export function QuickWhatIf({ load, ids }: { load: LoadDetail; ids: string[] }) {
   const [on, setOn] = useState<Set<string>>(new Set());
+  if (load.verdict?.whatIfAvailable === false) return <SealedOnly load={load} />;
   const base = recordedInput(load);
   const shown = whatIfs(load).filter((w) => w.applies && ids.includes(w.id));
   if (!base || shown.length === 0) return <p className="small">No engine inputs recorded for this load.</p>;

@@ -113,8 +113,8 @@ function Bubble({ m, timeZone, switched, anyLocation }: { m: ConsoleMessage; tim
   if (m.kind === "image" && m.photo)
     inner = (
       <>
-        <img src={m.photo.url} alt="Bill of lading photo" />
-        <span className="small">{m.photo.badge}</span>
+        {m.photo.url ? <img src={m.photo.url} alt="Bill of lading photo" /> : <span className="small">{m.photo.note ?? "No image stored"}</span>}
+        {m.photo.url && <span className="small">{m.photo.badge}</span>}
       </>
     );
   return (
