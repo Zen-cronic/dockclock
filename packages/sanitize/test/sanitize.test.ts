@@ -125,6 +125,32 @@ describe("driver photos", () => {
     expect(ascii(out.bytes)).toContain("IDAT");
   });
 
+  it("ends a JPEG at its end-of-image marker, dropping a motion-photo MP4 or MPF images after it", () => {
+    // A secondary MPF image carrying its own EXIF with GPS, then a motion photo's MP4 box.
+    const secondary = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0x00, 0x12]), Buffer.from("Exif\u0000\u0000second GPS"), Buffer.from([0xff, 0xd9])]);
+    const mp4 = Buffer.concat([Buffer.from([0x00, 0x00, 0x00, 0x18]), Buffer.from("ftypmp42 motion photo GPS")]);
+    const trailed = new Uint8Array(Buffer.concat([Buffer.from(withGps), secondary, mp4]));
+    const out = stripImageMetadata(trailed)!;
+    expect(ascii(out.bytes)).not.toContain("second GPS");
+    expect(ascii(out.bytes)).not.toContain("ftypmp42");
+    expect(ascii(out.bytes)).not.toContain("Exif");
+    expect(out.bytes).toEqual(stripImageMetadata(withGps)!.bytes);
+    expect([...out.bytes.subarray(-2)]).toEqual([0xff, 0xd9]);
+  });
+
+  it("keeps stuffed bytes and restart markers inside the scan", () => {
+    const sos = Buffer.from([0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00]);
+    const data = Buffer.from([0x12, 0xff, 0x00, 0x34, 0xff, 0xd0, 0x56, 0xff, 0xff, 0xd9]);
+    const jpeg = new Uint8Array(Buffer.concat([Buffer.from([0xff, 0xd8]), sos, data, Buffer.from("after")]));
+    expect(Buffer.from(stripImageMetadata(jpeg)!.bytes).equals(Buffer.concat([Buffer.from([0xff, 0xd8]), sos, data]))).toBe(true);
+  });
+
+  it("refuses a truncated JPEG or PNG instead of serving part of it", () => {
+    expect(() => stripImageMetadata(withGps.subarray(0, withGps.length - 40))).toThrow(/malformed JPEG/);
+    expect(() => stripImageMetadata(withGps.subarray(0, 30))).toThrow(/malformed JPEG/);
+    expect(() => stripImageMetadata(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]))).toThrow(/malformed PNG/);
+  });
+
   it("refuses anything that is not a JPEG or PNG", () => {
     expect(sniffImage(new TextEncoder().encode("smoke bill of lading"))).toBeNull();
     expect(stripImageMetadata(new TextEncoder().encode("<svg/>"))).toBeNull();

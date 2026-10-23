@@ -306,6 +306,13 @@ describe("console read API", () => {
     expect((await get("/api/loads/SMOKE-RCS-1/photos/2")).statusCode).toBe(404);
   });
 
+  it("answers 415, not 500, for a truncated JPEG", async () => {
+    objects["rcs-inbound/rcs/SMOKE-RCS-1#bol.jpg"] = gpsJpeg.subarray(0, gpsJpeg.length - 40);
+    const res = await get("/api/loads/SMOKE-RCS-1/photos/1");
+    expect(res.statusCode).toBe(415);
+    expect(JSON.parse(res.body).error.code).toBe("unsupported_media");
+  });
+
   it("fails closed: a response that would leak is never sent", async () => {
     // A stored field the builder passes through as is (the notice schedule time) carries a number.
     partitions["SMOKE-RCS-2"]![0]!.notice = { scheduledFor: `call ${PHONE}` };

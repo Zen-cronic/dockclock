@@ -164,7 +164,13 @@ async function route(path: string, params: URLSearchParams, now: string): Promis
       if (items.find((i) => i.sk === "META")?.demo === true) throw new HttpError(404, "not_found", "this photo is kept with the load and not shown publicly");
       const bytes = await photoBytes(items, page);
       if (!bytes) throw notFound(`photo ${page} of load ${parts[1]}`);
-      const stripped = stripImageMetadata(bytes);
+      let stripped: ReturnType<typeof stripImageMetadata>;
+      try {
+        stripped = stripImageMetadata(bytes);
+      } catch {
+        // A truncated or malformed JPEG or PNG: the same answer as any other non-image.
+        stripped = null;
+      }
       if (!stripped) throw new HttpError(415, "unsupported_media", `photo ${page} of load ${parts[1]} is not a JPEG or PNG image`);
       const meta = items.find((i) => i.sk === "META");
       const photo = obj((obj(meta?.bol).photos as unknown[] | undefined)?.[page - 1]);

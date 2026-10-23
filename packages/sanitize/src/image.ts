@@ -12,30 +12,64 @@ export function sniffImage(bytes: Uint8Array): ImageType | null {
 }
 
 // JPEG: keep SOI, APP0 (JFIF) and every coding segment; drop APP1-APP15 (EXIF, XMP, ICC, maker
-// notes) and comments. Everything from the start of scan on is image data and is copied as is.
+// notes) and comments, also between the scans of a progressive JPEG. Scan data is copied as is.
+// The output ends at the end-of-image marker: anything a camera appends after it (a motion
+// photo's MP4, the secondary images of an MPF file with their own EXIF) is dropped. A file that
+// ends before its end-of-image marker is refused as malformed.
 function stripJpeg(bytes: Uint8Array): Uint8Array {
-  const out: number[] = [0xff, 0xd8];
+  const parts: Uint8Array[] = [bytes.subarray(0, 2)];
   let i = 2;
-  while (i + 4 <= bytes.length) {
+  let scanned = false;
+  while (i + 2 <= bytes.length) {
     if (bytes[i] !== 0xff) throw new Error("malformed JPEG: expected a marker");
     const marker = bytes[i + 1]!;
     if (marker === 0xff) {
       i += 1; // fill byte
       continue;
     }
-    if (marker === 0xd9) break; // EOI before any scan
+    if (marker === 0xd9) {
+      if (!scanned) throw new Error("malformed JPEG: no image data");
+      parts.push(bytes.subarray(i, i + 2));
+      return concat(parts);
+    }
+    if (i + 4 > bytes.length) break;
     const length = (bytes[i + 2]! << 8) | bytes[i + 3]!;
     if (length < 2 || i + 2 + length > bytes.length) throw new Error("malformed JPEG: bad segment length");
     const end = i + 2 + length;
     const isAppN = marker >= 0xe1 && marker <= 0xef;
-    if (!isAppN && marker !== 0xfe) for (let j = i; j < end; j++) out.push(bytes[j]!);
+    if (!isAppN && marker !== 0xfe) parts.push(bytes.subarray(i, end));
     i = end;
     if (marker === 0xda) {
-      for (let j = i; j < bytes.length; j++) out.push(bytes[j]!);
-      return Uint8Array.from(out);
+      scanned = true;
+      // Entropy-coded data runs to the next marker that is not a stuffed 0xFF00 or a restart marker.
+      let j = i;
+      for (;;) {
+        if (j + 1 >= bytes.length) throw new Error("malformed JPEG: the file ends inside the image data");
+        if (bytes[j] === 0xff) {
+          const next = bytes[j + 1]!;
+          if (next === 0x00 || (next >= 0xd0 && next <= 0xd7)) {
+            j += 2;
+            continue;
+          }
+          if (next !== 0xff) break;
+        }
+        j += 1;
+      }
+      parts.push(bytes.subarray(i, j));
+      i = j;
     }
   }
-  throw new Error("malformed JPEG: no image data");
+  throw new Error("malformed JPEG: no end of image");
+}
+
+function concat(parts: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.length;
+  }
+  return out;
 }
 
 // PNG: drop text, EXIF and time chunks; keep everything that draws the picture.
@@ -50,19 +84,14 @@ function stripPng(bytes: Uint8Array): Uint8Array {
     if (end > bytes.length) throw new Error("malformed PNG: bad chunk length");
     if (!PNG_DROP.has(type)) parts.push(bytes.subarray(i, end));
     i = end;
-    if (type === "IEND") break;
+    // Anything after IEND is not part of the picture and is not served.
+    if (type === "IEND") return concat(parts);
   }
-  const total = parts.reduce((n, p) => n + p.length, 0);
-  const out = new Uint8Array(total);
-  let at = 0;
-  for (const p of parts) {
-    out.set(p, at);
-    at += p.length;
-  }
-  return out;
+  throw new Error("malformed PNG: no IEND chunk");
 }
 
 // Returns the image with its metadata removed, or null when the bytes are not a JPEG or PNG.
+// Throws on a malformed JPEG or PNG (the read API answers 415 unsupported_media).
 export function stripImageMetadata(bytes: Uint8Array): { type: ImageType; bytes: Uint8Array } | null {
   const type = sniffImage(bytes);
   if (type === "image/jpeg") return { type, bytes: stripJpeg(bytes) };
