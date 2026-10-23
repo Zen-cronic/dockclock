@@ -7,8 +7,8 @@ import type { Construct } from "constructs";
 export const CONFIGURATION_SET_NAME = "dockclock-claims";
 
 // Every notice and claim email goes out through this configuration set. Bounces, complaints,
-// rejects and deliveries are published to SNS (consumed by the email packet to mark a load's contact
-// undeliverable), and account reputation alarms fire well below the SES review thresholds.
+// rejects and deliveries are published to SNS (the notice Lambda records each delivery or bounce
+// against its load), and account reputation alarms fire well below the SES review thresholds.
 export class EmailStack extends Stack {
   readonly configurationSet: ses.ConfigurationSet;
   readonly emailEvents: sns.Topic;
