@@ -48,11 +48,12 @@ export function textMessage(body: string): Body {
   return { type: "text", text: { preview_url: false, body } };
 }
 
-export function locationRequest(language: Language, step: "arrived" | "released"): Body {
+// `stoppedAt` is the zone-labelled time of the Released tap, quoted in the release request.
+export function locationRequest(language: Language, step: "arrived" | "released", stoppedAt = ""): Body {
   const copy = COPY[language];
   return {
     type: "interactive",
-    interactive: { type: "location_request_message", body: { text: step === "arrived" ? copy.locationArrived : copy.locationReleased }, action: { name: "send_location" } },
+    interactive: { type: "location_request_message", body: { text: step === "arrived" ? copy.locationArrived : copy.locationReleased(stoppedAt) }, action: { name: "send_location" } },
   };
 }
 

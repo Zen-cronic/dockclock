@@ -101,6 +101,7 @@ const arrivedAt = Date.now();
 await feed("arrival pin", pin());
 console.log(`waiting ${dwellMinutes} minutes at the dock (the notice goes out about a minute after arrival)`);
 await sleep(Math.max(0, arrivedAt + dwellMinutes * 60_000 - Date.now()));
+// The clock stops at the Released tap; the pin right after confirms it (within 10 minutes).
 await feed("Released", tap("released"));
 const releasedAt = Date.now();
 await feed("release pin", pin());

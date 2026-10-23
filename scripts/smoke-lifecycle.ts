@@ -104,9 +104,11 @@ const flowReply = {
         flow_token: `dc1.release.${loadId}.${nonce}`,
         bol_photo: [{ id: "smoke-missing-media", mime_type: "image/jpeg", sha256: "none" }],
         // SMOKE_SIGNED=1 models a receiver-signed BOL whose times the driver typed from the paper
-        // (a couple of minutes off the pins), which the clause engine can bill.
+        // (a couple of minutes off the arrival pin and the Released tap), which the clause engine can
+        // bill. Otherwise the times are the ones the Flow pre-filled (arrival pin, Released tap), left
+        // unchanged.
         in_time: isoToLocalClock(new Date(now - (signedBol ? 245 : 247) * 60_000).toISOString(), zone),
-        out_time: isoToLocalClock(new Date(now - (signedBol ? 31 : 29) * 60_000).toISOString(), zone),
+        out_time: isoToLocalClock(new Date(now - (signedBol ? 31 : 30) * 60_000).toISOString(), zone),
         ...(signedBol ? { receiver_signed: true } : {}),
         delay_reason: "dock_not_ready",
         consignee: "Smoke Receiver",
@@ -125,6 +127,7 @@ await feed("arrival pin", envelope(pin, t(247)));
 if (process.env.SMOKE_NOTICE === "1") await checkNotice();
 await feed("second Arrived tap (should be ignored)", envelope(button("arrived"), t(200)));
 await feed("Released with a stale nonce (should be rejected)", envelope(button("released", "stale000"), t(31)));
+// The clock stops at the Released tap; the pin a minute later confirms it (within 10 minutes).
 await feed("Released", envelope(button("released"), t(30)));
 await feed("release pin", envelope(pin, t(29)));
 await feed("release Flow with BOL photo and times", envelope(flowReply, t(25)));
@@ -184,8 +187,15 @@ console.log(`  signature verifies with KMS public key: ${verifyPack(signed, publ
 console.log(`  tampered copy verifies: ${verifyPack(tampered, publicKey)}`);
 
 const outcomes = (timeline.Items ?? []).map((i) => i.outcome);
+// Whole seconds, as the WhatsApp envelope carries them.
+const tapAt = new Date(Math.floor(t(30) / 1000) * 1000).toISOString();
+console.log(`  clock end ${signed.pack.clockEnd?.by ?? "none"} at ${signed.pack.clockEnd?.at ?? "-"}; release pin ${signed.pack.events.released?.serverAt ?? "-"} (pack version ${signed.pack.version})`);
 const ok =
   status === "SUCCEEDED" &&
+  signed.pack.version === 2 &&
+  signed.pack.events.releasedTap?.serverAt === tapAt &&
+  signed.pack.clockEnd?.by === "released_tap" &&
+  signed.pack.clockEnd.at === tapAt &&
   verifyPack(signed, publicKey) &&
   !verifyPack(tampered, publicKey) &&
   head.ObjectLockMode === "GOVERNANCE" &&

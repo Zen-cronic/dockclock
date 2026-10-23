@@ -66,6 +66,33 @@ describe("sealed evidence is honest about what the driver supplied", () => {
   });
 });
 
+describe("the Released tap ends the clock", () => {
+  // Tap 13:18 EDT, pin 3 minutes later. The Flow pre-filled the tap's time as the out time.
+  const tapped = { ...base, releasedTap: { serverAt: "2026-10-13T17:18:00.000Z", messageId: "t" }, released: { ...base.released!, serverAt: "2026-10-13T17:21:00.000Z" } } as LoadItem;
+
+  it("bills to the tap, compares the paper with it, and records it on the pack's record", () => {
+    const record = toRecord({ ...tapped, bol: bol({ receiverSigned: true, inTime: "9:55 AM", outTime: "1:16 PM" }) });
+    expect(record.releasedTap).toEqual({ channel: "whatsapp", messageId: "t", serverAt: "2026-10-13T17:18:00.000Z" });
+    const evidence = toLoadEvidence(record, "2026-10-13T18:00:00.000Z");
+    expect(evidence.released?.at).toBe("2026-10-13T17:18:00.000Z");
+    expect(evidence.releasePinAt).toBe("2026-10-13T17:21:00.000Z");
+    // Free time ends 16:00Z (2 h from the 14:00Z appointment): 78 minutes to the tap, not 81 to the pin.
+    expect(evaluate(evidence, clauseById("lakeshore-foods")).detentionMinutes).toBe(78);
+  });
+
+  it("treats the tap's time left unchanged in the form as pre-filled, not independent", () => {
+    const record = toRecord({ ...tapped, bol: bol({ outTime: "13:18" }) });
+    expect(record.bol?.timesEdited.out).toBe(false);
+    expect(toRecord({ ...tapped, bol: bol({ outTime: "13:21" }) }).bol?.timesEdited.out).toBe(true);
+  });
+
+  it("holds a load whose pin came 12 minutes after the tap for a person", () => {
+    const late = { ...tapped, released: { ...base.released!, serverAt: "2026-10-13T17:30:00.000Z" } } as LoadItem;
+    const record = toRecord({ ...late, bol: bol({ receiverSigned: true, inTime: "9:55 AM", outTime: "1:16 PM" }) });
+    expect(evaluate(toLoadEvidence(record, "2026-10-13T18:00:00.000Z"), clauseById("lakeshore-foods"))).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["RELEASE_PIN_LATE"] });
+  });
+});
+
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { KMSClient, SignCommand } from "@aws-sdk/client-kms";
 import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";

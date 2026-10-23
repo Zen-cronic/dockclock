@@ -44,6 +44,13 @@ export interface PinRecord {
   lon: number;
 }
 
+// The driver's Released tap: its server time is when the dock clock stops.
+export interface TapRecord {
+  channel?: Channel;
+  serverAt: string;
+  messageId: string;
+}
+
 export interface BolPhoto {
   mediaId: string;
   mimeType: string;
@@ -74,6 +81,8 @@ export interface LoadState {
   phase: Phase;
   version: number;
   arrived: PinRecord | null;
+  // Set by the Released tap; the release pin that follows confirms it. Absent on older loads.
+  releasedTap?: TapRecord | null;
   released: PinRecord | null;
   bol: BolRecord | null;
   flowSends: number;
@@ -153,7 +162,11 @@ export function applyEvent(state: LoadState, event: InboundEvent): Transition {
       return next({ phase: "awaiting_arrival_pin" }, [{ type: "request_location", step: "arrived" }]);
     }
     if (payload.action === "released") {
-      if (state.phase === "at_dock") return next({ phase: "awaiting_release_pin" }, [{ type: "request_location", step: "released" }]);
+      if (state.phase === "at_dock") {
+        // The clock stops here, at the tap's server time; the pin asked for next only confirms it.
+        const releasedTap: TapRecord = { channel: event.channel ?? "whatsapp", serverAt: event.serverAt, messageId: event.wamid };
+        return next({ phase: "awaiting_release_pin", releasedTap }, [{ type: "request_location", step: "released" }]);
+      }
       if (state.phase === "dispatched" || state.phase === "awaiting_arrival_pin") {
         return stay(state, "REJECTED_OUT_OF_ORDER", [{ type: "tell_driver", key: "tap_arrived_first" }]);
       }

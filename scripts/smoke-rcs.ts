@@ -133,6 +133,7 @@ await feed("typing notice (ignored)", rcs(JSON.stringify({ type: "RCS_TYPING", r
 await feed("arrival pin", rcs(pin, t(247)));
 if (!startOnWhatsApp) await feed("WhatsApp failure of the Released offer", whatsappFailed(failedId, t(246)));
 await feed("the same failure reported again", whatsappFailed(failedId, startOnWhatsApp ? t(250) : t(246)));
+// The clock stops at the Released reply; the pin a minute later confirms it (within 10 minutes).
 await feed("Released (suggested reply)", rcs(tap("released"), t(30)));
 await feed("release pin", rcs(pin, t(29)));
 // The ingest guard accepts a stored RCS photo only if it was written with its message, so the
@@ -179,6 +180,8 @@ const ok =
   status === "SUCCEEDED" &&
   verifyPack(signed, publicKey) &&
   signed.pack.channel === "rcs" &&
+  signed.pack.events.releasedTap?.channel === "rcs" &&
+  signed.pack.clockEnd?.by === "released_tap" &&
   outcomes.filter((o) => o === "ADVANCED").length === 5 &&
   !items.some((i) => i.messageId === `rcs.smoke-${loadId}-typing`) &&
   failovers.length === 1 &&

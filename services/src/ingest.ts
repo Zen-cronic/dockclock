@@ -72,6 +72,11 @@ async function applyOnce(loadId: string, event: InboundEvent): Promise<Applied> 
       const s = transition.state;
       Object.assign(values, { ":p": s.phase, ":v": s.version, ":a": s.arrived, ":r": s.released, ":b": s.bol, ":f": s.flowSends });
       sets.push("phase = :p", "version = :v", "arrived = :a", "released = :r", "bol = :b", "flowSends = :f");
+      // Written once, by the Released tap that set it.
+      if (s.releasedTap && !load.releasedTap) {
+        values[":rt"] = s.releasedTap;
+        sets.push("releasedTap = :rt");
+      }
     }
     queued.forEach((effect, i) => {
       const seq = `${event.serverAt}#${event.wamid}#${String(i).padStart(2, "0")}`;
@@ -144,9 +149,12 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
     load.channel === "rcs" ? sendRcs(target, rcs(), purpose, load.loadId) : send(target, whatsapp(), purpose, load.loadId);
   const tell = (text: string, purpose: string) => deliver(purpose, () => textMessage(text), () => rcsText(text));
   switch (effect.type) {
-    case "request_location":
-      await deliver(`location_${effect.step}`, () => locationRequest(language, effect.step), () => rcsLocationRequest(language, effect.step));
+    case "request_location": {
+      // After Released, the request says when the clock stopped and how long the pin has to confirm it.
+      const stoppedAt = effect.step === "released" ? zoned(load.releasedTap?.serverAt) : "";
+      await deliver(`location_${effect.step}`, () => locationRequest(language, effect.step, stoppedAt), () => rcsLocationRequest(language, effect.step, stoppedAt));
       return;
+    }
     case "offer_release": {
       const at = zoned(load.arrived?.serverAt);
       await deliver(
@@ -156,19 +164,22 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
       );
       return;
     }
-    case "send_release_flow":
+    case "send_release_flow": {
+      // The release time is the Released tap where one was recorded; the Flow pre-fills it as the out time.
+      const releasedAt = load.releasedTap?.serverAt ?? load.released?.serverAt;
       await deliver(
         "release_flow",
         () =>
           releaseFlowMessage(language, load.loadId, load.nonce, facility.name, {
-            releasedAt: zoned(load.released?.serverAt),
+            releasedAt: zoned(releasedAt),
             loadLabel: `${load.loadId} · ${facility.name}`,
             arrivedHint: clock(load.arrived?.serverAt),
-            releasedHint: clock(load.released?.serverAt),
+            releasedHint: clock(releasedAt),
           }),
-        () => rcsBolRequest(language, facility.name, zoned(load.released?.serverAt)),
+        () => rcsBolRequest(language, facility.name, zoned(releasedAt)),
       );
       return;
+    }
     case "send_dispatch":
       await sendDispatchPrompt(target, load.channel, language, load.loadId, load.nonce, facility.name, formatAppointment(load.appointmentAt, facility.timeZone, language));
       return;

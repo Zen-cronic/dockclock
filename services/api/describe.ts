@@ -80,6 +80,7 @@ export function inboundTitle(type: string, outcome: string, action: string | nul
     if (outcome === "REJECTED_OUT_OF_ORDER") return { title: `${name} tapped out of order: refused`, tone: "refused" };
     if (outcome === "REJECTED_STALE_BUTTON") return { title: `${name} tapped on an old message: refused`, tone: "refused" };
     if (outcome === "IGNORED_DUPLICATE_TAP") return { title: `${name} tapped again: ignored`, tone: "refused" };
+    if (action === "released" && outcome === "ADVANCED") return { title: "Driver tapped Released: the dock clock stopped", tone: "neutral" };
     return { title: `Driver tapped ${name}`, tone: refused ? "refused" : "neutral" };
   }
   if (type === "location") return { title: refused ? "Location received but not used" : "Driver shared a location", tone: refused ? "refused" : "neutral" };
@@ -205,9 +206,19 @@ export function agentRunsOf(items: Item[], sealed: { cents: number; digest: stri
     });
 }
 
-export type EngineInput = VerdictInfo["engineInput"];
+// The page's contract has no field for the release pin's own time yet, so it rides alongside:
+// present only on packs (version 2) whose clock was stopped by the Released tap.
+export type EngineInput = VerdictInfo["engineInput"] & { releasePinAt?: string };
 
-// The clause engine's inputs, rebuilt the way sealing builds them, so a page can re-run them.
+// The Released tap's time on a version 2 pack; null on a version 1 pack (or a load recorded before
+// the tap was kept), whose release is the pin.
+export function releaseTapOf(signed: SignedPack): string | null {
+  return signed.pack.events.releasedTap?.serverAt ?? null;
+}
+
+// The clause engine's inputs, rebuilt the way sealing builds them, so a page can re-run them. On a
+// pack with a Released tap, `released.at` is the tap (when the clock stopped) and `releasePinAt` the
+// pin that confirmed it, exactly as toLoadEvidence builds them; an old pack's release is its pin.
 export function engineInputOf(meta: Item, signed: SignedPack, timeZone: string): EngineInput {
   const pinOf = (pin: Item | null, signal: string) => {
     if (!pin || !str(pin.serverAt)) return null;
@@ -218,15 +229,20 @@ export function engineInputOf(meta: Item, signed: SignedPack, timeZone: string):
   const metaArrived = meta.arrived ? obj(meta.arrived) : null;
   const metaReleased = meta.released ? obj(meta.released) : null;
   const packBol = signed.pack.events.bol;
+  const tapAt = releaseTapOf(signed);
+  const releasePin = pinOf(metaReleased, "released_pin_in_geofence");
+  const released = releasePin && tapAt ? { ...releasePin, at: tapAt } : releasePin;
+  const releaseAt = tapAt ?? str(metaReleased?.serverAt);
   return {
     appointmentAt: String(meta.appointmentAt),
     arrived: pinOf(metaArrived, "arrived_pin_in_geofence"),
-    released: pinOf(metaReleased, "released_pin_in_geofence"),
+    released,
+    ...(releasePin && tapAt ? { releasePinAt: releasePin.at } : {}),
     bol: packBol
       ? {
           signed: bol.channel !== "rcs" && bol.receiverSigned === true,
           checkIn: bol.channel === "rcs" ? null : localClockToIso(str(bol.inTime), str(metaArrived?.serverAt) ?? packBol.serverAt, timeZone),
-          checkOut: bol.channel === "rcs" ? null : localClockToIso(str(bol.outTime), str(metaReleased?.serverAt) ?? packBol.serverAt, timeZone),
+          checkOut: bol.channel === "rcs" ? null : localClockToIso(str(bol.outTime), releaseAt ?? packBol.serverAt, timeZone),
         }
       : null,
     status214: false,

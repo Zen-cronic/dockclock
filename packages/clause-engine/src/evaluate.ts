@@ -1,6 +1,9 @@
 import type { ClauseSpec, Evaluation, LoadEvidence, ReasonCode, RecordKind } from "./types.js";
 
 export const BOL_TOLERANCE_MINUTES = 15;
+// The release location pin confirms the driver's Released tap only if it comes within this many
+// minutes of the tap. The clock stops at the tap either way; a later pin sends the load to a person.
+export const RELEASE_PIN_WINDOW_MINUTES = 10;
 
 const MINUTE = 60_000;
 
@@ -26,6 +29,15 @@ function hasRecord(load: LoadEvidence, accepted: readonly RecordKind[]): boolean
   });
 }
 
+// True when the release pin came too long after (or before) the Released tap to confirm it.
+export function releasePinLate(load: Pick<LoadEvidence, "released" | "releasePinAt">): boolean {
+  const { released, releasePinAt } = load;
+  if (!released || !releasePinAt) return false;
+  return Math.abs(minutesBetween(released.at, releasePinAt)) > RELEASE_PIN_WINDOW_MINUTES;
+}
+
+// Paper against phone: the written in time against the arrival pin, the written out time against
+// the release (the Released tap where one was recorded).
 function bolConflicts(load: LoadEvidence): boolean {
   const { bol, arrived, released } = load;
   if (!bol || !arrived || !released) return false;
@@ -66,6 +78,7 @@ export function evaluate(load: LoadEvidence, clause: ClauseSpec): Evaluation {
 
   const integrity: ReasonCode[] = [];
   if (!arrived.insideGeofence || !released.insideGeofence) integrity.push("PIN_OUTSIDE_GEOFENCE");
+  if (releasePinLate(load)) integrity.push("RELEASE_PIN_LATE");
   if (bolConflicts(load)) integrity.push("BOL_TIMESTAMP_CONFLICT");
   if (integrity.length > 0) return held(load, "NEEDS_HUMAN", integrity);
 

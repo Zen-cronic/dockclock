@@ -1,5 +1,5 @@
 import { PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { JUDGE_DEMO_CLAUSE } from "@dockclock/clause-engine";
+import { JUDGE_DEMO_CLAUSE, RELEASE_PIN_WINDOW_MINUTES } from "@dockclock/clause-engine";
 import { JUDGE_DEMO_FACILITY } from "@dockclock/evidence";
 import type { InboundEvent } from "@dockclock/whatsapp";
 import { handler as dispatch } from "./dispatch.js";
@@ -51,6 +51,8 @@ const MINUTES = JUDGE_DEMO_CLAUSE.freeTimeMinutes;
 // The free time plus a few minutes of taps, pins and the photo; a retake adds its own wait.
 export const DEMO_MINUTES = MINUTES + 5;
 const RETAKE_MINUTES = RETAKE_WAIT_SECONDS.demo / 60;
+// The clock stops at the Released tap; the location shared after it must come within this.
+const PIN_MINUTES = RELEASE_PIN_WINDOW_MINUTES;
 // The demo yard's zone, in words, because every time the judge sees is in that zone.
 const ZONE_WORDS: Record<string, Record<Language, string>> = {
   "America/New_York": { en_US: "US Eastern time", es_MX: "hora del Este de EE. UU.", fr_CA: "heure de l'Est des États-Unis" },
@@ -62,7 +64,7 @@ const INTRO: Record<Language, string> = {
   en_US: [
     `DockClock demo, about ${DEMO_MINUTES} minutes (${RETAKE_MINUTES} more if a photo has to be retaken). You are the truck driver and the dispatcher.`,
     "1. Tap Arrived and share your location (any location counts).",
-    `2. Free time is ${MINUTES} minutes. Wait past it, then tap Released and share your location again.`,
+    `2. Free time is ${MINUTES} minutes. Wait past it, then tap Released and share your location within ${PIN_MINUTES} minutes.`,
     `3. Write the arrival and release times from the chat on any paper (${zone("en_US")}). Photograph it in the form and keep the times it fills in.`,
     "4. Approve the claim.",
     "",
@@ -73,7 +75,7 @@ const INTRO: Record<Language, string> = {
   es_MX: [
     `Demo de DockClock, unos ${DEMO_MINUTES} minutos (${RETAKE_MINUTES} más si hay que repetir una foto). Usted es el chofer y el despachador.`,
     "1. Toque Llegué y comparta su ubicación (cualquier lugar vale).",
-    `2. El tiempo libre es de ${MINUTES} minutos. Espere más, toque Liberado y comparta su ubicación otra vez.`,
+    `2. El tiempo libre es de ${MINUTES} minutos. Espere más, toque Liberado y comparta su ubicación en menos de ${PIN_MINUTES} minutos.`,
     `3. Escriba en cualquier papel las horas de llegada y salida del chat (${zone("es_MX")}). Fotografíelo en el formulario y deje las horas que propone.`,
     "4. Apruebe el reclamo.",
     "",
@@ -84,7 +86,7 @@ const INTRO: Record<Language, string> = {
   fr_CA: [
     `Démo DockClock, environ ${DEMO_MINUTES} minutes (${RETAKE_MINUTES} de plus s'il faut reprendre une photo). Vous êtes le chauffeur et le répartiteur.`,
     "1. Touchez Arrivé et partagez votre position (n'importe où).",
-    `2. Le temps alloué est de ${MINUTES} minutes. Attendez plus, puis touchez Libéré et partagez votre position de nouveau.`,
+    `2. Le temps alloué est de ${MINUTES} minutes. Attendez plus, puis touchez Libéré et partagez votre position d'ici ${PIN_MINUTES} minutes.`,
     `3. Écrivez sur un papier les heures d'arrivée et de départ de la conversation (${zone("fr_CA")}). Photographiez-le dans le formulaire et gardez les heures proposées.`,
     "4. Approuvez la réclamation.",
     "",

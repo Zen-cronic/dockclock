@@ -6,7 +6,9 @@ import {
   clauseById,
   CLAUSES,
   JUDGE_DEMO_CLAUSE,
+  BOL_TOLERANCE_MINUTES,
   evaluate,
+  RELEASE_PIN_WINDOW_MINUTES,
   scorecard,
   type FixtureLoad,
 } from "../src/index.js";
@@ -149,5 +151,62 @@ describe("judge demo clause", () => {
 
   it("is not one of the scored clauses", () => {
     expect(CLAUSES.map((c) => c.id)).not.toContain(JUDGE_DEMO_CLAUSE.id);
+  });
+});
+
+// The dock clock stops at the driver's Released tap. The release pin only confirms it, and only
+// within RELEASE_PIN_WINDOW_MINUTES; the paper's out time is compared with the tap.
+describe("release: the Released tap ends the clock, the pin confirms it", () => {
+  const clause = clauseById(JUDGE_DEMO_CLAUSE.id);
+  const at = (minutes: number) => new Date(Date.parse("2026-10-23T18:00:00.000Z") + minutes * 60_000).toISOString();
+  const tapped = (tapAfter: number, pinAfter: number, typedOut = tapAfter) => ({
+    loadId: "TAP-test",
+    clauseId: clause.id,
+    facility: "judge-demo",
+    appointmentAt: at(0),
+    arrived: { at: at(0), insideGeofence: true },
+    released: { at: at(tapAfter), insideGeofence: true },
+    releasePinAt: at(pinAfter),
+    bol: { signed: false, checkIn: at(0), checkOut: at(typedOut) },
+    status214: false,
+    noticeSentAt: at(1),
+    shipperConfirmed: false,
+    evaluatedAt: at(pinAfter + 2),
+  });
+
+  it("bills to the tap when the pin comes 3 minutes later", () => {
+    const result = evaluate(tapped(15, 18), clause);
+    expect(result.verdict).toBe("BILLABLE");
+    expect(result.detentionMinutes).toBe(15 - clause.freeTimeMinutes);
+    expect(result.amountUsd).toBe(((15 - clause.freeTimeMinutes) / 60) * clause.ratePerHourUsd);
+  });
+
+  it("accepts a pin exactly at the window's end", () => {
+    expect(evaluate(tapped(15, 15 + RELEASE_PIN_WINDOW_MINUTES), clause).verdict).toBe("BILLABLE");
+  });
+
+  it("sends the load to a person when the pin comes 12 minutes after the tap", () => {
+    expect(RELEASE_PIN_WINDOW_MINUTES).toBe(10);
+    const result = evaluate(tapped(15, 27), clause);
+    expect(result).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["RELEASE_PIN_LATE"], amountUsd: 0 });
+  });
+
+  it("keeps the geofence check on the confirming pin", () => {
+    const result = evaluate({ ...tapped(15, 27), released: { at: at(15), insideGeofence: false } }, clause);
+    expect(result.reasons).toEqual(["PIN_OUTSIDE_GEOFENCE", "RELEASE_PIN_LATE"]);
+  });
+
+  it("checks the paper's out time against the tap, not the pin", () => {
+    // Pin 9 minutes after the tap; the paper says 8 minutes after the pin: 17 minutes from the tap.
+    expect(evaluate(tapped(15, 24, 24 + 8), clause)).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["BOL_TIMESTAMP_CONFLICT"] });
+    // The paper matches the tap to the minute; the pin 9 minutes later does not matter.
+    expect(evaluate(tapped(15, 24, 15), clause).verdict).toBe("BILLABLE");
+    expect(evaluate(tapped(15, 24, 15 + BOL_TOLERANCE_MINUTES), clause).verdict).toBe("BILLABLE");
+  });
+
+  it("treats a record without a tap as before: release is the pin", () => {
+    const pinOnly: Partial<ReturnType<typeof tapped>> = tapped(15, 15);
+    delete pinOnly.releasePinAt;
+    expect(evaluate(pinOnly as ReturnType<typeof tapped>, clause)).toMatchObject({ verdict: "BILLABLE", detentionMinutes: 15 - clause.freeTimeMinutes });
   });
 });

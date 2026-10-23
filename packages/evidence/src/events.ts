@@ -1,5 +1,5 @@
 import type { BolReading, LoadEvidence } from "@dockclock/clause-engine";
-import { BOL_TOLERANCE_MINUTES } from "@dockclock/clause-engine";
+import { BOL_TOLERANCE_MINUTES, RELEASE_PIN_WINDOW_MINUTES } from "@dockclock/clause-engine";
 import { checkGeofence, type Facility, type LonLat } from "./geofence.js";
 
 export type Channel = "whatsapp" | "rcs";
@@ -12,6 +12,14 @@ export interface PinEvent {
   messageId: string;
   serverAt: string;
   location: LonLat;
+}
+
+// The driver's Released button tap (WhatsApp button or RCS suggested reply). Its server time is
+// when the dock clock stops; the release location pin that follows only confirms it.
+export interface TapEvent {
+  channel: Channel;
+  messageId: string;
+  serverAt: string;
 }
 
 export interface BolCapture {
@@ -52,6 +60,8 @@ export interface LoadRecord {
   facility: Facility;
   appointmentAt: string;
   arrived: PinEvent | null;
+  // Absent or null on loads recorded before the tap was kept: their release is the pin.
+  releasedTap?: TapEvent | null;
   released: PinEvent | null;
   bol: BolCapture | null;
   status214: boolean;
@@ -78,6 +88,12 @@ function minutesApart(a: string, b: string): number {
   return Math.abs(Date.parse(a) - Date.parse(b)) / 60_000;
 }
 
+// What ended the dock clock: the Released tap when one was recorded, else the release pin.
+export function releaseEnd(record: Pick<LoadRecord, "releasedTap" | "released">): { by: "released_tap" | "released_pin"; at: string } | null {
+  if (record.releasedTap) return { by: "released_tap", at: record.releasedTap.serverAt };
+  return record.released ? { by: "released_pin", at: record.released.serverAt } : null;
+}
+
 // Turns raw channel events into the clause engine's inputs. Location truth comes from the
 // geofence check here, so the engine never sees a coordinate or a model-written field.
 export function toLoadEvidence(record: LoadRecord, evaluatedAt: string): LoadEvidence {
@@ -87,13 +103,18 @@ export function toLoadEvidence(record: LoadRecord, evaluatedAt: string): LoadEvi
     record.bol === null
       ? null
       : { signed: record.bol.signed, checkIn: record.bol.checkIn, checkOut: record.bol.checkOut };
+  // The release is timed by the tap and located by the pin; without the pin there is no release.
+  const tap = record.releasedTap ?? null;
+  const releasePin = pin(record.released);
+  const released = releasePin && tap ? { ...releasePin, at: tap.serverAt } : releasePin;
   return {
     loadId: record.loadId,
     clauseId: record.clauseId,
     facility: record.facility.name,
     appointmentAt: record.appointmentAt,
     arrived: pin(record.arrived),
-    released: pin(record.released),
+    released,
+    ...(releasePin && tap ? { releasePinAt: releasePin.at } : {}),
     bol,
     status214: record.status214,
     noticeSentAt: record.notice?.sentAt ?? null,
@@ -115,6 +136,19 @@ export function corroborate(record: LoadRecord): Corroboration {
       detail: fence.inside ? "inside facility polygon" : `${fence.distanceMeters} m outside facility polygon`,
     });
   }
+  const tap = record.releasedTap ?? null;
+  if (tap && record.released) {
+    const gap = (Date.parse(record.released.serverAt) - Date.parse(tap.serverAt)) / 60_000;
+    signals.push({
+      name: "released_pin_confirms_tap",
+      ok: Math.abs(gap) <= RELEASE_PIN_WINDOW_MINUTES,
+      detail: `pin ${Math.round(Math.abs(gap))} min ${gap < 0 ? "before" : "after"} the Released tap (limit ${RELEASE_PIN_WINDOW_MINUTES}); the clock stopped at the tap`,
+    });
+  }
+  // The paper's out time is compared with whatever ended the clock: the tap, or on older loads the pin.
+  const end = releaseEnd(record);
+  const endName = end?.by ?? "released_pin";
+  const endEvent = end ? { serverAt: end.at } : null;
   const bol = record.bol;
   if (bol) {
     const rcs = bol.channel === "rcs";
@@ -134,14 +168,14 @@ export function corroborate(record: LoadRecord): Corroboration {
       ok: bol.confirmedByDriver,
       detail: bol.confirmedByDriver ? "driver confirmed or corrected extracted times" : rcs ? "RCS has no form, so no driver-entered times or signed box" : "driver did not confirm times",
     });
-    const pairs: Array<[string, string | null, PinEvent | null, boolean]> = [
+    const pairs: Array<[string, string | null, { serverAt: string } | null, boolean]> = [
       ["bol_in_matches_arrived_pin", bol.checkIn, record.arrived, bol.timesEdited.in],
-      ["bol_out_matches_released_pin", bol.checkOut, record.released, bol.timesEdited.out],
+      [`bol_out_matches_${endName}`, bol.checkOut, endEvent, bol.timesEdited.out],
     ];
     for (const [name, written, event, edited] of pairs) {
       if (written === null || event === null) continue;
       const gap = minutesApart(written, event.serverAt);
-      const note = edited ? "entered by the driver from the paperwork" : "pre-filled from the pin and left unchanged, so not independent";
+      const note = edited ? "entered by the driver from the paperwork" : `pre-filled from the ${name.endsWith("_tap") ? "Released tap" : "pin"} and left unchanged, so not independent`;
       signals.push({ name, ok: gap <= BOL_TOLERANCE_MINUTES, independent: edited, detail: `${Math.round(gap)} min apart (tolerance ${BOL_TOLERANCE_MINUTES}); ${note}` });
     }
   }
@@ -149,9 +183,9 @@ export function corroborate(record: LoadRecord): Corroboration {
   if (bol && photo) {
     signals.push({ name: "bol_photo_legible", ok: photo.legible, detail: photo.legible ? "photo read by the vision model" : "photo could not be read" });
     if (photo.legible) {
-      const readPairs: Array<[string, string | null, PinEvent | null]> = [
+      const readPairs: Array<[string, string | null, { serverAt: string } | null]> = [
         ["bol_photo_in_matches_arrived_pin", photo.checkIn, record.arrived],
-        ["bol_photo_out_matches_released_pin", photo.checkOut, record.released],
+        [`bol_photo_out_matches_${endName}`, photo.checkOut, endEvent],
       ];
       for (const [name, written, event] of readPairs) {
         if (written === null || event === null) continue;

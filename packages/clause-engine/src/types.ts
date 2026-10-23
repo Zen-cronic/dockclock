@@ -42,7 +42,12 @@ export interface LoadEvidence {
   facility: string;
   appointmentAt: string;
   arrived: Pin | null;
+  // The release: when the dock clock stopped, and whether the location pin that confirms it was
+  // inside the facility. Null until that pin arrives. On loads that record the driver's Released tap,
+  // `at` is the tap's server time and `releasePinAt` the pin's; on older records (and the scored
+  // fixtures) release is the pin alone, so `at` is the pin's time and `releasePinAt` is absent.
   released: Pin | null;
+  releasePinAt?: string | null;
   bol: BolReading | null;
   status214: boolean;
   noticeSentAt: string | null;
@@ -55,6 +60,7 @@ export type Verdict = "BILLABLE" | "NOT_BILLABLE" | "NEEDS_HUMAN";
 export type ReasonCode =
   | "MISSING_TIMESTAMP"
   | "PIN_OUTSIDE_GEOFENCE"
+  | "RELEASE_PIN_LATE"
   | "BOL_TIMESTAMP_CONFLICT"
   | "LATE_ARRIVAL"
   | "WITHIN_FREE_TIME"

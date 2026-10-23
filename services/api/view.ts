@@ -3,8 +3,8 @@
 // from dispatch onwards: everything that needs the sealed pack is null until the load is sealed.
 // Every string that came from a stored record is scrubbed; handler.ts still runs findLeaks on the
 // whole response before it is sent.
-import { clauseById, detentionStartsAt, type ClauseSpec } from "@dockclock/clause-engine";
-import { canonicalJson, checkGeofence, facilityById, type Facility, type SignedPack } from "@dockclock/evidence";
+import { clauseById, detentionStartsAt, RELEASE_PIN_WINDOW_MINUTES, type ClauseSpec } from "@dockclock/clause-engine";
+import { canonicalJson, checkGeofence, facilityById, isoToLocalClock, zoneAbbreviation, type Facility, type SignedPack } from "@dockclock/evidence";
 import { parseMime, scrub, scrubText, type ParsedEmail } from "@dockclock/sanitize";
 import type { Language } from "../src/messages.js";
 import type {
@@ -191,7 +191,6 @@ export function summaryOf(items: Item[]): LoadSummary {
   const p = partsOf(items);
   const status = statusOf(p);
   const arrived = obj(p.meta.arrived);
-  const released = obj(p.meta.released);
   const bol = obj(p.meta.bol);
   const stamps = items.flatMap((i) => [str(i.serverAt), str(i.sentAt), str(i.startedAt), str(i.requestedAt), str(i.decidedAt), str(i.approvedAt), str(i.sealedAt), str(i.createdAt)]);
   const notice = obj(p.meta.notice);
@@ -213,7 +212,7 @@ export function summaryOf(items: Item[]): LoadSummary {
     amountUsd: typeof p.pack?.amountUsd === "number" ? p.pack.amountUsd : null,
     claimSentAt: str(p.claimItem?.sentAt),
     arrivedAt: str(arrived.serverAt),
-    releasedAt: str(released.serverAt),
+    releasedAt: releasedAtOf(p.meta),
     failover: p.events.some((e) => e.type === "failover"),
     photos: Array.isArray(bol.photos) ? bol.photos.length : 0,
   };
@@ -502,9 +501,15 @@ function emailsOf(p: Parts, mime: { notice?: ParsedEmail; claim?: ParsedEmail })
   return out;
 }
 
+// When the dock clock stopped: the driver's Released tap, or on loads recorded before the tap was
+// kept, the release pin.
+function releasedAtOf(meta: Item): string | null {
+  return str(obj(meta.releasedTap).serverAt) ?? str(obj(meta.released).serverAt);
+}
+
 function clockOf(p: Parts, now: string, signed: SignedPack | null): LiveClock {
   const arrivedAt = str(obj(p.meta.arrived).serverAt);
-  const releasedAt = str(obj(p.meta.released).serverAt);
+  const releasedAt = releasedAtOf(p.meta);
   const appointmentAt = String(p.meta.appointmentAt);
   const freeTimeEndsAt = arrivedAt ? detentionStartsAt(p.clause, appointmentAt, arrivedAt) : null;
   const clockStartAt = arrivedAt ? (p.clause.freeTimeAnchor === "appointment" && Date.parse(arrivedAt) < Date.parse(appointmentAt) ? appointmentAt : arrivedAt) : null;
@@ -527,7 +532,9 @@ function workflowOf(p: Parts, status: LoadStatus, photos: PhotoInfo[]): Workflow
   const phase = phaseOf(m);
   const channelTag = m.channel === "rcs" ? "EUM RCS" : "EUM Social";
   const arrivedAt = str(obj(m.arrived).serverAt);
-  const releasedAt = str(obj(m.released).serverAt);
+  const tapAt = str(obj(m.releasedTap).serverAt);
+  const pinAt = str(obj(m.released).serverAt);
+  const releasedAt = tapAt ?? pinAt;
   const bolAt = str(obj(m.bol).serverAt);
   const reading = obj(m.bolReading);
   const notice = obj(m.notice);
@@ -551,7 +558,7 @@ function workflowOf(p: Parts, status: LoadStatus, photos: PhotoInfo[]): Workflow
   else if (!str(notice.sentAt) && str(notice.scheduledFor) && !closed && phase !== "sealed") Object.assign(noticeStep, { state: "waiting", detail: `Scheduled for ${String(notice.scheduledFor)}` });
   else if (!str(notice.sentAt) && p.clause.noticeLeadMinutes === null) Object.assign(noticeStep, { detail: "This contract does not require notice." });
   steps.push(noticeStep);
-  steps.push(step("released", "Release confirmed by a location pin", [channelTag, "SQS", "Lambda", "DynamoDB"], releasedAt, phase === "at_dock" || phase === "awaiting_release_pin"));
+  steps.push(releaseStep(p, tapAt, pinAt, step, [channelTag, "SQS", "Lambda", "DynamoDB"], phase, closed));
   const paperworkStep = step("paperwork", "Bill of lading received", [channelTag, "SQS", "Lambda", "S3 Object Lock"], bolAt, phase === "awaiting_bol");
   if (!bolAt && phase === "sealed") Object.assign(paperworkStep, { detail: "No photo came within six hours, so the contract was decided on the pins alone." });
   steps.push(paperworkStep);
@@ -576,6 +583,38 @@ function workflowOf(p: Parts, status: LoadStatus, photos: PhotoInfo[]): Workflow
   else if (status === "needs_human" && billable) Object.assign(claim, { state: "failed", detail: "The agent did not file; a person takes over." });
   steps.push(claim);
   return steps;
+}
+
+// The release step. On a load with a Released tap the clock stopped at the tap and the step is done
+// once the location pin confirms it; the detail says when the pin came, or that it is awaited. An
+// older load's release is the pin alone, as before.
+function releaseStep(
+  p: Parts,
+  tapAt: string | null,
+  pinAt: string | null,
+  step: (key: WorkflowStep["key"], label: string, services: WorkflowStep["services"], at: string | null, current: boolean, extra?: Partial<WorkflowStep>) => WorkflowStep,
+  services: WorkflowStep["services"],
+  phase: Phase,
+  closed: boolean,
+): WorkflowStep {
+  if (!tapAt) return step("released", "Release confirmed by a location pin", services, pinAt, phase === "at_dock" || phase === "awaiting_release_pin");
+  const tz = p.facility.timeZone;
+  const label = "Driver tapped Released: the dock clock stopped";
+  const stopped = `Clock stopped at ${isoToLocalClock(tapAt, tz)} ${zoneAbbreviation(tapAt, tz)}.`;
+  if (!pinAt) {
+    const waiting = closed || phase === "sealed" ? "No location pin came to confirm it." : `Waiting for the location pin that confirms it (within ${RELEASE_PIN_WINDOW_MINUTES} minutes).`;
+    return step("released", label, services, null, phase === "awaiting_release_pin", { detail: `${stopped} ${waiting}` });
+  }
+  const gap = Math.round((Date.parse(pinAt) - Date.parse(tapAt)) / 60_000);
+  const pin = obj(p.meta.released);
+  const inside = p.facility.known && typeof pin.lat === "number" && typeof pin.lon === "number" ? checkGeofence([pin.lon, pin.lat], p.facility).inside : null;
+  const where = inside === null ? "" : inside ? ", inside the facility" : ", outside the facility";
+  const pinAtWords = `${isoToLocalClock(pinAt, tz)} ${zoneAbbreviation(pinAt, tz)}`;
+  const late = Math.abs(gap) > RELEASE_PIN_WINDOW_MINUTES;
+  const confirm = late
+    ? `The location pin came at ${pinAtWords}, ${gap} min later (limit ${RELEASE_PIN_WINDOW_MINUTES}), so a person reviews the load.`
+    : `Confirmed by the location pin at ${pinAtWords}, ${gap} min later${where}.`;
+  return step("released", label, services, tapAt, false, { detail: `${stopped} ${confirm}`, ...(late ? { state: "failed" as const } : {}) });
 }
 
 function verdictOf(p: Parts, signed: SignedPack): VerdictInfo {

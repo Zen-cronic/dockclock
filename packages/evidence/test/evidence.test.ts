@@ -234,3 +234,68 @@ describe("message ids in a pack", () => {
     expect(messageRef(pack.events.bol!.messageId)).toBe(pack.events.bol!.messageId);
   });
 });
+
+describe("the Released tap ends the clock; the pin confirms it", () => {
+  // lakeshore-foods: free time 2 h from the 14:00Z appointment (arrived early at 13:50Z).
+  const tapped = (pinAt: string, overrides: Partial<LoadRecord> = {}): LoadRecord => {
+    const base = record();
+    return record({
+      releasedTap: { channel: "whatsapp", messageId: "m-tap", serverAt: "2026-10-13T17:20:00.000Z" },
+      released: { ...base.released!, serverAt: pinAt },
+      bol: { ...base.bol!, checkOut: "2026-10-13T17:22:00.000Z" },
+      ...overrides,
+    });
+  };
+
+  it("bills to the tap when the pin comes 3 minutes later", () => {
+    const evidence = toLoadEvidence(tapped("2026-10-13T17:23:00.000Z"), "2026-10-13T18:00:00.000Z");
+    expect(evidence.released).toEqual({ at: "2026-10-13T17:20:00.000Z", insideGeofence: true });
+    expect(evidence.releasePinAt).toBe("2026-10-13T17:23:00.000Z");
+    const result = evaluate(evidence, clauseById("lakeshore-foods"));
+    expect(result.verdict).toBe("BILLABLE");
+    // 16:00Z free time ends, 17:20Z tap: 80 minutes, not the 83 to the pin.
+    expect(result.detentionMinutes).toBe(80);
+  });
+
+  it("sends a pin 12 minutes after the tap to a person", () => {
+    const load = tapped("2026-10-13T17:32:00.000Z");
+    const result = evaluate(toLoadEvidence(load, "2026-10-13T18:00:00.000Z"), clauseById("lakeshore-foods"));
+    expect(result).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["RELEASE_PIN_LATE"] });
+    const signal = corroborate(load).signals.find((s) => s.name === "released_pin_confirms_tap");
+    expect(signal).toMatchObject({ ok: false, detail: expect.stringContaining("12 min after the Released tap (limit 10)") });
+    expect(corroborate(load).confidence).toBe("low");
+  });
+
+  it("compares the paper's out time with the tap", () => {
+    // Paper 17:22Z: 2 minutes after the tap, 7 before the pin. Both inside 15; the signal names the tap.
+    const signals = corroborate(tapped("2026-10-13T17:29:00.000Z")).signals;
+    expect(signals.find((s) => s.name === "bol_out_matches_released_tap")).toMatchObject({ ok: true, detail: expect.stringMatching(/^2 min apart/) });
+    expect(signals.some((s) => s.name === "bol_out_matches_released_pin")).toBe(false);
+    // A paper time 16 minutes after the tap conflicts, even though it is 7 minutes from the pin.
+    const late = tapped("2026-10-13T17:29:00.000Z", { bol: { ...record().bol!, checkOut: "2026-10-13T17:36:00.000Z" } });
+    expect(evaluate(toLoadEvidence(late, "2026-10-13T18:00:00.000Z"), clauseById("lakeshore-foods")).reasons).toEqual(["BOL_TIMESTAMP_CONFLICT"]);
+  });
+
+  it("records both times in a version 2 pack, which verifies", async () => {
+    const load = tapped("2026-10-13T17:23:00.000Z");
+    const evaluation = evaluate(toLoadEvidence(load, "2026-10-13T18:00:00.000Z"), clauseById("lakeshore-foods"));
+    const pack = buildPack(load, corroborate(load), evaluation, "2026-10-13T18:00:00.000Z");
+    expect(pack.version).toBe(2);
+    expect(pack.events.releasedTap).toEqual({ serverAt: "2026-10-13T17:20:00.000Z", channel: "whatsapp", messageId: messageRef("m-tap") });
+    expect(pack.events.released).toEqual({ serverAt: "2026-10-13T17:23:00.000Z", messageId: messageRef("m-rel"), insideGeofence: true });
+    expect(pack.clockEnd).toEqual({ by: "released_tap", at: "2026-10-13T17:20:00.000Z" });
+    const signer = new LocalSigner();
+    expect(verifyPack(await sealPack(pack, signer), await signer.publicKeyDer())).toBe(true);
+  });
+
+  it("keeps release-is-the-pin for a record without a tap", () => {
+    const load = record();
+    const evidence = toLoadEvidence(load, "2026-10-13T18:00:00.000Z");
+    expect(evidence.releasePinAt).toBeUndefined();
+    expect(evidence.released?.at).toBe(load.released!.serverAt);
+    const pack = buildPack(load, corroborate(load), evaluate(evidence, clauseById("lakeshore-foods")), "2026-10-13T18:00:00.000Z");
+    expect(pack.events.releasedTap).toBeNull();
+    expect(pack.clockEnd).toEqual({ by: "released_pin", at: load.released!.serverAt });
+    expect(corroborate(load).signals.some((s) => s.name === "bol_out_matches_released_pin")).toBe(true);
+  });
+});

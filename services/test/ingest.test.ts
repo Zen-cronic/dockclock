@@ -6,6 +6,7 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand, TransactWriteCommand, U
 import type { SQSEvent } from "aws-lambda";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { driverKeyWith } from "../src/identity.js";
 import { handler } from "../src/ingest.js";
 
 const dynamo = mockClient(DynamoDBDocumentClient);
@@ -110,6 +111,32 @@ describe("ingest outbox", () => {
     expect(update?.UpdateExpression).toContain("phase = :p");
     expect(update?.UpdateExpression).toContain("outbox.#o0 = :o0");
     expect(Object.values(update?.ExpressionAttributeValues ?? {})).toContainEqual(expect.objectContaining({ effect: { type: "offer_release" } }));
+  });
+
+  it("stores the Released tap with the state change, then quotes its time in the location request", async () => {
+    const tapAt = new Date(1792186263 * 1000).toISOString();
+    // A button names its load, so the sender must be the driver it was dispatched to.
+    const driverKey = driverKeyWith("k", { kind: "phone", e164: "+15550100001" });
+    const atDock = { ...load, driverKey, phase: "at_dock", outbox: {}, arrived: { serverAt: "2026-10-17T18:01:03.000Z", messageId: "wamid.pin", lat: 39.8995, lon: -82.938 } };
+    dynamo.on(GetCommand).callsFake((input: { Key: { pk: string } }) => {
+      if (input.Key.pk.startsWith("DRIVER#")) return { Item: { loadId: "4471", dispatchedAt: "t", address: load.address } };
+      if (input.Key.pk === "LOAD#4471") return { Item: atDock };
+      return {};
+    });
+    dynamo.on(TransactWriteCommand).callsFake(async (input: { TransactItems: Array<{ Update?: { ExpressionAttributeValues: Record<string, unknown>; ExpressionAttributeNames?: Record<string, string> } }> }) => {
+      const values = input.TransactItems[2]!.Update!.ExpressionAttributeValues;
+      const outbox = Object.fromEntries(Object.entries(values).filter(([k]) => k.startsWith(":o") && k !== ":old").map(([, v]) => [(v as { seq: string }).seq, v]));
+      dynamo.on(GetCommand, { Key: { pk: "LOAD#4471", sk: "META" } }).resolves({ Item: { ...atDock, phase: "awaiting_release_pin", releasedTap: values[":rt"], outbox } });
+      return {};
+    });
+    messaging.on(SendWhatsAppMessageCommand).resolves({ messageId: "out-4" });
+    await handler(sqsEvent({ type: "button", button: { payload: "dc1.released.4471.abc123", text: "Released" } }, "wamid.tap"));
+    const update = dynamo.commandCalls(TransactWriteCommand)[0]?.args[0].input.TransactItems?.[2]?.Update;
+    expect(update?.UpdateExpression).toContain("releasedTap = :rt");
+    expect(update?.ExpressionAttributeValues?.[":rt"]).toEqual({ channel: "whatsapp", serverAt: tapAt, messageId: "wamid.tap" });
+    const body = JSON.parse(Buffer.from(messaging.commandCalls(SendWhatsAppMessageCommand).at(-1)!.args[0].input.message as Uint8Array).toString());
+    expect(body.interactive.type).toBe("location_request_message");
+    expect(body.interactive.body.text).toMatch(/^Clock stopped at \d{2}:\d{2} E[DS]T\.\nShare your location within 10 minutes/);
   });
 
   it("drops a malformed body instead of retrying it into the dead-letter queue", async () => {

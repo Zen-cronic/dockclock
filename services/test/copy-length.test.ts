@@ -20,7 +20,7 @@ const DEMO_INTRO_CAP = 760;
 const FACILITY = "Lakeshore Distribution Center, Columbus OH";
 const COUNTERPARTY = "Atlas Brokerage (fictional broker)";
 const LOAD = "LIVE-mvheu9rl";
-const ALL_REASONS = ["PIN_OUTSIDE_GEOFENCE", "BOL_TIMESTAMP_CONFLICT", "NOTICE_LATE"];
+const ALL_REASONS = ["PIN_OUTSIDE_GEOFENCE", "RELEASE_PIN_LATE", "BOL_TIMESTAMP_CONFLICT", "NOTICE_LATE"];
 
 function driverMessages(language: Language): Record<string, string> {
   const copy = COPY[language];
@@ -28,7 +28,7 @@ function driverMessages(language: Language): Record<string, string> {
   const out = (input: Parameters<typeof outcomeText>[0], demo = false) => outcomeText(input, language, demo, extra);
   const messages: Record<string, string> = {
     locationArrived: copy.locationArrived,
-    locationReleased: copy.locationReleased,
+    locationReleased: copy.locationReleased("14:32 EDT"),
     checkedIn: copy.checkedIn(FACILITY, "14:25 EDT"),
     releaseFlowBody: copy.releaseFlowBody(FACILITY, "16:02 EDT"),
     retakeAsk: copy.retakeAsk(60, "17:10", "EDT", false),
@@ -98,7 +98,7 @@ describe("WhatsApp and RCS limits", () => {
   it("fits interactive bodies in 1024 characters and buttons and the Flow CTA in 20", () => {
     for (const language of LANGUAGES) {
       const copy = COPY[language];
-      for (const body of [copy.checkedIn(FACILITY, "14:25 EDT"), copy.releaseFlowBody(FACILITY, "16:02 EDT"), copy.locationArrived, copy.locationReleased]) expect(body.length).toBeLessThanOrEqual(1024);
+      for (const body of [copy.checkedIn(FACILITY, "14:25 EDT"), copy.releaseFlowBody(FACILITY, "16:02 EDT"), copy.locationArrived, copy.locationReleased("14:32 EDT")]) expect(body.length).toBeLessThanOrEqual(1024);
       for (const title of [copy.released, copy.talkToDispatch, copy.releaseFlowCta]) expect([...title].length, `${language}: ${title}`).toBeLessThanOrEqual(20);
     }
   });

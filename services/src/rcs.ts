@@ -32,10 +32,10 @@ export function rcsReleaseOffer(language: Language, loadId: string, nonce: strin
 
 // RequestLocation opens the phone's share-location sheet; the pin arrives as its own inbound event.
 // Its postback is deliberately not a dc1 payload, so the tap itself changes nothing.
-export function rcsLocationRequest(language: Language, step: "arrived" | "released"): RcsMessageContent {
+export function rcsLocationRequest(language: Language, step: "arrived" | "released", stoppedAt = ""): RcsMessageContent {
   const copy = COPY[language];
   return {
-    Content: { TextMessage: { Body: step === "arrived" ? copy.locationArrived : copy.locationReleased } },
+    Content: { TextMessage: { Body: step === "arrived" ? copy.locationArrived : copy.locationReleased(stoppedAt) } },
     Suggestions: [{ RequestLocation: { Text: copy.rcs.shareLocation, PostbackData: `location_request.${step}` } }],
   };
 }

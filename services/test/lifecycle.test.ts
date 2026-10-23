@@ -55,6 +55,23 @@ describe("applyEvent", () => {
     expect(applyEvent(releasing, pin()).effects).toEqual([{ type: "resume", step: "released" }, { type: "send_release_flow" }]);
   });
 
+  it("records the Released tap, which stops the clock, before asking for the confirming pin", () => {
+    const released: InboundEvent = { ...tap("released"), serverAt: "2026-10-13T17:18:00.000Z", wamid: "w-tap" };
+    const atDock = run(toBol.slice(0, 2)).state;
+    const t = applyEvent(atDock, released);
+    expect(t.state.releasedTap).toEqual({ channel: "whatsapp", serverAt: "2026-10-13T17:18:00.000Z", messageId: "w-tap" });
+    expect(t.state.phase).toBe("awaiting_release_pin");
+    expect(t.effects).toEqual([{ type: "request_location", step: "released" }]);
+    // A second tap changes nothing: the clock stays stopped at the first.
+    const again = applyEvent(t.state, { ...tap("released"), serverAt: "2026-10-13T17:30:00.000Z" });
+    expect(again.outcome).toBe("IGNORED_DUPLICATE_TAP");
+    expect(again.state.releasedTap?.serverAt).toBe("2026-10-13T17:18:00.000Z");
+    // The pin keeps its own time; the tap is not overwritten.
+    const pinned = applyEvent(t.state, pin("2026-10-13T17:21:00.000Z")).state;
+    expect(pinned.released?.serverAt).toBe("2026-10-13T17:21:00.000Z");
+    expect(pinned.releasedTap?.serverAt).toBe("2026-10-13T17:18:00.000Z");
+  });
+
   it("ignores a second Arrived tap without moving the clock", () => {
     const { state, outcomes } = run([tap("arrived"), pin(), tap("arrived")]);
     expect(outcomes.at(-1)).toBe("IGNORED_DUPLICATE_TAP");

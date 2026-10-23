@@ -15,8 +15,9 @@ import {
   type BolCapture,
   type LoadRecord,
   type PinEvent,
+  type TapEvent,
 } from "@dockclock/evidence";
-import type { BolRecord, PinRecord } from "./lifecycle.js";
+import type { BolRecord, PinRecord, TapRecord } from "./lifecycle.js";
 import { ddb, getLoad, type LoadItem } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
@@ -26,6 +27,16 @@ const RETENTION_DAYS = 30;
 
 function pinEvent(kind: PinEvent["kind"], pin: PinRecord | null, load: LoadItem): PinEvent | null {
   return pin && { kind, channel: pin.channel ?? load.channel, messageId: pin.messageId, serverAt: pin.serverAt, location: [pin.lon, pin.lat] };
+}
+
+function tapEvent(tap: TapRecord | null | undefined, load: LoadItem): TapEvent | null {
+  return tap ? { channel: tap.channel ?? load.channel, messageId: tap.messageId, serverAt: tap.serverAt } : null;
+}
+
+// When the truck was released: the Released tap where one was recorded, else (older loads) the pin.
+// The Flow pre-fills this as the out time, and the paper's out time is pinned to its date.
+export function releaseTime(load: Pick<LoadItem, "releasedTap" | "released">): string | undefined {
+  return load.releasedTap?.serverAt ?? load.released?.serverAt;
 }
 
 interface RecordedReading {
@@ -43,14 +54,14 @@ function photoReadingOf(load: LoadItem, timeZone: string): Pick<BolCapture, "pho
     photoReading: {
       legible: reading.legible,
       checkIn: localClockToIso(reading.inTime, load.arrived?.serverAt ?? load.bol?.serverAt ?? new Date().toISOString(), timeZone),
-      checkOut: localClockToIso(reading.outTime, load.released?.serverAt ?? load.bol?.serverAt ?? new Date().toISOString(), timeZone),
+      checkOut: localClockToIso(reading.outTime, releaseTime(load) ?? load.bol?.serverAt ?? new Date().toISOString(), timeZone),
       receiverSigned: reading.receiverSigned,
     },
   };
 }
 
-// Paperwork times are wall-clock at the facility; each is pinned to the day of the matching pin.
-// A time is "edited" only if it differs from the value the Flow pre-filled from that pin.
+// Paperwork times are wall-clock at the facility; each is pinned to the day of the matching event
+// (arrival pin, release). A time is "edited" only if it differs from the value the Flow pre-filled.
 function bolCapture(bol: BolRecord | null, load: LoadItem, timeZone: string): BolCapture | null {
   if (!bol) return null;
   if (bol.channel === "rcs") {
@@ -77,13 +88,13 @@ function bolCapture(bol: BolRecord | null, load: LoadItem, timeZone: string): Bo
     pageSha256s: bol.photos.map((p) => p.sha256 ?? null),
     timesEdited: {
       in: normalizeClock(bol.inTime) !== prefilled(load.arrived?.serverAt),
-      out: normalizeClock(bol.outTime) !== prefilled(load.released?.serverAt),
+      out: normalizeClock(bol.outTime) !== prefilled(releaseTime(load)),
     },
     ...photoReadingOf(load, timeZone),
     // Only the receiver-signed box counts as a signature, never text typed into a name field.
     signed: bol.receiverSigned === true,
     checkIn: localClockToIso(bol.inTime, load.arrived?.serverAt ?? bol.serverAt, timeZone),
-    checkOut: localClockToIso(bol.outTime, load.released?.serverAt ?? bol.serverAt, timeZone),
+    checkOut: localClockToIso(bol.outTime, releaseTime(load) ?? bol.serverAt, timeZone),
     confirmedByDriver: true,
   };
 }
@@ -96,6 +107,7 @@ export function toRecord(load: LoadItem): LoadRecord {
     facility,
     appointmentAt: load.appointmentAt,
     arrived: pinEvent("arrived", load.arrived, load),
+    releasedTap: tapEvent(load.releasedTap, load),
     released: pinEvent("released", load.released, load),
     bol: bolCapture(load.bol ?? null, load, facility.timeZone),
     status214: false,

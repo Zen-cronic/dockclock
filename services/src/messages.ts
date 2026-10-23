@@ -1,4 +1,8 @@
+import { RELEASE_PIN_WINDOW_MINUTES } from "@dockclock/clause-engine";
 import type { MessageKey } from "./lifecycle.js";
+
+// How long the driver has after Released to share the location that confirms it.
+const PIN_MINUTES = RELEASE_PIN_WINDOW_MINUTES;
 
 export type Language = "en_US" | "es_MX" | "fr_CA";
 export const LANGUAGES: readonly Language[] = ["en_US", "es_MX", "fr_CA"];
@@ -6,7 +10,9 @@ export const LANGUAGES: readonly Language[] = ["en_US", "es_MX", "fr_CA"];
 interface Copy {
   locale: string;
   locationArrived: string;
-  locationReleased: string;
+  // Sent after the Released tap: the zone-labelled time the clock stopped ("14:32 EDT"), then the
+  // request for the pin that confirms it. An empty time (a load from before the tap was kept) drops the first line.
+  locationReleased: (time: string) => string;
   // The time arrives zone-labelled ("14:25 EDT").
   checkedIn: (facility: string, time: string) => string;
   released: string;
@@ -44,7 +50,7 @@ export const COPY: Record<Language, Copy> = {
   en_US: {
     locale: "en-US",
     locationArrived: "Share your location to start the dock clock. Only send it while parked.",
-    locationReleased: "Share your location once more to stop the dock clock.",
+    locationReleased: (time) => `${time ? `Clock stopped at ${time}.\n` : ""}Share your location within ${PIN_MINUTES} minutes to confirm the release.`,
     checkedIn: (facility, time) => `Checked in at ${facility}, ${time}.\nTap Released when you are unloaded and leaving the door.`,
     released: "Released",
     talkToDispatch: "Talk to dispatch",
@@ -80,7 +86,7 @@ export const COPY: Record<Language, Copy> = {
   es_MX: {
     locale: "es-MX",
     locationArrived: "Comparta su ubicación para iniciar el reloj en el andén. Envíela solo cuando esté estacionado.",
-    locationReleased: "Comparta su ubicación otra vez para detener el reloj.",
+    locationReleased: (time) => `${time ? `Reloj detenido a las ${time}.\n` : ""}Comparta su ubicación en los próximos ${PIN_MINUTES} minutos para confirmar la salida.`,
     checkedIn: (facility, time) => `Registro en ${facility}, ${time}.\nToque Liberado cuando termine la descarga y salga del andén.`,
     released: "Liberado",
     talkToDispatch: "Hablar con despacho",
@@ -116,7 +122,7 @@ export const COPY: Record<Language, Copy> = {
   fr_CA: {
     locale: "fr-CA",
     locationArrived: "Partagez votre position pour lancer le chrono au quai. Envoyez-la seulement une fois stationné.",
-    locationReleased: "Partagez votre position encore une fois pour arrêter le chrono.",
+    locationReleased: (time) => `${time ? `Chrono arrêté à ${time}.\n` : ""}Partagez votre position d'ici ${PIN_MINUTES} minutes pour confirmer le départ.`,
     checkedIn: (facility, time) => `Arrivée enregistrée à ${facility}, ${time}.\nAppuyez sur Libéré une fois déchargé et sorti du quai.`,
     released: "Libéré",
     talkToDispatch: "Joindre répartiteur",
