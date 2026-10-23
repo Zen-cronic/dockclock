@@ -4,11 +4,15 @@ import { IconClose } from "./icons.js";
 // Drawer: the one place dense detail goes (records, emails, the agent run, raw JSON).
 export function Drawer({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
+  // The parent passes a new inline onClose on every render (the 3 s poll re-renders it). Keep the
+  // latest in a ref, so the focus trap runs once per open and focus stays where the reader put it.
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     panel.current?.focus();
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") return onClose();
+      if (e.key === "Escape") return close.current();
       // Keep Tab inside the drawer while it is open.
       if (e.key !== "Tab" || !panel.current) return;
       const items = panel.current.querySelectorAll<HTMLElement>("a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex='-1'])");
@@ -28,7 +32,7 @@ export function Drawer({ title, onClose, children }: { title: string; onClose: (
       window.removeEventListener("keydown", key);
       prev?.focus();
     };
-  }, [onClose]);
+  }, []);
   return (
     <>
       <div className="drawer-back" onClick={onClose} />

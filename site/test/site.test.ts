@@ -291,3 +291,14 @@ describe("message monitor order", () => {
     expect(ids(orderFeed(filterFeed(rows, null, "Failed"), "newest"))).toEqual(["z2"]);
   });
 });
+
+// The 3 s poll re-renders a drawer's parent with a new inline onClose; the focus trap must not
+// re-run (and reset focus) on each one. There is no DOM in these tests, so this reads the source.
+describe("drawer focus", () => {
+  it("runs the focus trap once per open, not on every new onClose", () => {
+    const src = readFileSync(new URL("../src/ui/Drawer.tsx", import.meta.url), "utf8");
+    expect(src).not.toMatch(/\[onClose\]/);
+    expect(src).toMatch(/close\.current = onClose/);
+    expect(src).toMatch(/\}, \[\]\);/);
+  });
+});
