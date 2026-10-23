@@ -51,6 +51,9 @@ describe("stacks", () => {
     expect(definition).toContain("waitForTaskToken");
     // The retake wait comes from the retake request (10 minutes on demo loads, an hour otherwise).
     expect(definition).toContain('\\"TimeoutSecondsPath\\":\\"$.retakeRequest.result.waitSeconds\\"');
+    // The retake fires on the tool's own legible flag, which sits under reading (a wrong path never matched, so no retake was ever asked).
+    expect(definition).toContain('\\"Variable\\":\\"$.bolReading.result.reading.legible\\"');
+    expect(definition).not.toContain('$.bolReading.result.legible');
     expect(definition).toContain("Await arrived");
     expect(definition).toContain("Await released");
     expect(definition).toContain("Await bol");

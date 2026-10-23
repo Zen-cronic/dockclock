@@ -260,7 +260,8 @@ export class MessagingStack extends Stack {
 
     readBol.next(
       new sfn.Choice(this, "Photo readable?")
-        .when(sfn.Condition.and(sfn.Condition.isPresent("$.bolReading.result.legible"), sfn.Condition.booleanEquals("$.bolReading.result.legible", false)), requestRetake)
+        // read_bill_of_lading returns { reading: { legible, ... }, comparedWith... } (packages/agent/src/tools.ts).
+        .when(sfn.Condition.and(sfn.Condition.isPresent("$.bolReading.result.reading.legible"), sfn.Condition.booleanEquals("$.bolReading.result.reading.legible", false)), requestRetake)
         .otherwise(sealPack),
     );
 
