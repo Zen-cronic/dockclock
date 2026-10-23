@@ -65,3 +65,23 @@ describe("API fixtures", () => {
     expect(() => execFileSync(join(root, "node_modules", ".bin", "tsc"), ["-p", join(tmp, "tsconfig.json")], { encoding: "utf8" })).not.toThrow();
   }, 120_000);
 });
+
+describe("api:fixtures re-recording", async () => {
+  const { mergedIndex, staleFixtureFiles } = await import("../scripts/fixture-files.js");
+
+  it("replaces only the named loads' own files and never loads/live/", () => {
+    const loads = ["LIVE-a.json", "LIVE-a.pack.json", "LIVE-a.emails.claim.json", "LIVE-ab.json", "SMOKE-b.json", "live"];
+    const photos = ["LIVE-a-1.jpg", "LIVE-ab-1.jpg", "SMOKE-b-1.jpg"];
+    expect(staleFixtureFiles(["LIVE-a"], { loads, photos })).toEqual(["loads/LIVE-a.json", "loads/LIVE-a.pack.json", "loads/LIVE-a.emails.claim.json", "photos/LIVE-a-1.jpg"]);
+    expect(staleFixtureFiles(["LIVE-a"], { loads, photos }).some((f) => f.includes("live"))).toBe(false);
+  });
+
+  it("keeps earlier index entries whose files are still there", () => {
+    const merged = mergedIndex(
+      [{ file: "loads/SMOKE-b.json" }, { file: "loads/LIVE-a.json" }, { file: "loads/gone.json" }],
+      [{ file: "loads/LIVE-a.json" }],
+      (f) => f !== "loads/gone.json",
+    );
+    expect(merged.map((m) => m.file)).toEqual(["loads/LIVE-a.json", "loads/SMOKE-b.json"]);
+  });
+});

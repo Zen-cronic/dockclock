@@ -2,8 +2,9 @@
 // process, against the deployed table and buckets. So every fixture is exactly what the API returns
 // for a recorded demo-workspace load, already through its sanitizer and leak check.
 // Usage: npm run api:fixtures -- <loadId> [<loadId> ...]
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { findLeaks } from "@dockclock/sanitize";
+import { mergedIndex, staleFixtureFiles } from "./fixture-files.js";
 
 const outputs = JSON.parse(readFileSync(new URL("../.cdk-outputs.json", import.meta.url), "utf8")) as Record<string, Record<string, string>>;
 const manifest = JSON.parse(readFileSync(new URL("../docs/evidence/MANIFEST.json", import.meta.url), "utf8")) as { publicKey: { spkiSha256: string } };
@@ -21,10 +22,12 @@ const { handler } = await import("../services/api/handler.js");
 const loadIds = process.argv.slice(2);
 if (!loadIds.length) throw new Error("usage: api:fixtures <loadId> [<loadId> ...]");
 const dir = new URL("../site/fixtures/api/", import.meta.url);
-rmSync(new URL("loads/", dir), { recursive: true, force: true });
-rmSync(new URL("photos/", dir), { recursive: true, force: true });
 mkdirSync(new URL("loads/", dir), { recursive: true });
 mkdirSync(new URL("photos/", dir), { recursive: true });
+// Only these loads' own files are replaced; loads/live/ (in-progress captures) is never touched.
+const list = (sub: string) => readdirSync(new URL(sub, dir), { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name);
+for (const file of staleFixtureFiles(loadIds, { loads: list("loads/"), photos: list("photos/") })) rmSync(new URL(file, dir), { force: true });
+const previousIndex = existsSync(new URL("index.json", dir)) ? ((JSON.parse(readFileSync(new URL("index.json", dir), "utf8")) as { files?: Array<{ file: string; route: string; status: number }> }).files ?? []) : [];
 
 const index: Array<{ file: string; route: string; status: number }> = [];
 async function get(route: string) {
@@ -73,5 +76,5 @@ for (const loadId of loadIds) {
   }
 }
 await fixture("/api/loads/LIVE-not-in-demo", "error-404.json");
-writeFileSync(new URL("index.json", dir), `${JSON.stringify({ about: "Responses of the DockClock read API (site/src/api.ts) for recorded demo-workspace loads, written by npm run api:fixtures.", generatedAt: new Date().toISOString(), files: index }, null, 1)}\n`);
+writeFileSync(new URL("index.json", dir), `${JSON.stringify({ about: "Responses of the DockClock read API (site/src/api.ts) for recorded demo-workspace loads, written by npm run api:fixtures.", generatedAt: new Date().toISOString(), files: mergedIndex(previousIndex, index, (f) => existsSync(new URL(f, dir))) }, null, 1)}\n`);
 console.log(`wrote ${index.length} fixtures`);
