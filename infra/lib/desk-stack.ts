@@ -13,10 +13,19 @@ import { ReadApi } from "./read-api.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-// What the desk serves: the built site when site/dist exists, otherwise a placeholder page.
-export function deskSource(root = repoRoot): string {
+// Asking for the placeholder page on purpose: DOCKCLOCK_DESK_PLACEHOLDER=1, or the CDK context
+// value dockclock:deskPlaceholder=1 (cdk deploy -c dockclock:deskPlaceholder=1).
+export const DESK_PLACEHOLDER_ENV = "DOCKCLOCK_DESK_PLACEHOLDER";
+export const DESK_PLACEHOLDER_CONTEXT = "dockclock:deskPlaceholder";
+
+// What the desk serves: the built site (site/dist). The deployment prunes the bucket, so deploying
+// the placeholder by accident would take the live console down; without a build it fails unless
+// the placeholder was asked for.
+export function deskSource(root = repoRoot, placeholder = process.env[DESK_PLACEHOLDER_ENV] === "1"): string {
   const built = join(root, "site", "dist");
-  return existsSync(join(built, "index.html")) ? built : join(root, "infra", "desk-placeholder");
+  if (existsSync(join(built, "index.html"))) return built;
+  if (placeholder) return join(root, "infra", "desk-placeholder");
+  throw new Error(`site/dist/index.html is missing: run npm run build -w @dockclock/site before deploying the desk, or set ${DESK_PLACEHOLDER_ENV}=1 to deploy the placeholder page (it replaces the live console).`);
 }
 
 export interface DeskStackProps extends StackProps {
@@ -77,7 +86,7 @@ export class DeskStack extends Stack {
       additionalBehaviors: { "/api/*": this.api.behavior() },
     });
     new BucketDeployment(this, "DeployDesk", {
-      sources: [Source.asset(props.source ?? deskSource())],
+      sources: [Source.asset(props.source ?? deskSource(repoRoot, process.env[DESK_PLACEHOLDER_ENV] === "1" || String(this.node.tryGetContext(DESK_PLACEHOLDER_CONTEXT)) === "1"))],
       destinationBucket: site,
       distribution: this.distribution,
       distributionPaths: ["/*"],

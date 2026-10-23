@@ -1,7 +1,11 @@
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { buildApp } from "../lib/app.js";
+import { DESK_PLACEHOLDER_CONTEXT, deskSource } from "../lib/desk-stack.js";
 
 const config = {
   account: "111122223333",
@@ -27,7 +31,8 @@ const config = {
 };
 
 describe("stacks", () => {
-  const { core, messaging, email, agent, desk } = buildApp(config, new App({ context: { "aws:cdk:bundling-stacks": [] } }));
+  // The placeholder is asked for, so the stacks build without a site build.
+  const { core, messaging, email, agent, desk } = buildApp(config, new App({ context: { "aws:cdk:bundling-stacks": [], [DESK_PLACEHOLDER_CONTEXT]: "1" } }));
   const coreT = Template.fromStack(core);
   const msgT = Template.fromStack(messaging);
 
@@ -187,5 +192,26 @@ describe("stacks", () => {
     const apiPolicy = JSON.stringify(apiPolicies);
     expect(apiPolicy).toContain("dynamodb:Query");
     expect(apiPolicy).not.toMatch(/dynamodb:(Put|Update|Delete|Scan|BatchWrite)|s3:(Put|Delete)/);
+  });
+});
+
+describe("desk source", () => {
+  const root = () => {
+    const dir = mkdtempSync(join(tmpdir(), "desk-"));
+    mkdirSync(join(dir, "infra", "desk-placeholder"), { recursive: true });
+    return dir;
+  };
+
+  it("serves the built site when it exists", () => {
+    const dir = root();
+    mkdirSync(join(dir, "site", "dist"), { recursive: true });
+    writeFileSync(join(dir, "site", "dist", "index.html"), "<!doctype html>");
+    expect(deskSource(dir, false)).toBe(join(dir, "site", "dist"));
+  });
+
+  it("refuses to deploy the placeholder over the live console unless asked", () => {
+    const dir = root();
+    expect(() => deskSource(dir, false)).toThrow(/site\/dist\/index.html is missing.*DOCKCLOCK_DESK_PLACEHOLDER=1/);
+    expect(deskSource(dir, true)).toBe(join(dir, "infra", "desk-placeholder"));
   });
 });
