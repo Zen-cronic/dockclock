@@ -204,10 +204,14 @@ async function sendDetentionClaim(input: ClaimRequest) {
   const publicKey = await publicKeyOf(pack.keyId);
   const footer = [
     "--",
-    `Evidence pack ${load.sealedPackId} (sha256 ${pack.digest}) is attached.`,
-    `It is signed with AWS KMS key ${pack.keyId}: ECDSA P-256 (signatureBase64, DER) over the SHA-256 of the file's "pack" field written as canonical JSON (object keys sorted at every level, no spaces), not over the file's own bytes.`,
-    `The public key is attached as ${PUBLIC_KEY_FILE} (SPKI sha256 ${publicKey.spkiSha256}). DockClock's verifier, npm run verify:pack, applies exactly this rule.`,
+    "Attached:",
+    `- ${load.sealedPackId}.json: the signed evidence pack (sha256 ${pack.digest})`,
+    `- ${PUBLIC_KEY_FILE}: the public key (SPKI sha256 ${publicKey.spkiSha256})`,
+    "",
     `Contract amount: ${formatUsd(evaluation.amountUsd)}, computed by the clause engine, not by the agent.`,
+    "",
+    `To verify: the pack is signed with AWS KMS key ${pack.keyId}: ECDSA P-256 (signatureBase64, DER) over the SHA-256 of the file's "pack" field written as canonical JSON (object keys sorted at every level, no spaces), not over the file's own bytes. DockClock's verifier, npm run verify:pack, applies exactly this rule.`,
+    "",
     "Sent by DockClock on behalf of the carrier. Replies go to the carrier's dispatch desk.",
   ].join("\n");
   const raw = buildClaimMime({ from: env("CLAIMS_FROM_EMAIL"), to, replyTo: env("REPLY_TO_EMAIL"), subject: input.subject, body: input.body, packFileName: `${load.sealedPackId}.json`, packJson: file.json, publicKeyPem: publicKey.pem, footer });

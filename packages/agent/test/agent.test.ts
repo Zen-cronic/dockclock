@@ -76,6 +76,11 @@ describe("tool contracts and policy", () => {
 
   it("tells the agent it never sets the amount", () => {
     expect(SYSTEM_PROMPT).toContain("copy amountCents and packDigest exactly");
+    // The layout rule adds structure only: the money and date rules stay word for word.
+    expect(SYSTEM_PROMPT).toContain("Never combine a local time with the date of a UTC timestamp.");
+    expect(SYSTEM_PROMPT).toContain("You never change its verdict or amount");
+    expect(SYSTEM_PROMPT).toContain("A claim above $5,000 is never filed by you");
+    expect(SYSTEM_PROMPT).toContain("Subject: 'Detention claim: Load <load id> at <facility name>, <amount>'");
   });
 });
 

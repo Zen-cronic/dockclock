@@ -78,6 +78,9 @@ describe("send_detention_claim", () => {
     expect(decoded).toContain(packJson);
     expect(decoded).toContain(publishedPem);
     expect(decoded[0]).toContain('over the SHA-256 of the file\'s "pack" field written as canonical JSON');
+    // The footer names each attachment with its hash, before the verification rule.
+    expect(decoded[0]).toContain(`Attached:\n- ${manifest.pack.packId}.json: the signed evidence pack (sha256 ${manifest.pack.packDigestSha256})\n- dockclock-public-key.pem: the public key (SPKI sha256 `);
+    expect(decoded[0]!.indexOf("Attached:")).toBeLessThan(decoded[0]!.indexOf("To verify:"));
   });
 
   it("keeps the exact claim email next to the load's packs and points the claim record at it", async () => {
