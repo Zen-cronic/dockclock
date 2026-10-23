@@ -308,6 +308,7 @@ export class MessagingStack extends Stack {
     fileClaim.addCatch(notFiled, { errors: ["States.ALL"], resultPath: "$.agentError" });
     checkClaim.addCatch(notFiled, { errors: ["States.ALL"], resultPath: "$.claimError" });
     requestApproval.addCatch(new sfn.Succeed(this, "Held by dispatch"), { errors: ["HeldByDispatch"], resultPath: "$.held" });
+    // services/api/view.ts matches this reason to show the request as timed out.
     requestApproval.addCatch(notify("Tell dispatch approval timed out", "no approval within two days; nothing was sent").next(new sfn.Succeed(this, "Approval timed out")), {
       errors: ["States.ALL"],
       resultPath: "$.approvalError",

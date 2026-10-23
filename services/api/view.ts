@@ -148,6 +148,15 @@ function channelsOf(p: Parts): DriverChannel[] {
   return failedOver ? ["whatsapp", "rcs"] : [now];
 }
 
+// The workflow emails dispatch with this reason when nobody answers the approval request in two
+// days (infra/lib/messaging-stack.ts, "Tell dispatch approval timed out"). Nothing is filed after it.
+const APPROVAL_TIMEOUT_REASON = "no approval within two days";
+
+function approvalTimedOut(p: Parts): boolean {
+  if (!p.request || p.request.decision || p.approvalItem) return false;
+  return p.escalations.some((e) => String(e.reason ?? "").startsWith(APPROVAL_TIMEOUT_REASON));
+}
+
 function statusOf(p: Parts): LoadStatus {
   const phase = phaseOf(p.meta);
   if (phase === "closed") return "closed";
@@ -165,6 +174,7 @@ function statusOf(p: Parts): LoadStatus {
     const finished = p.agentItems.filter((a) => a.task === "file_claim").length > 0;
     return finished ? "needs_human" : "filing";
   }
+  if (approvalTimedOut(p)) return "needs_human";
   if (p.request) return "awaiting_approval";
   // A test load is never paged for approval; the workflow ends it as held.
   if (p.synthetic && p.meta.askDispatcher !== true) return "held";
@@ -543,7 +553,9 @@ function workflowOf(p: Parts, status: LoadStatus, photos: PhotoInfo[]): Workflow
   else if (!str(notice.sentAt) && p.clause.noticeLeadMinutes === null) Object.assign(noticeStep, { detail: "This contract does not require notice." });
   steps.push(noticeStep);
   steps.push(step("released", "Release confirmed by a location pin", [channelTag, "SQS", "Lambda", "DynamoDB"], releasedAt, phase === "at_dock" || phase === "awaiting_release_pin"));
-  steps.push(step("paperwork", "Bill of lading received", [channelTag, "SQS", "Lambda", "S3 Object Lock"], bolAt, phase === "awaiting_bol"));
+  const paperworkStep = step("paperwork", "Bill of lading received", [channelTag, "SQS", "Lambda", "S3 Object Lock"], bolAt, phase === "awaiting_bol");
+  if (!bolAt && phase === "sealed") Object.assign(paperworkStep, { detail: "No photo came within six hours, so the contract was decided on the pins alone." });
+  steps.push(paperworkStep);
   const photoStep = step("photo_read", "Photo read by the agent's tool", ["Step Functions", "Lambda"], str(reading.readAt), phase === "documented" && photos.length > 0);
   if (!str(reading.readAt) && (photos.length === 0 || photos.every((x) => x.url === null)) && (phase === "sealed" || closed)) Object.assign(photoStep, { state: "skipped", detail: "No readable photo was stored." });
   steps.push(photoStep);
@@ -556,10 +568,12 @@ function workflowOf(p: Parts, status: LoadStatus, photos: PhotoInfo[]): Workflow
   if (verdict && !billable) Object.assign(approval, { state: "skipped", detail: "Nothing is owed, so nothing is claimed." });
   else if (p.request?.decision === "hold") Object.assign(approval, { state: "failed", at: str(p.request.decidedAt), detail: "Dispatch tapped Hold." });
   else if (billable && !p.request && p.synthetic && p.meta.askDispatcher !== true && !approvedAt) Object.assign(approval, { state: "skipped", detail: "Test load: dispatch is not paged; a test approval can be recorded from the command line." });
+  else if (approvalTimedOut(p)) Object.assign(approval, { state: "failed", detail: "No answer within two days, so nothing was sent. Dispatch was emailed." });
   if (p.approvalItem?.approver === "operator-cli-test") Object.assign(approval, { detail: "Recorded from the command line for this test, not a tap." });
   steps.push(approval);
   const claim = step("claim", "AI agent filed the claim by email", ["Bedrock AgentCore", "AgentCore Gateway", "SES"], str(p.claimItem?.sentAt), status === "filing");
   if (verdict && !billable) Object.assign(claim, { state: "skipped" });
+  else if (approvalTimedOut(p)) Object.assign(claim, { state: "skipped", detail: "Not filed: no approval." });
   else if (status === "needs_human" && billable) Object.assign(claim, { state: "failed", detail: "The agent did not file; a person takes over." });
   steps.push(claim);
   return steps;
@@ -635,7 +649,7 @@ export function buildLoadView(sources: LoadSources): LoadView {
   for (const email of emails.filter((x) => x.purpose === "dispatch_escalation")) {
     add({
       at: email.sentAt,
-      title: email.status === "not_sent" ? "Dispatch escalation composed (not sent: test load)" : "Dispatch emailed: the driver needs a person",
+      title: email.status === "not_sent" ? "Dispatch escalation composed (not sent: test load)" : String(p.escalations[Number(email.id.split("-")[1]) - 1]?.reason ?? "").startsWith(APPROVAL_TIMEOUT_REASON) ? "Approval timed out after two days; dispatch emailed, nothing filed" : "Dispatch emailed: the driver needs a person",
       services: ["Lambda", "SES"],
       channel: "email",
       tone: "refused",

@@ -163,6 +163,19 @@ describe("console read API", () => {
     expect(view.emails[0]).toMatchObject({ id: "escalation-1", status: "not_sent" });
   });
 
+  it("ends an approval request nobody answered: needs a person, nothing filed", async () => {
+    const items = partitions["SMOKE-RCS-1"]!;
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: "APPROVAL_REQUEST", requestedAt: T(17, 31) });
+    const escalation = items.find((i) => String(i.sk).startsWith("EMAIL#escalation#"))!;
+    Object.assign(escalation, { status: "sent", reason: "no approval within two days; nothing was sent; evidence confidence low" });
+    const view = JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data;
+    expect(view.summary).toMatchObject({ status: "needs_human", live: false });
+    const step = (key: string) => view.workflow.find((s: { key: string }) => s.key === key);
+    expect(step("approval")).toMatchObject({ state: "failed", detail: expect.stringContaining("No answer within two days") });
+    expect(step("claim")).toMatchObject({ state: "skipped", detail: "Not filed: no approval." });
+    expect(view.timeline.map((t: { title: string }) => t.title)).toContain("Approval timed out after two days; dispatch emailed, nothing filed");
+  });
+
   it("serves a photo without its EXIF or GPS, naming the original's hash", async () => {
     const res = await get("/api/loads/SMOKE-RCS-1/photos/1");
     expect(res.statusCode).toBe(200);
