@@ -27,6 +27,14 @@ export function noticeTerms(noticeLeadMinutes: number | null): string {
   return `${noticeLeadMinutes} minutes before free time ends`;
 }
 
+// Minutes in formal copy: whole minutes without decimals ("3 minutes", "1 minute"), and minutes
+// and seconds when there is a fraction ("90 minutes 59 seconds"). Amounts never come from this.
 export function minutesText(minutes: number): string {
-  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  const totalSeconds = Math.round(minutes * 60);
+  const whole = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const m = `${whole} minute${whole === 1 ? "" : "s"}`;
+  if (seconds === 0) return m;
+  const s = `${seconds} second${seconds === 1 ? "" : "s"}`;
+  return whole === 0 ? s : `${m} ${s}`;
 }

@@ -94,7 +94,7 @@ describe("claim email", () => {
         "Facility: Lakeshore DC, Columbus OH",
         "Arrived: 2026-10-18 11:50 EDT",
         "Released: 2026-10-18 15:28 EDT",
-        "Detention: 90.99 minutes after 2 hours of free time, at $60.00 per hour",
+        "Detention: 90 minutes 59 seconds after 2 hours of free time, at $60.00 per hour",
         "Amount due: $90.99",
         "",
         "Please arrange payment of $90.99 under the rate confirmation. The claim summary (PDF) and the signed evidence pack (JSON) are attached.",
@@ -152,6 +152,22 @@ describe("claim email", () => {
     expect(live.source).toBe("Location pins recorded with WhatsApp server time; the demo yard accepts any location");
     expect(claimFactsOf(input({ synthetic: false })).source).toBe("Location pins inside the facility's geofence, WhatsApp server time");
     expect(claimFactsOf(input({ synthetic: false, pack: { ...signed.pack, channel: "rcs" } })).source).toContain("RCS server time");
+  });
+});
+
+describe("detention minutes in formal copy", () => {
+  it("shows whole minutes without decimals, the same in the text, the HTML and the PDF; the amount stays exact", async () => {
+    // The live test claim: 3 minutes past 5 minutes of free time, $3.00.
+    const pack = structuredClone(signed.pack);
+    pack.evaluation = { ...pack.evaluation, detentionMinutes: 3, billableMinutes: 3, amountUsd: 3 };
+    const { facts, pdf, raw } = await claimMime({ pack });
+    expect(facts.detention).toBe("3 minutes");
+    expect(facts.amount).toBe("$3.00");
+    const parts = decodedParts(raw);
+    expect(parts["text/plain"]).toContain("Detention: 3 minutes after 2 hours of free time");
+    expect(parts["text/html"]).toContain("3 minutes after 2 hours of free time");
+    expect((await pdfText(pdf)).text).toContain("3 minutes");
+    for (const part of [parts["text/plain"]!, parts["text/html"]!, (await pdfText(pdf)).text]) expect(part).not.toMatch(/\d\.\d+ minutes/);
   });
 });
 

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { addressOf, BRAND_MARK_CID, BRAND_MARK_MASTER_SHA256, BRAND_MARK_PNG_BASE64, buildMime, loadPageUrl, pinSource, PUBLIC_KEY_URL, renderHtml, renderText, signatureLines, type Letter } from "../src/index.js";
+import { addressOf, BRAND_MARK_CID, BRAND_MARK_MASTER_SHA256, BRAND_MARK_PNG_BASE64, buildMime, loadPageUrl, minutesText, pinSource, PUBLIC_KEY_URL, renderHtml, renderText, signatureLines, type Letter } from "../src/index.js";
 
 const letter: Letter = {
   kind: "Detention notice",
@@ -108,5 +108,18 @@ describe("brand mark", () => {
     const master = readFileSync(new URL("../../../site/public/brand-mark.svg", import.meta.url));
     expect(createHash("sha256").update(master).digest("hex")).toBe(BRAND_MARK_MASTER_SHA256);
     expect(Buffer.from(BRAND_MARK_PNG_BASE64, "base64").length).toBeLessThan(8_000);
+  });
+});
+
+describe("minutes in formal copy", () => {
+  it("drops decimals on whole minutes and gives seconds only for a fraction", () => {
+    expect(minutesText(3)).toBe("3 minutes");
+    expect(minutesText(1)).toBe("1 minute");
+    expect(minutesText(0)).toBe("0 minutes");
+    expect(minutesText(1.5)).toBe("1 minute 30 seconds");
+    expect(minutesText(90.99)).toBe("90 minutes 59 seconds");
+    expect(minutesText(17.28)).toBe("17 minutes 17 seconds");
+    expect(minutesText(0.5)).toBe("30 seconds");
+    expect(minutesText(2.9999)).toBe("3 minutes");
   });
 });

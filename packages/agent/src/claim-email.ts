@@ -4,7 +4,7 @@
 
 import type { ClauseSpec } from "@dockclock/clause-engine";
 import { acceptsAnyLocation, isoToLocalDateTime, type Facility } from "@dockclock/evidence";
-import { buildMime, FICTIONAL_NOTE, loadPageUrl, noticeTerms, pinSource, PUBLIC_KEY_URL, renderHtml, renderText, signatureLines, type Letter } from "@dockclock/mail";
+import { buildMime, FICTIONAL_NOTE, loadPageUrl, minutesText, noticeTerms, pinSource, PUBLIC_KEY_URL, renderHtml, renderText, signatureLines, type Letter } from "@dockclock/mail";
 import { formatUsd } from "./claim.js";
 
 // The sealed pack fields the claim reads.
@@ -61,7 +61,8 @@ export interface ClaimFacts {
 }
 
 const duration = (minutes: number) => (minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60} hour${minutes === 60 ? "" : "s"}` : `${minutes} minutes`);
-const minutes = (value: number) => `${value.toFixed(2)} minutes`;
+// One wording for the email text, its HTML and the PDF: "3 minutes", "90 minutes 59 seconds".
+const minutes = minutesText;
 
 export function claimFactsOf(input: ClaimFactsInput): ClaimFacts {
   const { clause, facility, pack } = input;
