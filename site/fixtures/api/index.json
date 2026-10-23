@@ -1,6 +1,6 @@
 {
  "about": "Responses of the DockClock read API (site/src/api.ts) for recorded demo-workspace loads, written by npm run api:fixtures.",
- "generatedAt": "2026-10-23T19:32:08.144Z",
+ "generatedAt": "2026-10-23T19:38:18.799Z",
  "files": [
   {
    "file": "overview.json",
@@ -201,6 +201,21 @@
    "file": "photos/SMOKE-RCS-mvh3695l-1.jpg",
    "route": "/api/loads/SMOKE-RCS-mvh3695l/photos/1",
    "status": 200
+  },
+  {
+   "file": "loads/SMOKE-RCS-mvldfuyu.json",
+   "route": "/api/loads/SMOKE-RCS-mvldfuyu",
+   "status": 200
+  },
+  {
+   "file": "loads/SMOKE-RCS-mvldfuyu.pack.json",
+   "route": "/api/loads/SMOKE-RCS-mvldfuyu/pack",
+   "status": 200
+  },
+  {
+   "file": "loads/SMOKE-RCS-mvldfuyu.photos.1.error.json",
+   "route": "/api/loads/SMOKE-RCS-mvldfuyu/photos/1",
+   "status": 415
   },
   {
    "file": "loads/LIVE-mvlb0qzq.json",

@@ -1,26 +1,26 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-23T19:31:55.855Z",
+ "generatedAt": "2026-10-23T19:38:05.891Z",
  "workspace": "demo",
  "pollMs": 3000,
  "data": {
   "window": {
-   "loads": 31,
+   "loads": 32,
    "from": "2026-10-16T22:07:08.782Z",
-   "to": "2026-10-23T19:31:55.855Z"
+   "to": "2026-10-23T19:38:05.891Z"
   },
   "loads": {
-   "total": 31,
+   "total": 32,
    "live": 0,
    "byStatus": {
-    "not_billable": 9,
+    "not_billable": 10,
     "claim_filed": 10,
     "needs_human": 2,
     "held": 7,
     "closed": 3
    },
    "byVerdict": {
-    "NOT_BILLABLE": 9,
+    "NOT_BILLABLE": 10,
     "BILLABLE": 19,
     "NEEDS_HUMAN": 1
    }
@@ -33,12 +33,12 @@
   "messages": {
    "byChannel": {
     "whatsapp": {
-     "outbound": 47,
+     "outbound": 49,
      "inbound": 178
     },
     "rcs": {
-     "outbound": 34,
-     "inbound": 30
+     "outbound": 40,
+     "inbound": 35
     },
     "sms": {
      "outbound": 0,
@@ -50,8 +50,9 @@
     }
    },
    "byStatus": {
-    "received": 208,
-    "not_sent": 67,
+    "failed": 1,
+    "received": 213,
+    "not_sent": 74,
     "read": 23,
     "delivered": 18,
     "accepted": 1,
@@ -59,13 +60,13 @@
    }
   },
   "delivery": {
-   "outbound": 24,
+   "outbound": 25,
    "delivered": 23,
    "read": 23,
-   "failed": 0,
-   "deliveryRate": 0.9583333333333334,
-   "failovers": 5,
-   "failoverRate": 0.16129032258064516
+   "failed": 1,
+   "deliveryRate": 0.92,
+   "failovers": 6,
+   "failoverRate": 0.1875
   },
   "emails": {
    "sent": 24,
@@ -73,6 +74,116 @@
    "bounced": 0
   },
   "activity": [
+   {
+    "id": "SMOKE-RCS-mvldfuyu:e14",
+    "at": "2026-10-23T19:37:29.944Z",
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "rcs",
+    "title": "DockClock composed a reply to the driver (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-RCS-mvldfuyu?tab=timeline#e14"
+   },
+   {
+    "id": "SMOKE-RCS-mvldfuyu:e13",
+    "at": "2026-10-23T19:37:29.642Z",
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "rcs",
+    "title": "Driver sent a photo",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-RCS-mvldfuyu?tab=timeline#e13"
+   },
+   {
+    "id": "SMOKE-RCS-mvldfuyu:e12",
+    "at": "2026-10-23T19:37:27.084Z",
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "rcs",
+    "title": "DockClock composed the bill of lading form (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-RCS-mvldfuyu?tab=timeline#e12"
+   },
+   {
+    "id": "SMOKE-RCS-mvldfuyu:e11",
+    "at": "2026-10-23T19:37:24.403Z",
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "rcs",
+    "title": "DockClock composed a request for the release location (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-RCS-mvldfuyu?tab=timeline#e11"
+   },
+   {
+    "id": "SMOKE-RCS-mvldfuyu:e10",
+    "at": "2026-10-23T19:37:19.303Z",
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "rcs",
+    "title": "DockClock composed the check-in confirmation with Released (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-RCS-mvldfuyu?tab=timeline#e10"
+   },
+   {
+    "id": "SMOKE-RCS-mvldfuyu:e9",
+    "at": "2026-10-23T19:37:11.804Z",
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "rcs",
+    "title": "DockClock composed a request for the arrival location (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-RCS-mvldfuyu?tab=timeline#e9"
+   },
+   {
+    "id": "SMOKE-RCS-mvldfuyu:e8",
+    "at": "2026-10-23T19:37:10.305Z",
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "rcs",
+    "title": "DockClock composed the load dispatch card (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-RCS-mvldfuyu?tab=timeline#e8"
+   },
+   {
+    "id": "SMOKE-RCS-mvldfuyu:e7",
+    "at": "2026-10-23T19:37:08.600Z",
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "whatsapp",
+    "title": "DockClock composed the load dispatch (not sent)",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-RCS-mvldfuyu?tab=timeline#e7"
+   },
+   {
+    "id": "SMOKE-RCS-mvldfuyu:e6",
+    "at": "2026-10-23T19:08:07.206Z",
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "rcs",
+    "title": "Driver shared a location",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-RCS-mvldfuyu?tab=timeline#e6"
+   },
+   {
+    "id": "SMOKE-RCS-mvldfuyu:e5",
+    "at": "2026-10-23T19:07:07.206Z",
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "kind": "message",
+    "channel": "rcs",
+    "title": "Driver tapped Released",
+    "tone": "neutral",
+    "href": "/loads/SMOKE-RCS-mvldfuyu?tab=timeline#e5"
+   },
    {
     "id": "SMOKE-mvlc4by2:e16",
     "at": "2026-10-23T19:00:32.035Z",
@@ -181,115 +292,6 @@
     "title": "The AI agent filed the claim by email",
     "tone": "agent",
     "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e18"
-   },
-   {
-    "id": "LIVE-mvlb0qzq:e17",
-    "at": "2026-10-23T18:56:55.467Z",
-    "loadId": "LIVE-mvlb0qzq",
-    "runKind": "phone",
-    "kind": "message",
-    "channel": "whatsapp",
-    "title": "DockClock sent the approval confirmation",
-    "tone": "neutral",
-    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e17"
-   },
-   {
-    "id": "LIVE-mvlb0qzq:e16",
-    "at": "2026-10-23T18:56:42.874Z",
-    "loadId": "LIVE-mvlb0qzq",
-    "runKind": "phone",
-    "kind": "message",
-    "channel": "whatsapp",
-    "title": "DockClock sent the claim to dispatch for approval",
-    "tone": "money",
-    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e16"
-   },
-   {
-    "id": "LIVE-mvlb0qzq:e15",
-    "at": "2026-10-23T18:56:38.366Z",
-    "loadId": "LIVE-mvlb0qzq",
-    "runKind": "phone",
-    "kind": "workflow",
-    "title": "The agent's photo tool could not read the bill of lading",
-    "tone": "agent",
-    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e15"
-   },
-   {
-    "id": "LIVE-mvlb0qzq:e14",
-    "at": "2026-10-23T18:56:34.034Z",
-    "loadId": "LIVE-mvlb0qzq",
-    "runKind": "phone",
-    "kind": "message",
-    "channel": "whatsapp",
-    "title": "DockClock sent a reply to the driver",
-    "tone": "neutral",
-    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e14"
-   },
-   {
-    "id": "LIVE-mvlb0qzq:e13",
-    "at": "2026-10-23T18:56:29.000Z",
-    "loadId": "LIVE-mvlb0qzq",
-    "runKind": "phone",
-    "kind": "message",
-    "channel": "whatsapp",
-    "title": "Bill of lading form submitted",
-    "tone": "neutral",
-    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e13"
-   },
-   {
-    "id": "LIVE-mvlb0qzq:e12",
-    "at": "2026-10-23T18:55:14.476Z",
-    "loadId": "LIVE-mvlb0qzq",
-    "runKind": "phone",
-    "kind": "message",
-    "channel": "whatsapp",
-    "title": "DockClock sent the bill of lading form",
-    "tone": "neutral",
-    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e12"
-   },
-   {
-    "id": "LIVE-mvlb0qzq:e11",
-    "at": "2026-10-23T18:55:11.000Z",
-    "loadId": "LIVE-mvlb0qzq",
-    "runKind": "phone",
-    "kind": "message",
-    "channel": "whatsapp",
-    "title": "Driver shared a location",
-    "tone": "neutral",
-    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e11"
-   },
-   {
-    "id": "SMOKE-mvlc4by2:e8",
-    "at": "2026-10-23T18:35:09.000Z",
-    "loadId": "SMOKE-mvlc4by2",
-    "runKind": "integration",
-    "kind": "message",
-    "channel": "whatsapp",
-    "title": "Bill of lading form submitted",
-    "tone": "neutral",
-    "href": "/loads/SMOKE-mvlc4by2?tab=timeline#e8"
-   },
-   {
-    "id": "LIVE-mvlb0qzq:e10",
-    "at": "2026-10-23T18:34:35.429Z",
-    "loadId": "LIVE-mvlb0qzq",
-    "runKind": "phone",
-    "kind": "email",
-    "channel": "email",
-    "title": "SES reported the notice delivered",
-    "tone": "ok",
-    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e10"
-   },
-   {
-    "id": "LIVE-mvlb0qzq:e9",
-    "at": "2026-10-23T18:34:34.770Z",
-    "loadId": "LIVE-mvlb0qzq",
-    "runKind": "phone",
-    "kind": "message",
-    "channel": "whatsapp",
-    "title": "DockClock sent word that the detention notice was emailed",
-    "tone": "neutral",
-    "href": "/loads/LIVE-mvlb0qzq?tab=timeline#e9"
    }
   ]
  }

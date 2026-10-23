@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-23T19:32:04.710Z",
+ "generatedAt": "2026-10-23T19:38:15.148Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
@@ -63,7 +63,7 @@
    "basis": "Modelled on published broker terms. Values those terms do not state are DockClock assumptions."
   },
   "clock": {
-   "asOf": "2026-10-23T19:32:04.710Z",
+   "asOf": "2026-10-23T19:38:15.148Z",
    "arrivedAt": "2026-10-20T15:28:40.218Z",
    "releasedAt": "2026-10-20T19:06:40.218Z",
    "clockStartAt": "2026-10-20T15:28:40.218Z",

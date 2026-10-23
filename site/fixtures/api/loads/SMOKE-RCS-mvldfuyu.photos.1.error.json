@@ -1,0 +1,8 @@
+{
+ "schema": "dockclock.api/1",
+ "error": {
+  "status": 415,
+  "code": "unsupported_media",
+  "message": "photo 1 of load SMOKE-RCS-mvldfuyu is not a JPEG or PNG image"
+ }
+}

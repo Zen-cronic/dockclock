@@ -20,7 +20,7 @@ type Step = (typeof JUDGE_STEPS)[number];
 const LABELS: Record<Step, string> = { start: "Load", proved: "Proved", notice: "Notice", filed: "Filed", break: "Break", change: "Change", phone: "Phone" };
 const ALIASES: Record<string, Step> = { signed: "break" };
 // A recorded test run where WhatsApp failed and the driver was moved to RCS.
-const FAILOVER_LOAD = "SMOKE-RCS-mvh338l2";
+const FAILOVER_LOAD = "SMOKE-RCS-mvldfuyu";
 
 type PackLike = { evaluation?: { amountUsd?: number } };
 const raiseAmount = (p: PackLike): PackLike => ({ ...p, evaluation: { ...p.evaluation, amountUsd: 9999 } });

@@ -1,0 +1,93 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-23T19:38:17.296Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "packId": "SMOKE-RCS-mvldfuyu-0f5641f669e9",
+  "digestSha256": "eec6e1ac220db5c4cc73f9137b1e917f33187ae0da416187d8d1d6128f1d29a0",
+  "algorithm": "ECDSA_SHA_256",
+  "signatureBase64": "MEYCIQC1/ST3wgUn2giHOnL2yl0BSwy4O+u6aulUSzUezdvo/AIhAM3j82denVSbG4ZPvfe1KYDpwbixEYUM7awmxYQ7wyae",
+  "publicKeyPath": "keys/public-key.pem",
+  "spkiSha256": "bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c",
+  "sealedAt": "2026-10-23T19:37:32.181Z",
+  "storage": "S3 Object Lock (governance mode, 30 days)",
+  "pack": {
+   "version": 1,
+   "packId": "SMOKE-RCS-mvldfuyu-0f5641f669e9",
+   "loadId": "SMOKE-RCS-mvldfuyu",
+   "clauseId": "lakeshore-foods",
+   "channel": "rcs",
+   "facility": {
+    "id": "lakeshore-columbus",
+    "name": "Lakeshore DC, Columbus OH"
+   },
+   "appointmentAt": "2026-10-23T15:37:07.206Z",
+   "events": {
+    "arrived": {
+     "serverAt": "2026-10-23T15:30:07.206Z",
+     "messageId": "msg-sha256:ed630342970fc009"
+    },
+    "released": {
+     "serverAt": "2026-10-23T19:08:07.206Z",
+     "messageId": "msg-sha256:9de1de6b4be07aec"
+    },
+    "bol": {
+     "serverAt": "2026-10-23T19:37:29.642Z",
+     "messageId": "msg-sha256:dce2c65e5a60217f",
+     "pageSha256s": [
+      "a8bcc2d4a0851688c8815f26526c836c8a2ccd273d01b86866a38150442d15ba"
+     ],
+     "cameraOnly": false,
+     "timesEdited": {
+      "in": false,
+      "out": false
+     }
+    },
+    "notice": null
+   },
+   "corroboration": {
+    "confidence": "low",
+    "signals": [
+     {
+      "name": "arrived_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "released_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "bol_camera_only",
+      "ok": false,
+      "detail": "RCS photo reply; camera or gallery unknown"
+     },
+     {
+      "name": "bol_media_hashed",
+      "ok": true,
+      "detail": "1 of 1 pages stored and hashed"
+     },
+     {
+      "name": "bol_confirmed_by_driver",
+      "ok": false,
+      "detail": "RCS has no form, so no driver-entered times or signed box"
+     }
+    ]
+   },
+   "evaluation": {
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "clockStartAt": "2026-10-23T15:37:07.206Z",
+    "detentionMinutes": 91,
+    "verdict": "NOT_BILLABLE",
+    "reasons": [
+     "NO_STATEMENT_OF_RECORD"
+    ],
+    "billableMinutes": 0,
+    "amountUsd": 0
+   },
+   "sealedAt": "2026-10-23T19:37:32.181Z"
+  }
+ }
+}

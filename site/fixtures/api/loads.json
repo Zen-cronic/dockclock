@@ -1,10 +1,42 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-23T19:31:57.199Z",
+ "generatedAt": "2026-10-23T19:38:07.288Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
   "loads": [
+   {
+    "loadId": "SMOKE-RCS-mvldfuyu",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-23T19:37:08.417Z",
+    "lastActivityAt": "2026-10-23T19:37:32.181Z",
+    "facility": {
+     "id": "lakeshore-columbus",
+     "name": "Lakeshore DC, Columbus OH",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Lakeshore Foods (fictional shipper)",
+     "role": "shipper"
+    },
+    "channel": "rcs",
+    "channels": [
+     "whatsapp",
+     "rcs"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "not_billable",
+    "live": false,
+    "verdict": "NOT_BILLABLE",
+    "amountUsd": 0,
+    "claimSentAt": null,
+    "arrivedAt": "2026-10-23T15:30:07.206Z",
+    "releasedAt": "2026-10-23T19:08:07.206Z",
+    "failover": true,
+    "photos": 1
+   },
    {
     "loadId": "SMOKE-mvlc4by2",
     "runKind": "integration",

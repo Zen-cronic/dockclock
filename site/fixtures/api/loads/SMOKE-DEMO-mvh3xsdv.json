@@ -1,6 +1,6 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-23T19:32:02.064Z",
+ "generatedAt": "2026-10-23T19:38:12.411Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
@@ -61,7 +61,7 @@
    "basis": "DockClock judge demo clause, not modelled on any published terms."
   },
   "clock": {
-   "asOf": "2026-10-23T19:32:02.064Z",
+   "asOf": "2026-10-23T19:38:12.411Z",
    "arrivedAt": "2026-10-20T20:00:11.000Z",
    "releasedAt": "2026-10-20T20:08:15.000Z",
    "clockStartAt": "2026-10-20T20:00:11.000Z",
@@ -470,16 +470,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "phaseAfter": "awaiting_arrival_pin",
      "sk": "EVENT#2026-10-20T20:00:07.000Z",
-     "channel": "whatsapp",
      "phaseBefore": "dispatched",
      "outcome": "ADVANCED",
      "serverAt": "2026-10-20T20:00:07.000Z",
+     "phaseAfter": "awaiting_arrival_pin",
+     "channel": "whatsapp",
+     "type": "button",
      "detail": {
       "payload": "dc1.arrived.SMOKE-DEMO-mvh3xsdv.<nonce>"
-     },
-     "type": "button"
+     }
     },
     "provenance": "synthetic_input",
     "messageId": "m2"
@@ -534,13 +534,13 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "channel": "whatsapp",
-     "phaseBefore": "awaiting_arrival_pin",
-     "detail": {},
      "serverAt": "2026-10-20T20:00:11.000Z",
-     "outcome": "ADVANCED",
+     "phaseBefore": "awaiting_arrival_pin",
      "sk": "EVENT#2026-10-20T20:00:11.000Z",
      "type": "location",
+     "outcome": "ADVANCED",
+     "channel": "whatsapp",
+     "detail": {},
      "phaseAfter": "at_dock"
     },
     "provenance": "synthetic_input",
@@ -657,16 +657,16 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
-     "serverAt": "2026-10-20T20:08:11.000Z",
-     "sk": "EVENT#2026-10-20T20:08:11.000Z",
      "phaseBefore": "at_dock",
+     "sk": "EVENT#2026-10-20T20:08:11.000Z",
+     "phaseAfter": "awaiting_release_pin",
+     "outcome": "ADVANCED",
      "channel": "whatsapp",
+     "type": "button",
      "detail": {
       "payload": "dc1.released.SMOKE-DEMO-mvh3xsdv.<nonce>"
      },
-     "outcome": "ADVANCED",
-     "phaseAfter": "awaiting_release_pin",
-     "type": "button"
+     "serverAt": "2026-10-20T20:08:11.000Z"
     },
     "provenance": "synthetic_input",
     "messageId": "m7"
@@ -721,14 +721,14 @@
     "outcome": "ADVANCED",
     "tone": "neutral",
     "record": {
+     "sk": "EVENT#2026-10-20T20:08:15.000Z",
+     "type": "location",
      "serverAt": "2026-10-20T20:08:15.000Z",
-     "phaseBefore": "awaiting_release_pin",
+     "outcome": "ADVANCED",
      "phaseAfter": "awaiting_bol",
      "channel": "whatsapp",
-     "detail": {},
-     "outcome": "ADVANCED",
-     "sk": "EVENT#2026-10-20T20:08:15.000Z",
-     "type": "location"
+     "phaseBefore": "awaiting_release_pin",
+     "detail": {}
     },
     "provenance": "synthetic_input",
     "messageId": "m9"
@@ -781,16 +781,16 @@
     "tone": "neutral",
     "photoId": "p1",
     "record": {
+     "serverAt": "2026-10-20T20:08:19.000Z",
+     "phaseBefore": "awaiting_bol",
      "detail": {
       "flowToken": "dc1.release.SMOKE-DEMO-mvh3xsdv.<nonce>"
      },
-     "channel": "whatsapp",
-     "type": "flow",
-     "sk": "EVENT#2026-10-20T20:08:19.000Z",
-     "outcome": "ADVANCED",
-     "serverAt": "2026-10-20T20:08:19.000Z",
      "phaseAfter": "documented",
-     "phaseBefore": "awaiting_bol"
+     "outcome": "ADVANCED",
+     "channel": "whatsapp",
+     "sk": "EVENT#2026-10-20T20:08:19.000Z",
+     "type": "flow"
     },
     "provenance": "synthetic_input",
     "messageId": "m11"
