@@ -117,9 +117,10 @@ async function supersede(previousLoadId: string, byLoadId: string): Promise<stri
     new UpdateCommand({
       TableName: env.table(),
       Key: keys.load(previousLoadId),
-      UpdateExpression: "SET phase = :c, outcome = :o, supersededBy = :b",
+      // closedAt: when the load's clock stopped if it was never released (services/api/view.ts).
+      UpdateExpression: "SET phase = :c, outcome = :o, supersededBy = :b, closedAt = :t",
       ConditionExpression: "NOT phase IN (:sealed, :c)",
-      ExpressionAttributeValues: { ":c": "closed", ":o": "SUPERSEDED", ":b": byLoadId, ":sealed": "sealed" },
+      ExpressionAttributeValues: { ":c": "closed", ":o": "SUPERSEDED", ":b": byLoadId, ":sealed": "sealed", ":t": new Date().toISOString() },
     }),
   ).catch((error: Error) => {
     if (error.name !== "ConditionalCheckFailedException") throw error;

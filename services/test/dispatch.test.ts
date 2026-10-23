@@ -69,6 +69,8 @@ describe("dispatch", () => {
     expect(sfn.commandCalls(StopExecutionCommand)[0]?.args[0].input.executionArn).toBe("arn:exec:old");
     const close = dynamo.commandCalls(UpdateCommand).find((c) => c.args[0].input.ExpressionAttributeValues?.[":o"] === "SUPERSEDED");
     expect(close?.args[0].input.Key).toEqual({ pk: "LOAD#OLD", sk: "META" });
+    expect(close?.args[0].input.UpdateExpression).toContain("closedAt = :t");
+    expect(Date.parse(String(close?.args[0].input.ExpressionAttributeValues?.[":t"]))).toBeGreaterThan(Date.now() - 60_000);
   });
 
   it("waits for arrival until two days after the appointment, not two days after dispatch", async () => {

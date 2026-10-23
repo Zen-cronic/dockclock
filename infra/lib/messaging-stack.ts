@@ -149,11 +149,13 @@ export class MessagingStack extends Stack {
           pk: tasks.DynamoAttributeValue.fromString(sfn.JsonPath.format("LOAD#{}", sfn.JsonPath.stringAt("$.loadId"))),
           sk: tasks.DynamoAttributeValue.fromString("META"),
         },
-        updateExpression: "SET phase = :c, outcome = :o",
+        // closedAt: when a load that was never released stopped its clock (services/api/view.ts).
+        updateExpression: "SET phase = :c, outcome = :o, closedAt = :t",
         conditionExpression: "phase <> :s",
         expressionAttributeValues: {
           ":c": tasks.DynamoAttributeValue.fromString("closed"),
           ":o": tasks.DynamoAttributeValue.fromString(outcome),
+          ":t": tasks.DynamoAttributeValue.fromString(sfn.JsonPath.stringAt("$$.State.EnteredTime")),
           ":s": tasks.DynamoAttributeValue.fromString("sealed"),
         },
         resultPath: sfn.JsonPath.DISCARD,

@@ -61,6 +61,9 @@ describe("stacks", () => {
     expect(definition).toContain('\\"TimeoutSecondsPath\\":\\"$.arrivalTimeoutSeconds\\"');
     expect(definition).toContain("Seal failed");
     expect(definition).toContain("Seal evidence");
+    // A closed load records when it closed, so a load never released stops its clock there.
+    expect(definition).toContain("closedAt = :t");
+    expect(definition).toContain("$$.State.EnteredTime");
   });
 
   it("routes bounces and complaints to SNS and alarms on reputation", () => {
