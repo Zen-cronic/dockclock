@@ -1,4 +1,4 @@
-import { clock } from "../format.js";
+import { clock, dayShort } from "../format.js";
 import type { TimelineItem } from "../model/model.js";
 
 const OUTCOMES: Record<string, string> = {
@@ -14,10 +14,15 @@ export function outcomeWords(code: string): string {
 
 // Timeline: one row per record, title only; the record opens in a drawer.
 export function Timeline({ items, timeZone, upTo, current, onOpen }: { items: TimelineItem[]; timeZone: string; upTo?: number; current?: number; onOpen: (t: TimelineItem) => void }) {
+  // A record list that runs past one local day gets a date row at each change of day.
+  const days = new Set(items.map((t) => dayShort(t.at, timeZone)));
   return (
     <ol className="tl">
       {items.flatMap((t, i) => {
         const rows = [];
+        const day = dayShort(t.at, timeZone);
+        if (days.size > 1 && (i === 0 || dayShort(items[i - 1]!.at, timeZone) !== day))
+          rows.push(<li key={`day-${day}`} className="grp">{day}</li>);
         rows.push(
           <li key={t.id}>
             <button className={upTo !== undefined && Date.parse(t.at) > upTo ? "future" : ""} aria-current={current === i ? "step" : undefined} onClick={() => onOpen(t)}>

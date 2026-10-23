@@ -103,7 +103,7 @@ export function Messages() {
         {rows.length === 0 ? (
           <EmptyState title="No messages">Try another filter.</EmptyState>
         ) : (
-          <table className="table">
+          <table className="table msgs">
             <thead>
               <tr>
                 <th>Time</th>

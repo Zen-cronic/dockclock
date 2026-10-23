@@ -25,7 +25,9 @@ export function runLabel(d: Pick<LoadDetail, "run" | "approval">): string {
 
 export function provedWords(d: Pick<LoadDetail, "run" | "clock" | "verdict" | "summary">): Words {
   const channel = d.summary.channel === "rcs" ? "RCS" : "WhatsApp";
-  const papersMatch = (d.verdict?.signals ?? []).filter((s) => s.name.startsWith("bol_") && s.name.includes("matches")).every((s) => s.ok);
+  // Only claim the papers match when a bill-of-lading check ran; with no photo there is none.
+  const bolChecks = (d.verdict?.signals ?? []).filter((s) => s.name.startsWith("bol_") && s.name.includes("matches"));
+  const papersMatch = bolChecks.length > 0 && bolChecks.every((s) => s.ok);
   if (!isRealPhoneRun(d))
     return {
       short: "Replayed test times",
@@ -37,7 +39,12 @@ export function provedWords(d: Pick<LoadDetail, "run" | "clock" | "verdict" | "s
   };
 }
 
-export function approvalWords(d: Pick<LoadDetail, "approval" | "run" | "claim">): Words {
+// A workflow step that was skipped or failed, with the reason the workflow recorded.
+export function stoppedStep(d: Pick<LoadDetail, "workflow">, key: string) {
+  return d.workflow?.find((w) => w.key === key && (w.state === "failed" || w.state === "skipped")) ?? null;
+}
+
+export function approvalWords(d: Pick<LoadDetail, "approval" | "run" | "claim" | "workflow">): Words {
   const a = d.approval;
   const secs = d.claim?.secondsAfterApproval;
   const after = secs != null ? ` ∙ emailed in ${Math.round(secs)} s` : "";
@@ -48,6 +55,9 @@ export function approvalWords(d: Pick<LoadDetail, "approval" | "run" | "claim">)
   if (a?.decision === "hold") return { short: "Held by dispatch", long: "Dispatch held the claim; nothing was sent." };
   const note = d.run.notes.find((n) => /approv/i.test(n));
   if (d.claim?.status === "sent") return { short: `Approved by a test command${after}`, long: note ?? "The approval was recorded by a test command, not on a phone." };
+  const failed = stoppedStep(d, "approval");
+  if (failed) return { short: "No answer from dispatch", long: "Nothing was filed." };
+  if (a?.requestedAt && !a.decision) return { short: "Waiting for dispatch", long: "Approval was asked for; no answer yet." };
   return { short: "Awaiting approval", long: note ?? "No approval recorded yet." };
 }
 

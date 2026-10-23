@@ -17,13 +17,13 @@ export function Loads() {
         {loads.length === 0 ? (
           <EmptyState title="No loads yet" />
         ) : (
-          <table className="table">
+          <table className="table loads">
             <thead>
               <tr>
                 <th>Load</th>
                 <th className="hide-m">Facility</th>
                 <th>Channel</th>
-                <th className="hide-m">Run</th>
+                <th className="run">Run</th>
                 <th>Verdict</th>
                 <th>Owed</th>
               </tr>
@@ -36,7 +36,7 @@ export function Loads() {
                     <td className="id">{l.id}</td>
                     <td className="hide-m">{l.facility}</td>
                     <td><ChannelBadge channel={l.channel} />{l.failover ? <span className="small"> ∙ after failover</span> : null}</td>
-                    <td className="hide-m small">{l.runLabel ?? RUN_WORDS[l.runKind]}</td>
+                    <td className="run small">{l.runLabel ?? RUN_WORDS[l.runKind]}</td>
                     <td><Stamp verdict={l.verdict} /></td>
                     <td className="num">{usd(l.amountUsd)}</td>
                   </tr>

@@ -158,6 +158,7 @@ export function detailFromApi(v: Api.LoadView, source: Source, resolveUrl: (u: s
     timeline: timelineFromApi(v),
     agentRuns: agentRunsFrom(v.agentRuns),
     photos,
+    workflow: (v.workflow ?? []).map((w) => ({ key: w.key, label: w.label, state: w.state, at: w.at, services: [...w.services], ...(w.detail ? { detail: w.detail } : {}) })),
   };
 }
 

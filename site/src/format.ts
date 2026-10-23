@@ -48,3 +48,13 @@ export function placeName(facility: string): string {
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
+
+// "Oct 23" in the facility's zone.
+export function dayShort(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" }).format(new Date(iso));
+}
+
+// The time alone when it falls on the same local day as `ref`, else "Oct 23, 3:31 AM".
+export function clockOn(iso: string, timeZone: string, ref: string): string {
+  return dayShort(iso, timeZone) === dayShort(ref, timeZone) ? clock(iso, timeZone) : `${dayShort(iso, timeZone)}, ${clock(iso, timeZone)}`;
+}

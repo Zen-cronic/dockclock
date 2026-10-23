@@ -147,3 +147,33 @@ describe.each(fxLoads)("API fixture %s", (file) => {
     expect((await verifyPack(r.data.pack, r.data.signatureBase64, pem)).valid).toBe(true);
   });
 });
+
+// A sealed load whose approval nobody answered: the workflow marks approval failed and the claim
+// skipped. The copy and the graph must say so, not "Awaiting approval".
+describe("an approval nobody answered", () => {
+  const body = JSON.parse(readFileSync(new URL("SMOKE-DEMO-mvh3xsdv.json", fxDir), "utf8")) as { data: LoadView };
+  const v = structuredClone(body.data);
+  v.approval = { requestedAt: "2026-10-21T07:31:30.558Z", decidedAt: null, decision: null, approver: "dispatcher" } as LoadView["approval"];
+  v.claim = null as LoadView["claim"];
+  v.emails = v.emails.filter((e) => e.purpose !== "claim");
+  v.agentRuns = [];
+  v.workflow = [
+    { key: "approval", label: "Dispatch approved the claim", state: "failed", at: null, services: ["Step Functions"], detail: "No answer within two days, so nothing was sent." },
+    { key: "claim", label: "AI agent filed the claim by email", state: "skipped", at: null, services: ["SES"], detail: "Not filed: no approval." },
+  ];
+  v.timeline = [...v.timeline, { ...v.timeline[0]!, id: "timeout", at: "2026-10-23T07:31:30.966Z", title: "Approval timed out after two days; dispatch emailed, nothing filed", tone: "refused" }];
+  const d = detailFromApi(v, "fixture");
+
+  it("says nobody answered and nothing was filed", () => {
+    expect(approvalWords(d).short).toBe("No answer from dispatch");
+    const titles = flowNodes(d).map((n) => n.title);
+    expect(titles).toContain("No answer from dispatch");
+    expect(titles).toContain("Claim not filed");
+    expect(titles.join(" | ")).not.toMatch(/tapped|Awaiting/i);
+  });
+
+  it("claims no bill-of-lading match when no bill of lading was checked", () => {
+    const noBol = { ...d, verdict: d.verdict ? { ...d.verdict, signals: d.verdict.signals.filter((s) => !s.name.startsWith("bol_")) } : null };
+    expect(provedWords(noBol).long).not.toMatch(/bill-of-lading/);
+  });
+});

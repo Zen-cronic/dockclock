@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useParams, useSearchParams } from "react-router-dom";
-import { approvalWords, provedWords, testStrip } from "../copy/provenance.js";
+import { approvalWords, isRealPhoneRun, provedWords, runLabel, stoppedStep, testStrip } from "../copy/provenance.js";
 import { recordedCaptures, useLoad, usePack } from "../model/client.js";
 import { flowNodes, type FlowNode } from "../model/flow.js";
 import type { ConsoleEmail, LoadDetail, TimelineItem } from "../model/model.js";
-import { clock, placeName, usd } from "../format.js";
+import { clock, clockOn, placeName, usd } from "../format.js";
 import { AgentFlow } from "../ui/AgentFlow.js";
 import { Page } from "../ui/AppShell.js";
 import { ChannelBadge, ProvenanceBadge, Stamp } from "../ui/badges.js";
@@ -64,6 +64,8 @@ export function usePlayback(load: LoadDetail | null | undefined) {
 const STATUS_WORDS: Record<string, string> = { waiting_for_arrival: "Waiting", at_dock: "At dock", paperwork: "Paperwork", sealing: "Sealing", awaiting_approval: "Approval", filing: "Filing", claim_filed: "Filed", held: "Held", not_billable: "Not owed", needs_human: "Review", closed: "Closed" };
 
 export function LoadHeader({ load }: { load: LoadDetail }) {
+  // Owed but never filed (no approval came): say so beside the amount.
+  const unfiled = !load.claim && stoppedStep(load, "claim") ? "Not filed: no approval" : null;
   return (
     <div className="loadhead">
       <div>
@@ -73,11 +75,13 @@ export function LoadHeader({ load }: { load: LoadDetail }) {
         <div className="meta">
           <span className="mono">{load.summary.id}</span>
           <ChannelBadge channel={load.summary.channel} />
+          {isRealPhoneRun(load) && <span className="runchip">{runLabel(load)}</span>}
         </div>
       </div>
       <div className="owed">
         <Stamp verdict={load.verdict?.verdict ?? null} />
         {load.verdict ? <div className="num">{usd(load.verdict.amountUsd)}</div> : <div className="small" style={{ marginTop: 10 }}>not sealed yet</div>}
+        {unfiled && <div className="unfiled">{unfiled}</div>}
       </div>
     </div>
   );
@@ -102,6 +106,22 @@ export function LoadDetailRoute() {
   });
   const shown = capture !== null ? captures[capture]?.detail : undefined;
   const pack = usePack(load);
+  const tabsRef = useRef<HTMLElement | null>(null);
+  const [tabsMore, setTabsMore] = useState(false);
+  const [tabsLess, setTabsLess] = useState(false);
+  const checkTabs = () => {
+    const el = tabsRef.current;
+    if (!el) return;
+    setTabsMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    setTabsLess(el.scrollLeft > 4);
+  };
+  // On a narrow screen the active tab may sit past the edge: bring it into the strip.
+  useEffect(() => {
+    const el = tabsRef.current;
+    const active = el?.querySelector<HTMLElement>("a.active");
+    if (el && active && (active.offsetLeft + active.offsetWidth > el.scrollLeft + el.clientWidth || active.offsetLeft < el.scrollLeft)) el.scrollLeft = active.offsetLeft - 16;
+    checkTabs();
+  }, [tab, Boolean(load)]);
   if (!load)
     return (
       <Page crumbs={[{ to: "/loads", label: "Loads" }, { label: id ?? "" }]}>
@@ -130,7 +150,7 @@ export function LoadDetailRoute() {
           })}
         </div>
       )}
-      <nav className="tabs" aria-label="Load sections">
+      <nav className="tabs" aria-label="Load sections" ref={tabsRef} data-more={tabsMore || undefined} data-less={tabsLess || undefined} onScroll={checkTabs}>
         {TABS.map(([k, label]) => (
           <NavLink key={k} to={`/loads/${load.summary.id}/${k}`} className={() => (tab === k ? "active" : "")}>
             {label}
@@ -174,7 +194,7 @@ export function LoadDetailRoute() {
               <button className="mailrow" key={e.id} onClick={() => setEmail(e)}>
                 <span className="k">{e.purpose === "dispatch_escalation" ? "Escalation" : e.purpose}</span>
                 <span className="s">{e.subject}</span>
-                <span className="small">{clock(e.sentAt, load.timeZone)} ∙ {e.status === "not_sent" ? "not sent (test)" : e.status}</span>
+                <span className="small">{clockOn(e.sentAt, load.timeZone, load.emails[0]?.sentAt ?? e.sentAt)} ∙ {e.status === "not_sent" ? "not sent (test)" : e.status}</span>
               </button>
             ))
           )}
@@ -208,8 +228,10 @@ export function LoadDetailRoute() {
       )}
       {node && (
         <Drawer title={node.title} onClose={() => setNode(null)}>
-          <p className="small">{clock(node.at, load.timeZone)} ∙ {node.services.join(" ∙ ")}</p>
-          <div style={{ marginTop: 14 }}><Json value={node.raw} /></div>
+          <p className="small">{node.tone === "skipped" ? "Never ran" : clockOn(node.at, load.timeZone, load.timeline[0]?.at ?? node.at)} ∙ {node.services.join(" ∙ ")}</p>
+          {typeof (node.raw as { detail?: unknown } | undefined)?.detail === "string" && <p style={{ marginTop: 10 }}>{(node.raw as { detail: string }).detail}</p>}
+          {/* A stopped workflow step has only its reason; its raw label names the step, not the outcome. */}
+          {!(node.raw && typeof node.raw === "object" && "state" in node.raw) && <div style={{ marginTop: 14 }}><Json value={node.raw} /></div>}
         </Drawer>
       )}
     </Page>

@@ -153,6 +153,18 @@ export interface LoadDetail {
   timeline: TimelineItem[];
   agentRuns: AgentRun[];
   photos: Photo[];
+  // The workflow's own step states from the read API (replays have none). Shows steps that were
+  // skipped or failed, which no record marks on its own.
+  workflow?: WorkflowStep[];
+}
+
+export interface WorkflowStep {
+  key: string;
+  label: string;
+  state: "done" | "current" | "waiting" | "skipped" | "failed";
+  at: string | null;
+  services: string[];
+  detail?: string;
 }
 
 export interface Overview {

@@ -5,6 +5,12 @@ import { clock, duration, usd } from "../format.js";
 import type { LoadDetail } from "../model/model.js";
 import { ProvenanceBadge, Stamp } from "./badges.js";
 
+// 24 -> "1 day", 168 -> "7 days", 36 -> "36 h".
+function hoursWords(h: number): string {
+  if (h % 24 !== 0) return `${h} h`;
+  return h === 24 ? "1 day" : `${h / 24} days`;
+}
+
 interface WhatIf {
   id: string;
   label: string;
@@ -40,7 +46,7 @@ function whatIfs(d: LoadDetail): WhatIf[] {
     { id: "unsigned", label: "Receiver didn't sign", hint: "no signed record", applies: true, apply: (e) => ({ ...e, bol: e.bol ? { ...e.bol, signed: false } : e.bol }) },
     { id: "conflict", label: "Paper out-time 40 min off", hint: "paper vs phone", applies: true, apply: (e) => ({ ...e, bol: e.bol && e.released ? { ...e.bol, checkOut: iso(Date.parse(e.released.at) + 40 * 60_000) } : e.bol }) },
     { id: "notice", label: "No detention notice", hint: spec.noticeLeadMinutes === null ? "not required here" : "never emailed", applies: spec.noticeLeadMinutes !== null, apply: (e) => ({ ...e, noticeSentAt: null }) },
-    { id: "window", label: "Filed 8 days late", hint: `window ${spec.claimWindowHours % 24 === 0 ? `${spec.claimWindowHours / 24} days` : `${spec.claimWindowHours} h`}`, applies: true, apply: (e) => ({ ...e, evaluatedAt: e.released ? iso(Date.parse(e.released.at) + (spec.claimWindowHours + 24) * 3_600_000) : e.evaluatedAt }) },
+    { id: "window", label: `Filed ${hoursWords(spec.claimWindowHours + 24)} after release`, hint: `window ${hoursWords(spec.claimWindowHours)}`, applies: true, apply: (e) => ({ ...e, evaluatedAt: e.released ? iso(Date.parse(e.released.at) + (spec.claimWindowHours + 24) * 3_600_000) : e.evaluatedAt }) },
   ];
 }
 
@@ -56,7 +62,7 @@ const RULES: Array<[string, (d: LoadDetail) => string, string[]]> = [
   ["Signed paper", (d) => (d.clause.acceptedRecords.includes("signed_bol_times") ? "both times" : "not required"), ["NO_STATEMENT_OF_RECORD"]],
   ["Paper vs phone", () => "within 15 min", ["BOL_TIMESTAMP_CONFLICT", "PIN_OUTSIDE_GEOFENCE"]],
   ["Notice", (d) => (d.clause.noticeLeadMinutes === null ? "not required" : "before free time ends"), ["NOTICE_MISSING", "NOTICE_LATE"]],
-  ["Claim window", (d) => `${d.clause.claimWindowHours / 24} days`, ["CLAIM_WINDOW_EXPIRED"]],
+  ["Claim window", (d) => hoursWords(d.clause.claimWindowHours), ["CLAIM_WINDOW_EXPIRED"]],
 ];
 
 // WhatIfPanel: the workflow's own clause engine, re-run in the browser with one fact changed.

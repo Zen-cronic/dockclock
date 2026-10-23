@@ -18,9 +18,32 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
     const first = Math.min(...times);
     if (Date.parse(c.arrivedAt) - first > 0 && !c.releasedAt) times.splice(0, times.length, ...times.filter((t) => t >= Date.parse(c.arrivedAt!)));
   }
-  const start = Math.min(...times);
-  const end = Math.max(...times);
-  const pct = (iso: string) => (end === start ? 0 : ((Date.parse(iso) - start) / (end - start)) * 100);
+  let start = Math.min(...times);
+  let end = Math.max(...times);
+  // A sealed load's later records (a seal hours on, an approval that timed out days on) would
+  // squeeze the dock stay into a sliver. Scale the track to the stay plus a margin and park
+  // anything later in a short "later" stub at the right end.
+  let lateFrom = Number.POSITIVE_INFINITY;
+  if (c.arrivedAt && c.releasedAt) {
+    const a = Date.parse(c.arrivedAt);
+    const r = Date.parse(c.releasedAt);
+    const pad = Math.max(10 * 60_000, (r - a) * 0.5);
+    start = Math.max(start, a - pad);
+    if (end > r + pad) {
+      lateFrom = r + pad;
+      end = Math.max(r, ...times.filter((t) => t <= lateFrom));
+    }
+  }
+  const late = Number.isFinite(lateFrom);
+  const span = late ? 84 : 100;
+  const pct = (iso: string) => {
+    const t = Date.parse(iso);
+    if (t > lateFrom) return 94;
+    if (t < start) return 0;
+    return end === start ? 0 : Math.min(span, ((t - start) / (end - start)) * span);
+  };
+  // In and out a few percent apart would print over each other: one label then carries both.
+  const merged = Boolean(c.arrivedAt && c.releasedAt && pct(c.releasedAt) - pct(c.arrivedAt) < 16);
   const limit = cursor ? Date.parse(cursor) : Number.POSITIVE_INFINITY;
   const upTo = (iso: string | null) => Math.min(Date.parse(iso ?? now ?? new Date(limit === Infinity ? Date.now() : limit).toISOString()), limit);
   const width = (from: string, to: string) => Math.max(0, pct(new Date(Math.min(Date.parse(to), limit)).toISOString()) - pct(from));
@@ -67,12 +90,28 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
           <div className="mark start" style={{ left: `${pct(c.arrivedAt)}%` }}>
             {clock(c.arrivedAt, tz)}
             <span>in</span>
+            {merged && c.releasedAt && (
+              <>
+                <span className="arrow">→</span>
+                {clock(c.releasedAt, tz)}
+                <span>out</span>
+              </>
+            )}
           </div>
         )}
         {c.releasedAt && (
-          <div className={`mark ${pct(c.releasedAt) > 80 ? "end" : ""}`} style={{ left: `${pct(c.releasedAt)}%` }}>
-            {clock(c.releasedAt, tz)}
-            <span>out</span>
+          <div className={`mark ${merged ? "tick" : ""} ${pct(c.releasedAt) > 80 ? "end" : ""}`} style={{ left: `${pct(c.releasedAt)}%` }}>
+            {!merged && (
+              <>
+                {clock(c.releasedAt, tz)}
+                <span>out</span>
+              </>
+            )}
+          </div>
+        )}
+        {late && (
+          <div className="mark later" style={{ left: "94%" }}>
+            <span>later</span>
           </div>
         )}
         <div className="bar">
@@ -82,6 +121,7 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
             <div className="seg bill" style={{ left: `${pct(c.freeTimeEndsAt)}%`, width: `${width(c.freeTimeEndsAt, (c.releasedAt ?? now)!)}%` }} />
           )}
           {now && <div className="seg cursor live" style={{ left: `${pct(now)}%` }} />}
+          {late && <div className="brk" style={{ left: "88%" }} />}
           {cursor && <div className="seg cursor" style={{ left: `${pct(cursor)}%` }} />}
         </div>
         <div className="pins">

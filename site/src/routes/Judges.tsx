@@ -42,6 +42,21 @@ function SignatureCard({ load, broken }: { load: LoadDetail; broken?: boolean })
   );
 }
 
+// The fields the signature covers, on the canary copy: what a judge is checking.
+function SignedFields({ load }: { load: LoadDetail }) {
+  const c = load.clock;
+  return (
+    <div className="printout signedslip">
+      <div className="kv">
+        <span>Load</span><b>{load.summary.id}</b>
+        {c.arrivedAt && (<><span>Arrived</span><b>{clock(c.arrivedAt, load.timeZone)}</b></>)}
+        {c.releasedAt && (<><span>Released</span><b>{clock(c.releasedAt, load.timeZone)}</b></>)}
+        <span>Amount</span><b>{usd(load.verdict?.amountUsd ?? 0)}</b>
+      </div>
+    </div>
+  );
+}
+
 function BreakIt({ load }: { load: LoadDetail }) {
   const [on, setOn] = useState(false);
   return (
@@ -161,7 +176,12 @@ export function Judges() {
       case "signed":
         title = "Signed";
         say = "Sealed with AWS KMS. Your browser checks it now.";
-        visual = <SignatureCard load={load} />;
+        visual = (
+          <>
+            <SignatureCard load={load} />
+            <SignedFields load={load} />
+          </>
+        );
         link = [`/loads/${load.summary.id}/evidence`, "Evidence"];
         break;
       case "filed":
