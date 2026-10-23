@@ -80,7 +80,8 @@ export function escalationEmail(load: LoadItem, reason: string, options: { unrea
       { label: "Load", value: load.loadId },
       { label: "Facility", value: facility.name },
       { label: "Arrived", value: at(load.arrived?.serverAt) },
-      { label: "Released", value: at(load.released?.serverAt) },
+      // When the clock stopped: the Released tap, or on older loads the release pin.
+      { label: "Released", value: at(load.releasedTap?.serverAt ?? load.released?.serverAt) },
       // The amount once: in the first line when it names it, otherwise here.
       ...(amount && !topic.summary.includes(amount) ? [{ label: "Contract amount", value: amount, strong: true }] : []),
       ...(confidence ? [{ label: "Evidence", value: capital(EVIDENCE[confidence] ?? confidence) }] : []),

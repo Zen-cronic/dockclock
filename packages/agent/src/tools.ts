@@ -55,6 +55,8 @@ interface LoadMeta {
   facilityId: string;
   appointmentAt: string;
   arrived: { serverAt: string } | null;
+  // The Released tap, which stops the dock clock; the release pin confirms it. Absent on older loads.
+  releasedTap?: { serverAt: string } | null;
   released: { serverAt: string } | null;
   bol: { inTime: string | null; outTime: string | null; receiverSigned?: boolean; delayReason: string | null; photos: Photo[] } | null;
   bolReading?: BolReading & { page: number; model: string; readAt: string };
@@ -127,6 +129,7 @@ async function getLoadEvidence(input: { loadId: string }) {
     },
     appointment: local(load.appointmentAt),
     arrivedPin: local(load.arrived?.serverAt),
+    releasedTap: load.releasedTap ? local(load.releasedTap.serverAt) : null,
     releasedPin: local(load.released?.serverAt),
     driverBolEntries: load.bol && {
       inTime: load.bol.inTime,
@@ -173,7 +176,8 @@ async function readBillOfLading(input: { loadId: string; page?: number }) {
     },
     comparedWithPins: {
       inMinutesApart: minutesBetween(reading.inTime, pinClock(load.arrived?.serverAt)),
-      outMinutesApart: minutesBetween(reading.outTime, pinClock(load.released?.serverAt)),
+      // The out time is compared with the release: the Released tap where one was recorded.
+      outMinutesApart: minutesBetween(reading.outTime, pinClock(load.releasedTap?.serverAt ?? load.released?.serverAt)),
     },
   };
 }

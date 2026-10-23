@@ -214,6 +214,16 @@ describe("detention notice", () => {
     expect(ses.calls()).toHaveLength(0);
   });
 
+  it("sends nothing once the driver taps Released, before the release pin comes", async () => {
+    load.releasedTap = { channel: "whatsapp", serverAt: "2026-10-17T18:58:00.000Z", messageId: "wamid.tap" };
+    expect(load.released).toBeNull();
+    expect(await handler({ kind: "send", loadId: "4471" }, context)).toEqual({ sent: false });
+    expect(ses.calls()).toHaveLength(0);
+    expect(messaging.calls()).toHaveLength(0);
+    const skip = dynamo.commandCalls(UpdateCommand).find((c) => c.args[0].input.UpdateExpression === "SET notice.skipped = :w");
+    expect(skip?.args[0].input.ExpressionAttributeValues).toEqual({ ":w": "The driver tapped Released before the notice was due." });
+  });
+
   it("records the SES delivery time only for the notice it sent", async () => {
     (load.notice as Record<string, unknown>).messageId = "ses-notice-1";
     const sns = (messageId: string): SNSEvent => ({

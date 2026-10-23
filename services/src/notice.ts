@@ -128,7 +128,8 @@ async function sendNotice(loadId: string): Promise<{ sent: boolean }> {
     log("notice_skipped", { loadId, why });
     return { sent: false };
   };
-  if (load.released) return skip("released before free time ended");
+  // The clock stops at the Released tap, so no notice goes out after it, even before the pin comes.
+  if (load.releasedTap || load.released) return skip("The driver tapped Released before the notice was due.");
   if (load.phase === "sealed" || load.phase === "closed") return skip(`load ${load.phase}`);
   if (load.notice?.sentAt) return { sent: false };
   const clause = clauseById(load.clauseId);

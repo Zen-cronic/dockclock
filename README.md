@@ -25,7 +25,7 @@ Carriers also skip billing because they expect to be refused and don't want to d
 ## What DockClock does
 1. **Dispatch.** The carrier sends the load to the driver as a WhatsApp utility template with an **Arrived** button, in English, Spanish or Québécois French.
 2. **Arrival proof.** The driver taps Arrived at the dock. DockClock sends a WhatsApp **location request**, and the pin (with WhatsApp's server timestamp) is checked against the facility's geofence.
-3. **Release proof.** The driver taps **Released** and shares a second pin. A two-screen **WhatsApp Flow** asks for:
+3. **Release proof.** The driver taps **Released**, and the dock clock stops at that tap's server timestamp. A second pin, shared within 10 minutes and checked against the geofence, confirms it; a later pin sends the load to a person. A two-screen **WhatsApp Flow** asks for:
    - a **camera-only** photo of the bill of lading;
    - the in and out times written on it;
    - whether the receiver signed it;
@@ -56,12 +56,13 @@ Today the scorecard measures the clause engine on 24 hand-labelled test loads. I
 **With a phone:** send **DEMO** on WhatsApp to the DockClock number given on the Devpost submission page (**DEMO ES** for Spanish, **DEMO FR** for Québécois French). It takes about 10 minutes, most of it the real wait (10 more if a photo has to be retaken). You are both the driver and the dispatcher:
 1. Tap **Arrived** and share your location. In the demo any location counts; the pin is still recorded with WhatsApp's server timestamp.
 2. Free time is 5 minutes. Wait longer than that. Shortly after you arrive a detention notice is emailed, and the chat tells you.
-3. Tap **Released**, share your location again, write on a piece of paper the arrival and release times the chat and the form show (US Eastern time in the demo), and photograph it in the form. Keep the times the form suggests.
+3. Tap **Released**: the dock clock stops there. Share your location again within 10 minutes, write on a piece of paper the arrival and release times the chat and the form show (US Eastern time in the demo), and photograph it in the form. Keep the times the form suggests.
 4. The contract's verdict arrives in the chat. If it is billable, tap **Approve claim**. The AgentCore agent files it, and the chat tells you the amount and the evidence pack's digest.
 
 **Change one thing** (send DEMO again to start over):
 - Tap Released before 5 minutes: the chat explains "the wait stayed within free time". Nothing is claimed, and nothing is "repaired".
-- In the form, change the out time by more than 15 minutes: the typed time no longer matches your pin, so the load is held for a person instead of claimed.
+- In the form, change the out time by more than 15 minutes: the typed time no longer matches your Released tap, so the load is held for a person instead of claimed.
+- Wait more than 10 minutes after Released before sharing your location: the clock still stops at the tap, but the late pin cannot confirm it, so the load is held for a person.
 - Send a blurred photo: you are asked once for a clearer one; if none comes within 10 minutes, the first photo is used.
 
 **What is real and what is not.** The clause is fictional (5 minutes free, $60 an hour, $30 cap, notice required before free time ends) and is not part of the scored set. The demo yard accepts any location, so the demo does not test the geofence. Claim and notice emails go to our own test mailbox, never to you. The KMS signature proves the recorded messages, times and photo hash have not changed since sealing; it cannot prove where your phone really was. Each number gets 5 demos a day, reset at 00:00 UTC. We store your pins and photo with the demo load, as we would for a carrier; the signed pack records the times and the photo's hash, not your location.

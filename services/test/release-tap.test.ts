@@ -4,6 +4,8 @@ import { buildPack, corroborate, facilityById, LocalSigner, sealPack, toLoadEvid
 import { describe, expect, it } from "vitest";
 import { checkEngineInput, engineInputOf, inboundTitle, releaseTapOf, type Item } from "../api/describe.js";
 import { buildLoadView } from "../api/view.js";
+import { escalationEmail } from "../src/escalate.js";
+import type { LoadItem } from "../src/store.js";
 
 // The dock clock stops at the driver's Released tap; the release pin confirms it within 10 minutes.
 // Packs sealed before this (version 1) have no tap: their release is the pin. The read API rebuilds
@@ -150,5 +152,25 @@ describe("console views of the Released tap", () => {
   it("names the tap on the timeline", () => {
     expect(inboundTitle("button", "ADVANCED", "released").title).toBe("Driver tapped Released: the dock clock stopped");
     expect(inboundTitle("button", "IGNORED_DUPLICATE_TAP", "released").title).toBe("Released tapped again: ignored");
+  });
+});
+
+describe("dispatch emails name the Released tap as the release", () => {
+  it("gives the tap's time, not the pin's", () => {
+    const load = {
+      loadId: "LIVE-tap",
+      clauseId: clause.id,
+      facilityId: facility.id,
+      phase: "sealed",
+      language: "en_US",
+      channel: "whatsapp",
+      address: { kind: "phone", e164: "+15550100001" },
+      arrived: { serverAt: T(13, 50) },
+      releasedTap: { serverAt: T(17, 20), messageId: "w-tap" },
+      released: { serverAt: T(17, 32) },
+    } as unknown as LoadItem;
+    const { text } = escalationEmail(load, "sealed as NEEDS_HUMAN; review the pack before any claim", { pack: { confidence: "low", reasons: ["RELEASE_PIN_LATE"] } });
+    expect(text).toContain("Released: 2026-10-13 13:20 EDT");
+    expect(text).toContain("the release location was not shared within 10 minutes of tapping Released");
   });
 });
