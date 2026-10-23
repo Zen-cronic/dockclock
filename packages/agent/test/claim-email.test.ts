@@ -49,7 +49,7 @@ async function pdfText(bytes: Uint8Array): Promise<{ pages: number; text: string
 // The parts of a raw message, decoded, keyed by content type.
 function decodedParts(raw: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const part of raw.split(/--b1(?:-alt)?/)) {
+  for (const part of raw.split(/--b1(?:-alt|-rel)?/)) {
     const type = /Content-Type: ([^;\r\n]+)/.exec(part)?.[1];
     const body = part.split("\r\n\r\n")[1];
     if (type && body && !type.startsWith("multipart/")) out[type] = Buffer.from(body.replace(/\r\n/g, ""), "base64").toString("utf8");
@@ -71,6 +71,10 @@ describe("claim email", () => {
       ["detention-claim-SMOKE-mve8yfv3.pdf", "application/pdf"],
       [`${signed.pack.packId}.json`, "application/json"],
     ]);
+    // The brand mark in the HTML header is an inline related part: the console's parser skips it,
+    // so it is never listed as one of the claim's attachments.
+    expect(raw).toContain("Content-ID: <brand-mark@dockclock>\r\nContent-Disposition: inline\r\n");
+    expect(decodedParts(raw)["text/html"]).toContain('src="cid:brand-mark@dockclock"');
     // The public key is linked, not attached.
     expect(raw).not.toContain(".pem\"");
     // The pack goes out byte for byte as sealed.
@@ -120,7 +124,9 @@ describe("claim email", () => {
       // One short fingerprint, never the full digest.
       expect(body).not.toContain(manifest.pack.packDigestSha256);
     }
-    expect(parts["text/html"]).not.toMatch(/<img|<script|<style|<link|url\(/i);
+    expect(parts["text/html"]).not.toMatch(/<script|<style|<link|url\(/i);
+    // The one image is the brand mark, carried inline in the message.
+    expect([...parts["text/html"]!.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])).toEqual(["cid:brand-mark@dockclock"]);
   });
 
   it("links the console only for a demo-workspace load", async () => {

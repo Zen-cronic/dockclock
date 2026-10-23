@@ -155,12 +155,14 @@ describe("detention notice", () => {
     expect(demoTest).not.toContain("geofence");
   });
 
-  it("renders the same facts as simple HTML with no images, scripts or tracking", () => {
+  it("renders the same facts as simple HTML with no remote images, scripts or tracking", () => {
     const { text, html } = noticeEmail(load as unknown as LoadItem, "2026-10-17T20:00:00.000Z", "claims@example.com", "dispatch@example.com");
     expect(html).toContain("DockClock");
     expect(html).toContain("2026-10-17 16:00 EDT");
     expect(html).toContain("Location pin inside the facility&#39;s geofence, WhatsApp server time");
-    expect(html).not.toMatch(/<img|<script|<link|<style|url\(/i);
+    expect(html).not.toMatch(/<script|<link|<style|url\(/i);
+    // The one image is the brand mark, carried inline in the message (cid:), never fetched.
+    expect([...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])).toEqual(["cid:brand-mark@dockclock"]);
     expect(findLeaks({ text, html })).toEqual([]);
   });
 

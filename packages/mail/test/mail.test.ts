@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { addressOf, buildMime, loadPageUrl, pinSource, PUBLIC_KEY_URL, renderHtml, renderText, signatureLines, type Letter } from "../src/index.js";
+import { addressOf, BRAND_MARK_CID, BRAND_MARK_MASTER_SHA256, BRAND_MARK_PNG_BASE64, buildMime, loadPageUrl, pinSource, PUBLIC_KEY_URL, renderHtml, renderText, signatureLines, type Letter } from "../src/index.js";
 
 const letter: Letter = {
   kind: "Detention notice",
@@ -45,7 +47,9 @@ describe("letter layout", () => {
     expect(html).toContain('role="presentation"');
     expect(html).toContain("#ffc400");
     expect(html).toContain(`href="${PUBLIC_KEY_URL}"`);
-    expect(html).not.toMatch(/<img|<script|<style|<link|url\(|class=/i);
+    expect(html).not.toMatch(/<script|<style|<link|url\(|class=/i);
+    // The one image is the brand mark, referenced by Content-ID: nothing is fetched from a server.
+    expect([...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])).toEqual([`cid:${BRAND_MARK_CID}`]);
     expect(html).toMatch(/font-weight:bold;[^"]*">\$1\.00</);
   });
 
@@ -76,5 +80,33 @@ describe("buildMime", () => {
     expect(raw).toMatch(/^Reply-To: c@example\.com\r$/m);
     expect(raw.indexOf("text/plain")).toBeLessThan(raw.indexOf("text/html"));
     expect(raw.trimEnd().endsWith("--b1-alt--")).toBe(true);
+    // No brand mark in the HTML, so no related part.
+    expect(raw).not.toContain("multipart/related");
+  });
+
+  it("carries the brand mark the HTML header shows as an inline related part, not an attachment", () => {
+    const html = renderHtml(letter, "Subject");
+    const raw = buildMime({ from: "a@example.com", to: "b@example.com", subject: "S", date: new Date("2026-10-23T18:57:00Z"), text: renderText(letter), html }, "b1");
+    // text/plain first, then a multipart/related holding the HTML and the mark.
+    expect(raw).toContain('Content-Type: multipart/related; type="text/html"; boundary="b1-rel"');
+    expect(raw.indexOf("text/plain")).toBeLessThan(raw.indexOf("multipart/related"));
+    expect(raw.indexOf("multipart/related")).toBeLessThan(raw.indexOf("text/html"));
+    const part = /--b1-rel\r\nContent-Type: image\/png\r\n([\s\S]*?)\r\n\r\n([A-Za-z0-9+/=\r\n]+)--b1-rel--/.exec(raw);
+    expect(part).not.toBeNull();
+    expect(part![1]).toBe(`Content-Transfer-Encoding: base64\r\nContent-ID: <${BRAND_MARK_CID}>\r\nContent-Disposition: inline`);
+    // No file name anywhere on the part, so clients do not list it with the attachments.
+    expect(part![1]).not.toMatch(/name=/i);
+    const png = Buffer.from(part![2]!.replace(/\s+/g, ""), "base64");
+    expect(png.subarray(1, 4).toString("latin1")).toBe("PNG");
+    expect(png.length).toBeLessThan(8_000);
+    expect(raw.trimEnd().endsWith("--b1-alt--")).toBe(true);
+  });
+});
+
+describe("brand mark", () => {
+  it("was generated from the console's master mark (rerun npm run brand:mail and check brand.ts if this fails)", () => {
+    const master = readFileSync(new URL("../../../site/public/brand-mark.svg", import.meta.url));
+    expect(createHash("sha256").update(master).digest("hex")).toBe(BRAND_MARK_MASTER_SHA256);
+    expect(Buffer.from(BRAND_MARK_PNG_BASE64, "base64").length).toBeLessThan(8_000);
   });
 });

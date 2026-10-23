@@ -33,8 +33,8 @@ function decodeBody(body: string, encoding: string | undefined): Buffer {
   return encoding?.toLowerCase() === "base64" ? Buffer.from(body.replace(/\s+/g, ""), "base64") : Buffer.from(body, "utf8");
 }
 
-// Walks one MIME entity: multiparts recurse, a named part is an attachment, and the first
-// text/plain part without a name is the body.
+// Walks one MIME entity: multiparts recurse (multipart/related too), an inline Content-ID part is
+// skipped, a named part is an attachment, and the first text/plain part without a name is the body.
 function walk(headers: Record<string, string>, body: string, out: ParsedEmail): void {
   const contentType = headers["content-type"] ?? "text/plain";
   const type = contentType.split(";")[0]!.trim().toLowerCase();
@@ -47,6 +47,9 @@ function walk(headers: Record<string, string>, body: string, out: ParsedEmail): 
     }
     return;
   }
+  // An inline part referenced by Content-ID (the brand mark in the HTML header) belongs to the HTML
+  // alternative: it is neither the body nor one of the claim's attachments.
+  if (headers["content-id"] && !/^\s*attachment/i.test(headers["content-disposition"] ?? "")) return;
   const bytes = decodeBody(body, headers["content-transfer-encoding"]);
   const name = /filename="?([^";]+)"?/i.exec(headers["content-disposition"] ?? "")?.[1];
   if (name) out.attachments.push({ name, contentType: type, sha256: createHash("sha256").update(bytes).digest("hex") });

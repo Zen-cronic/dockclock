@@ -33,6 +33,7 @@
     "smoke:demo": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/smoke-demo.ts",
     "bol:photos": "node --conditions=source --import tsx scripts/bol-photos.ts",
     "diagram": "node --import tsx scripts/render-architecture.ts",
+    "brand:mail": "node --import tsx scripts/brand-mail.ts",
     "verify:pack": "node --conditions=source --import tsx scripts/verify-pack.ts",
     "eval:bol": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/eval-bol.ts",
     "agent:run": "node --env-file-if-exists=.env --conditions=source --import tsx scripts/agent-run.ts",

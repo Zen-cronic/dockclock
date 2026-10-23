@@ -101,9 +101,10 @@ export class MessagingStack extends Stack {
     ingest.addToRolePolicy(new iam.PolicyStatement({ actions: ["social-messaging:GetWhatsAppMessageMedia"], resources: [phoneArn] }));
     core.mediaBucket.grantReadWrite(ingest);
     // identity/* rather than the sender alone: in the SES sandbox the recipient identities are
-    // authorized too.
+    // authorized too. Raw MIME sends (the notice, and the dispatch escalation that ingest, retake,
+    // notify and the notice handler can send) are authorized as SendRawEmail.
     const sesSend = new iam.PolicyStatement({
-      actions: ["ses:SendEmail"],
+      actions: ["ses:SendEmail", "ses:SendRawEmail"],
       resources: [`arn:aws:ses:${config.region}:${config.account}:identity/*`, `arn:aws:ses:${config.region}:${config.account}:configuration-set/${CONFIGURATION_SET_NAME}`],
     });
     ingest.addToRolePolicy(sesSend);
@@ -208,10 +209,8 @@ export class MessagingStack extends Stack {
     core.identitySecret.grantRead(noticeFn);
     noticeFn.addToRolePolicy(sendWhatsApp);
     if (rcs) noticeFn.addToRolePolicy(rcs.sendRcs);
+    // The notice goes out as raw MIME, so the stored copy is the sent bytes.
     noticeFn.addToRolePolicy(sesSend);
-    // The notice goes out as raw MIME (so the stored copy is the sent bytes), which SES authorizes
-    // as SendRawEmail.
-    noticeFn.addToRolePolicy(new iam.PolicyStatement({ actions: ["ses:SendRawEmail"], resources: sesSend.resources }));
     noticeFn.addToRolePolicy(
       new iam.PolicyStatement({ actions: ["scheduler:CreateSchedule"], resources: [`arn:aws:scheduler:${config.region}:${config.account}:schedule/${NOTICE_SCHEDULE_GROUP}/*`] }),
     );

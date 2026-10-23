@@ -3,7 +3,7 @@
 // from ClaimFacts, the same object the email renders, so the PDF and the email cannot disagree.
 
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
-import { addressOf, CARRIER_NAME, FICTIONAL_NOTE, PUBLIC_KEY_URL } from "@dockclock/mail";
+import { addressOf, BRAND_MARK_PATHS, BRAND_MARK_VIEWBOX, CARRIER_NAME, FICTIONAL_NOTE, PUBLIC_KEY_URL } from "@dockclock/mail";
 import type { ClaimFacts } from "./claim-email.js";
 
 const hex = (value: string) => {
@@ -28,6 +28,11 @@ export function winAnsi(value: string): string {
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^\x20-\x7e\xa0-\xff–—‘’“”…•]/g, "?");
+}
+
+// The brand mark, drawn from the master's vector paths: `size` points square, its top-left corner at (x, top).
+function drawMark(page: PDFPage, x: number, top: number, size: number): void {
+  for (const shape of BRAND_MARK_PATHS) page.drawSvgPath(shape.d, { x, y: top, scale: size / BRAND_MARK_VIEWBOX, color: hex(shape.fill) });
 }
 
 interface Fonts {
@@ -116,10 +121,12 @@ export async function buildClaimPdf(facts: ClaimFacts, options: ClaimPdfOptions)
   const page = doc.addPage([PAGE.width, PAGE.height]);
   const c = new Cursor(page, fonts);
 
-  // Header: the accent bar, the wordmark, and the claim's number and date on the right.
+  // Header: the accent bar, the mark and wordmark, and the claim's number and date on the right.
+  // The 34 pt mark spans the right-hand block, from the cap top of its first line to the last baseline.
   page.drawRectangle({ x: 0, y: PAGE.height - 8, width: PAGE.width, height: 8, color: ACCENT });
   c.y = PAGE.height - MARGIN;
-  c.text("DockClock", MARGIN, c.y - 6, 22, fonts.bold);
+  drawMark(page, MARGIN, c.y + 7, 34);
+  c.text("DockClock", MARGIN + 44, c.y - 18, 22, fonts.bold);
   c.right("DETENTION CLAIM", c.y, 9, fonts.bold, INK_3);
   c.right(facts.claimNumber, c.y - 14, 10, fonts.bold);
   c.right(`Issued ${facts.issued}`, c.y - 27, 9, fonts.regular, INK_2);
@@ -179,10 +186,11 @@ export async function buildClaimPdf(facts: ClaimFacts, options: ClaimPdfOptions)
     8.5,
   );
 
-  // Footer.
+  // Footer: a small mark, centred on the two-line note beside it.
   c.rule(MARGIN + 22);
-  const footer = wrap(`${FICTIONAL_NOTE} Produced by DockClock from the sealed evidence pack. The amount is computed by the contract's clause engine, not by the AI agent.`, fonts.regular, 7.5, PAGE.width - 2 * MARGIN - 60);
-  footer.forEach((line, i) => c.text(line, MARGIN, MARGIN + 10 - i * 10, 7.5, fonts.regular, INK_3));
+  drawMark(page, MARGIN, MARGIN + 14, 13);
+  const footer = wrap(`${FICTIONAL_NOTE} Produced by DockClock from the sealed evidence pack. The amount is computed by the contract's clause engine, not by the AI agent.`, fonts.regular, 7.5, PAGE.width - 2 * MARGIN - 60 - 20);
+  footer.forEach((line, i) => c.text(line, MARGIN + 20, MARGIN + 10 - i * 10, 7.5, fonts.regular, INK_3));
   c.right("Page 1 of 1", MARGIN + 10, 7.5, fonts.regular, INK_3);
 
   return doc.save();

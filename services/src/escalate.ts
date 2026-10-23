@@ -3,7 +3,7 @@ import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { PutCommand } from "@aws-sdk/lib-dynamodb";
 import { clauseById } from "@dockclock/clause-engine";
 import { facilityById, isoToLocalDateTime } from "@dockclock/evidence";
-import { CARRIER_NAME, loadPageUrl, renderHtml, renderText, type Letter } from "@dockclock/mail";
+import { buildMime, CARRIER_NAME, loadPageUrl, renderHtml, renderText, type Letter } from "@dockclock/mail";
 import { scrubText } from "@dockclock/sanitize";
 import { ddb, type LoadItem } from "./store.js";
 import { env, log } from "./config.js";
@@ -111,7 +111,9 @@ export async function notifyDispatch(load: LoadItem, reason: string, options: { 
       FromEmailAddress: env.fromEmail(),
       Destination: { ToAddresses: [env.dispatchEmail()] },
       ConfigurationSetName: env.configurationSet(),
-      Content: { Simple: { Subject: { Data: subject }, Body: { Text: { Data: text }, Html: { Data: html } } } },
+      // Raw MIME from the shared builder, like the notice and the claim: text and HTML alternatives,
+      // the HTML with the brand mark as an inline part.
+      Content: { Raw: { Data: Buffer.from(buildMime({ from: env.fromEmail(), to: env.dispatchEmail(), subject, text, html, date: new Date() })) } },
       EmailTags: [
         { Name: "purpose", Value: "dispatch_escalation" },
         { Name: "loadId", Value: load.loadId },

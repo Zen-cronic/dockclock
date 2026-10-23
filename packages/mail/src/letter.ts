@@ -1,7 +1,10 @@
 // One layout for every email DockClock sends: a wordmark, a one-line summary, a short facts block,
 // one closing line, a signature and a footer of public links. Rendered twice, as plain text and as
-// simple HTML (inline CSS, table layout, no images, no tracking), from the same values, so the two
-// parts of a multipart/alternative message can never disagree.
+// simple HTML (inline CSS, table layout, no tracking), from the same values, so the two parts of a
+// multipart/alternative message can never disagree. The HTML's one image is the brand mark, carried
+// inside the message as an inline CID part (buildMime adds it), never fetched from a server.
+
+import { BRAND_MARK_CID } from "./brand.js";
 
 export interface Fact {
   label: string;
@@ -79,7 +82,13 @@ export function renderHtml(letter: Letter, subject: string): string {
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${GROUND}" style="background:${GROUND};"><tr><td align="center" style="padding:24px 12px;">`,
     `<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background:#ffffff;border:1px solid ${RULE};">`,
     `<tr><td height="4" bgcolor="${ACCENT}" style="height:4px;background:${ACCENT};font-size:0;line-height:0;">&nbsp;</td></tr>`,
-    row(`<span style="${text(18, INK, "font-weight:bold;letter-spacing:0.2px;")}">DockClock</span><span style="${text(13, INK_3)}">&nbsp;&nbsp;${e(letter.kind)}</span>`, "20px 32px 0"),
+    row(
+      `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>` +
+        `<td width="28" valign="middle" style="width:28px;padding:0 10px 0 0;"><img src="cid:${BRAND_MARK_CID}" width="28" height="28" alt="" style="display:block;width:28px;height:28px;border:0;outline:none;"></td>` +
+        `<td valign="middle"><span style="${text(18, INK, "font-weight:bold;letter-spacing:0.2px;")}">DockClock</span><span style="${text(13, INK_3)}">&nbsp;&nbsp;${e(letter.kind)}</span></td>` +
+        `</tr></table>`,
+      "20px 32px 0",
+    ),
     ...(letter.salutation ? [row(e(letter.salutation), "24px 32px 0", text(15, INK))] : []),
     row(e(letter.summary), `${letter.salutation ? 12 : 24}px 32px 0`, text(15, INK)),
     row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid ${RULE};border-bottom:1px solid ${RULE};">${facts}</table>`, "20px 32px 0"),

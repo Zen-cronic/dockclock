@@ -2,7 +2,7 @@ import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context, SNSEvent } from "aws-lambda";
 import { mockClient } from "aws-sdk-client-mock";
-import { findLeaks } from "@dockclock/sanitize";
+import { findLeaks, parseMime } from "@dockclock/sanitize";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { notifyDispatch } from "../src/escalate.js";
 import { handler as noticeHandler } from "../src/notice.js";
@@ -21,6 +21,13 @@ const load = {
   released: null,
 } as unknown as LoadItem;
 
+// The raw MIME of the nth SES send: its plain-text part (as the console reads it) and its HTML part.
+function sentMail(n = 0) {
+  const raw = Buffer.from(ses.commandCalls(SendEmailCommand)[n]!.args[0].input.Content?.Raw?.Data ?? new Uint8Array()).toString("utf8");
+  const html = /Content-Type: text\/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([A-Za-z0-9+/=\r\n]+)/.exec(raw)?.[1] ?? "";
+  return { raw, parsed: parseMime(raw), html: Buffer.from(html.replace(/\s+/g, ""), "base64").toString("utf8") };
+}
+
 const sesEvent = (purpose: string, eventType: string, messageId: string): SNSEvent =>
   ({ Records: [{ Sns: { Timestamp: "t", Message: JSON.stringify({ eventType, mail: { messageId, tags: { purpose: [purpose], loadId: ["4471"] } }, delivery: { timestamp: "2026-10-17T18:00:01.000Z" }, bounce: { timestamp: "2026-10-17T18:00:02.000Z" } }) } }] }) as unknown as SNSEvent;
 
@@ -37,15 +44,21 @@ describe("dispatch escalation records", () => {
   it("emails dispatch the driver's number, tags the load, and records the email without it", async () => {
     expect(await notifyDispatch(load, "driver asked for dispatch")).toBe("ses-esc-1");
     const sent = ses.commandCalls(SendEmailCommand)[0]!.args[0].input;
-    expect(sent.Content?.Simple?.Body?.Text?.Data).toContain("+15550100001");
-    // A plain-text part and a simple HTML part with the same facts; SES sends them as multipart/alternative.
-    const html = sent.Content?.Simple?.Body?.Html?.Data ?? "";
+    const { raw, parsed, html } = sentMail();
+    expect(raw).toContain("To: dispatch@example.com");
+    expect(parsed.text).toContain("+15550100001");
+    // A plain-text part and a simple HTML part with the same facts, as multipart/alternative; the HTML's
+    // one image is the brand mark, carried inline in the message, and no part is an attachment.
+    expect(parsed.hasHtml).toBe(true);
+    expect(parsed.attachments).toEqual([]);
     expect(html).toContain("Dispatch alert");
     expect(html).toContain("Lakeshore DC, Columbus OH");
-    expect(html).not.toMatch(/<img|<script|<style/i);
-    expect(sent.Content?.Simple?.Body?.Text?.Data).toContain("DockClock, for the dispatch desk of Demo Carrier (fictional)");
+    expect(html).not.toMatch(/<script|<style/i);
+    expect([...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])).toEqual(["cid:brand-mark@dockclock"]);
+    expect(raw).toContain("Content-ID: <brand-mark@dockclock>");
+    expect(parsed.text).toContain("DockClock, for the dispatch desk of Demo Carrier (fictional)");
     // Not a demo-workspace load: no console link.
-    expect(sent.Content?.Simple?.Body?.Text?.Data).not.toContain("cloudfront.net");
+    expect(parsed.text).not.toContain("cloudfront.net");
     expect(sent.EmailTags).toEqual([{ Name: "purpose", Value: "dispatch_escalation" }, { Name: "loadId", Value: "4471" }]);
     const item = dynamo.commandCalls(PutCommand)[0]!.args[0].input.Item as Record<string, unknown>;
     expect(item.pk).toBe("LOAD#4471");
@@ -57,7 +70,7 @@ describe("dispatch escalation records", () => {
 
   it("links a demo-workspace load to its console page, and the stored record stays leak-free", async () => {
     await notifyDispatch({ ...load, ws: "demo" }, "driver tapped Talk to dispatch");
-    const text = ses.commandCalls(SendEmailCommand)[0]!.args[0].input.Content?.Simple?.Body?.Text?.Data ?? "";
+    const { text } = sentMail().parsed;
     expect(text).toContain("Open this load: https://d3djuoqhg6b8o2.cloudfront.net/loads/4471");
     const item = dynamo.commandCalls(PutCommand)[0]!.args[0].input.Item as Record<string, unknown>;
     expect(findLeaks({ ...item, pk: undefined, sk: undefined })).toEqual([]);

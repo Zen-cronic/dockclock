@@ -8,6 +8,7 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand, TransactWriteCommand, U
 import type { SQSEvent } from "aws-lambda";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { parseMime } from "@dockclock/sanitize";
 import { driverKeyWith } from "../src/identity.js";
 import { handler } from "../src/ingest.js";
 
@@ -176,10 +177,10 @@ describe("WhatsApp to RCS failover", () => {
     await handler(rcsFailed("rcs-out-1"));
     expect(sms.commandCalls(SendRcsMessageCommand)).toHaveLength(1);
     expect(ses.commandCalls(SendEmailCommand)).toHaveLength(1);
-    const email = ses.commandCalls(SendEmailCommand)[0]!.args[0].input.Content?.Simple;
-    expect(String(email?.Subject?.Data)).toBe("Load 4471 needs dispatch: driver not reachable");
+    const email = parseMime(Buffer.from(ses.commandCalls(SendEmailCommand)[0]!.args[0].input.Content?.Raw?.Data ?? new Uint8Array()).toString("utf8"));
+    expect(email.subject).toBe("Load 4471 needs dispatch: driver not reachable");
     // Failover marks the driver unreachable, so dispatch is told to call rather than message them.
-    expect(String(email?.Body?.Text?.Data)).toContain("Messages are not getting through on RCS; call them.");
+    expect(email.text).toContain("Messages are not getting through on RCS; call them.");
     expect(timeline.map((e) => e.outcome)).toEqual(["RESENT_OVER_RCS", "ESCALATED_UNREACHABLE"]);
   });
 
