@@ -265,6 +265,21 @@ describe("console read API", () => {
     expect((await get("/api/loads/SMOKE-RCS-1")).body).toContain("Jane Roe");
   });
 
+  it("retries receipts BatchGetItem left unprocessed, then gives up after a bounded number of tries", async () => {
+    const keys = [{ pk: "MSG#out-wa", sk: "RECEIPT" }];
+    dynamo.on(BatchGetCommand).resolvesOnce({ Responses: { loads: [] }, UnprocessedKeys: { loads: { Keys: keys } } }).resolves({ Responses: { loads: [{ pk: "MSG#out-wa", sk: "RECEIPT", failedAt: T(13, 4) }] } });
+    const view = JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data;
+    expect(view.messages.find((m: { kind: string }) => m.kind === "wa_template").status).toBe("failed");
+    const { receiptsFor, RECEIPT_RETRIES } = await import("../api/store.js");
+    dynamo.on(BatchGetCommand).resolves({ Responses: { loads: [] }, UnprocessedKeys: { loads: { Keys: keys } } });
+    const waits: number[] = [];
+    const before = dynamo.commandCalls(BatchGetCommand).length;
+    await expect(receiptsFor(partitions["SMOKE-RCS-1"]!, async (ms) => waits.push(ms))).rejects.toThrow(/unread/);
+    expect(dynamo.commandCalls(BatchGetCommand).length - before).toBe(RECEIPT_RETRIES + 1);
+    expect(waits).toHaveLength(RECEIPT_RETRIES);
+    expect(Math.max(...waits)).toBeLessThanOrEqual(1000);
+  });
+
   it("serves a photo without its EXIF or GPS, naming the original's hash", async () => {
     const res = await get("/api/loads/SMOKE-RCS-1/photos/1");
     expect(res.statusCode).toBe(200);

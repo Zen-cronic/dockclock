@@ -6,7 +6,7 @@ import { registerFacility, type Facility } from "@dockclock/evidence";
 import { findLeaks, stripImageMetadata } from "@dockclock/sanitize";
 import type { ApiError, ApiResponse, LoadsPage } from "../../site/src/api.js";
 import { feedOf, overviewOf, type FeedFilters } from "./feed.js";
-import { listWorkspace, partition, photoBytes, sourcesFor } from "./store.js";
+import { listWorkspace, mapLimit, partition, photoBytes, sourcesFor } from "./store.js";
 import { buildLoadView, emailViewOf, packInfoOf, summaryOf } from "./view.js";
 import { obj, str } from "./describe.js";
 
@@ -84,14 +84,16 @@ async function loadItems(loadId: string) {
   return items;
 }
 
+// Loads read at once by the cross-load routes (each is one Query and one BatchGetItem).
+const READ_CONCURRENCY = 8;
+
 async function recentViews(now: string) {
   const { metas } = await listWorkspace(WINDOW_LOADS, null);
-  const views = [];
-  for (const meta of metas) {
+  const views = await mapLimit(metas, READ_CONCURRENCY, async (meta) => {
     const items = await partition(String(meta.loadId));
-    if (items) views.push(buildLoadView(await sourcesFor(items, { light: true, now, spkiSha256: spki() })));
-  }
-  return views;
+    return items ? buildLoadView(await sourcesFor(items, { light: true, now, spkiSha256: spki() })) : null;
+  });
+  return views.filter((v) => v !== null);
 }
 
 const CHANNELS = ["whatsapp", "rcs", "sms", "email"];
@@ -106,11 +108,10 @@ async function route(path: string, params: URLSearchParams, now: string): Promis
   if (parts.length === 1 && parts[0] === "loads") {
     const limit = intParam(params, "limit", 25, 100);
     const { metas, next } = await listWorkspace(limit, decodeCursor(params.get("cursor")));
-    const loads = [];
-    for (const meta of metas) {
+    const loads = (await mapLimit(metas, READ_CONCURRENCY, async (meta) => {
       const items = await partition(String(meta.loadId));
-      if (items) loads.push(summaryOf(items));
-    }
+      return items ? summaryOf(items, now) : null;
+    })).filter((l) => l !== null);
     const page: LoadsPage = { loads, nextCursor: next ? Buffer.from(JSON.stringify(next)).toString("base64url") : null };
     return json(200, envelope(page, loads.some((l) => l.live) ? 3000 : null, now));
   }
@@ -147,12 +148,12 @@ async function route(path: string, params: URLSearchParams, now: string): Promis
       return json(200, envelope(view, view.summary.live ? 3000 : null, now));
     }
     if (parts.length === 3 && parts[2] === "pack") {
-      const sources = await sourcesFor(items, { now, spkiSha256: spki() });
+      const sources = await sourcesFor(items, { only: "pack", now, spkiSha256: spki() });
       if (!sources.signedPack) throw notFound(`a sealed pack for load ${parts[1]}`);
       return json(200, envelope(packInfoOf(sources.signedPack, spki()), null, now));
     }
     if (parts.length === 4 && parts[2] === "emails") {
-      const email = emailViewOf(await sourcesFor(items, { now, spkiSha256: spki() }), parts[3]!);
+      const email = emailViewOf(await sourcesFor(items, { only: "emails", now, spkiSha256: spki() }), parts[3]!);
       if (!email) throw notFound(`email ${parts[3]!.slice(0, 40)} of load ${parts[1]}`);
       return json(200, envelope(email, null, now));
     }
