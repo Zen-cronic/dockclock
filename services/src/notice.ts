@@ -1,7 +1,7 @@
 import { ConflictException, CreateScheduleCommand, SchedulerClient } from "@aws-sdk/client-scheduler";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
-import { QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context, SNSEvent } from "aws-lambda";
 import { clauseById, detentionStartsAt } from "@dockclock/clause-engine";
 import { acceptsAnyLocation, checkGeofence, facilityById, isoToLocalClock, isoToLocalDateTime, zoneAbbreviation } from "@dockclock/evidence";
@@ -201,15 +201,32 @@ async function storeNoticeEmail(loadId: string, raw: string): Promise<void> {
 
 interface SesEvent {
   eventType: "Delivery" | "Bounce" | "Complaint" | "Reject" | string;
-  mail: { messageId: string; tags?: Record<string, string[]> };
+  mail: { messageId: string; timestamp?: string; tags?: Record<string, string[]> };
   delivery?: { timestamp: string };
   bounce?: { timestamp: string };
 }
 
+// An SES event can beat the record it belongs to: the claim tool, the escalation and the notice
+// each write the SES message id just after SES accepts the email. An event that finds no record
+// yet is retried (the handler throws, so Lambda's async retry redelivers it a minute or two
+// later), for as long as its email is this fresh. Older unmatched events are stray and dropped.
+export const SES_EVENT_RETRY_WINDOW_MS = 15 * 60_000;
+
+export class SesEventEarly extends Error {
+  constructor(readonly count: number) {
+    super(`${count} SES event(s) arrived before their email's record; retrying`);
+    this.name = "SesEventEarly";
+  }
+}
+
+type Marked = "set" | "already" | "missing" | "other";
+
 // SES delivery events. A delivered notice becomes evidence; a bounced one goes to a person. The
 // claim and dispatch escalation emails get their delivery or bounce time recorded too, matched by
-// SES message id so a stray event never marks the wrong email.
-async function onSesEvents(event: SNSEvent): Promise<void> {
+// SES message id so a stray event never marks the wrong email. Each time is set once, so a retried
+// event never notifies dispatch twice.
+async function onSesEvents(event: SNSEvent, now = Date.now()): Promise<void> {
+  let early = 0;
   for (const record of event.Records) {
     const ses = JSON.parse(record.Sns.Message) as SesEvent;
     const purpose = ses.mail.tags?.purpose?.[0];
@@ -218,63 +235,69 @@ async function onSesEvents(event: SNSEvent): Promise<void> {
     const field = ses.eventType === "Delivery" ? "deliveredAt" : ses.eventType === "Bounce" ? "bouncedAt" : null;
     if (!field) continue;
     const at = ses.delivery?.timestamp ?? ses.bounce?.timestamp ?? record.Sns.Timestamp;
+    const sentAt = Date.parse(ses.mail.timestamp ?? record.Sns.Timestamp);
+    const fresh = Number.isFinite(sentAt) && now - sentAt < SES_EVENT_RETRY_WINDOW_MS;
+    const messageId = ses.mail.messageId;
+    let marked: Marked;
     if (purpose === "detention_claim") {
-      if (await markDelivery(keys.claim(loadId), field, at, "sesMessageId", ses.mail.messageId)) log(`claim_email_${field === "deliveredAt" ? "delivered" : "bounced"}`, { loadId, messageId: ses.mail.messageId });
-      continue;
-    }
-    if (purpose === "dispatch_escalation") {
+      marked = await markDelivery(keys.claim(loadId), "", field, at, "sesMessageId", messageId);
+      if (marked === "set") log(`claim_email_${field === "deliveredAt" ? "delivered" : "bounced"}`, { loadId, messageId });
+    } else if (purpose === "dispatch_escalation") {
       const found = await ddb.send(
         new QueryCommand({
           TableName: env.table(),
           KeyConditionExpression: "pk = :p AND begins_with(sk, :s)",
           FilterExpression: "sesMessageId = :m",
-          ExpressionAttributeValues: { ":p": `LOAD#${loadId}`, ":s": "EMAIL#escalation#", ":m": ses.mail.messageId },
+          ExpressionAttributeValues: { ":p": `LOAD#${loadId}`, ":s": "EMAIL#escalation#", ":m": messageId },
+          ConsistentRead: true,
         }),
       );
       const item = found.Items?.[0] as { pk: string; sk: string } | undefined;
-      if (item && (await markDelivery({ pk: item.pk, sk: item.sk }, field, at, "sesMessageId", ses.mail.messageId))) log(`escalation_${field === "deliveredAt" ? "delivered" : "bounced"}`, { loadId, messageId: ses.mail.messageId });
-      continue;
-    }
-    if (purpose !== "detention_notice") continue;
-    try {
-      await ddb.send(
-        new UpdateCommand({
-          TableName: env.table(),
-          Key: keys.load(loadId),
-          UpdateExpression: `SET notice.${field} = if_not_exists(notice.${field}, :t)`,
-          ConditionExpression: "notice.messageId = :m",
-          ExpressionAttributeValues: { ":t": at, ":m": ses.mail.messageId },
-        }),
-      );
-    } catch (error) {
-      if ((error as Error).name !== "ConditionalCheckFailedException") throw error;
-      continue;
-    }
-    log(`notice_${field === "deliveredAt" ? "delivered" : "bounced"}`, { loadId, messageId: ses.mail.messageId });
-    if (field === "bouncedAt") {
-      const load = await getLoad(loadId);
-      if (load) await notifyDispatch(load, "the detention notice email bounced; send notice another way");
+      marked = item ? await markDelivery({ pk: item.pk, sk: item.sk }, "", field, at, "sesMessageId", messageId) : "missing";
+      if (marked === "set") log(`escalation_${field === "deliveredAt" ? "delivered" : "bounced"}`, { loadId, messageId });
+    } else if (purpose === "detention_notice") {
+      marked = await markDelivery(keys.load(loadId), "notice.", field, at, "messageId", messageId);
+      if (marked === "set") {
+        log(`notice_${field === "deliveredAt" ? "delivered" : "bounced"}`, { loadId, messageId });
+        if (field === "bouncedAt") {
+          const load = await getLoad(loadId);
+          if (load) await notifyDispatch(load, "the detention notice email bounced; send notice another way");
+        }
+      }
+    } else continue;
+    if (marked === "missing" && fresh) {
+      early += 1;
+      log("ses_event_early", { loadId, purpose, messageId, field });
     }
   }
+  if (early) throw new SesEventEarly(early);
 }
 
-// Sets deliveredAt or bouncedAt once on the record whose message id matches. False when it does not.
-async function markDelivery(key: { pk: string; sk: string }, field: "deliveredAt" | "bouncedAt", at: string, idField: string, messageId: string): Promise<boolean> {
+// Sets deliveredAt or bouncedAt (under `prefix`, "notice." for the notice) once, on the record
+// whose message id matches. "already" when it was set before (a redelivery), "other" when the
+// record holds another email's id, "missing" when the record or its id is not written yet.
+async function markDelivery(key: { pk: string; sk: string }, prefix: "" | "notice.", field: "deliveredAt" | "bouncedAt", at: string, idField: string, messageId: string): Promise<Marked> {
   try {
     await ddb.send(
       new UpdateCommand({
         TableName: env.table(),
         Key: key,
-        UpdateExpression: `SET ${field} = if_not_exists(${field}, :t)`,
-        ConditionExpression: `${idField} = :m`,
+        UpdateExpression: `SET ${prefix}${field} = if_not_exists(${prefix}${field}, :t)`,
+        ConditionExpression: `${prefix}${idField} = :m AND attribute_not_exists(${prefix}${field})`,
         ExpressionAttributeValues: { ":t": at, ":m": messageId },
       }),
     );
-    return true;
+    return "set";
   } catch (error) {
     if ((error as Error).name !== "ConditionalCheckFailedException") throw error;
-    return false;
   }
+  const got = await ddb.send(new GetCommand({ TableName: env.table(), Key: key, ConsistentRead: true }));
+  const item = got?.Item as Record<string, unknown> | undefined;
+  const holder = prefix ? (item?.notice as Record<string, unknown> | undefined) : item;
+  const id = holder?.[idField];
+  if (typeof id !== "string") return "missing";
+  if (id !== messageId) return "other";
+  return holder?.[field] !== undefined ? "already" : "missing";
 }
 
 type NoticeInput = { kind: "schedule"; loadId: string } | { kind: "send"; loadId: string } | SNSEvent;

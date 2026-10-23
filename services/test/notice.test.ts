@@ -3,7 +3,7 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { SendWhatsAppMessageCommand, SocialMessagingClient } from "@aws-sdk/client-socialmessaging";
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context, SNSEvent } from "aws-lambda";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -233,6 +233,72 @@ describe("detention notice", () => {
     expect((load.notice as Record<string, unknown>).deliveredAt).toBeUndefined();
     await handler(sns("ses-notice-1"), context);
     expect((load.notice as Record<string, unknown>).deliveredAt).toBe("2026-10-17T19:20:04.000Z");
+  });
+});
+
+// SES events can arrive before the record they belong to (the SES message id is written just
+// after SES accepts the email). Those are retried; a redelivered event changes nothing twice.
+describe("SES events that beat their record", () => {
+  let table: Record<string, Record<string, unknown>>;
+  const k = (key: { pk: string; sk: string }) => `${key.pk}|${key.sk}`;
+  const event = (purpose: string, eventType: "Delivery" | "Bounce", messageId: string, sentAt: string): SNSEvent =>
+    ({
+      Records: [{ Sns: { Timestamp: sentAt, Message: JSON.stringify({ eventType, mail: { messageId, timestamp: sentAt, tags: { purpose: [purpose], loadId: ["4471"] } }, delivery: { timestamp: sentAt }, bounce: { timestamp: sentAt } }) } }],
+    }) as unknown as SNSEvent;
+
+  beforeAll(() => Object.assign(process.env, { FROM_EMAIL: "dockclock@example.com" }));
+  beforeEach(() => {
+    for (const m of [dynamo, ses, messaging, secrets, s3]) m.reset();
+    secrets.on(GetSecretValueCommand).resolves({ SecretString: "k" });
+    ses.on(SendEmailCommand).resolves({ MessageId: "ses-esc" });
+    table = { "LOAD#4471|META": { ...freshLoad(), notice: { sentAt: "x" } } };
+    dynamo.on(GetCommand).callsFake(async (q: { Key: { pk: string; sk: string } }) => ({ Item: structuredClone(table[k(q.Key)]) }));
+    dynamo.on(PutCommand).resolves({});
+    // A small DynamoDB: SET <path> = if_not_exists(<path>, :t) under "<id> = :m AND attribute_not_exists(<path>)".
+    dynamo.on(UpdateCommand).callsFake(async (q: { Key: { pk: string; sk: string }; UpdateExpression: string; ConditionExpression?: string; ExpressionAttributeValues: Record<string, unknown> }) => {
+      const m = /^(\S+) = :m AND attribute_not_exists\((\S+)\)$/.exec(q.ConditionExpression ?? "");
+      const item = table[k(q.Key)];
+      if (!m) return {};
+      const get = (path: string) => path.split(".").reduce<unknown>((o, p) => (o as Record<string, unknown> | undefined)?.[p], item);
+      if (!item || get(m[1]!) !== q.ExpressionAttributeValues[":m"] || get(m[2]!) !== undefined) throw Object.assign(new Error("cond"), { name: "ConditionalCheckFailedException" });
+      const parts = m[2]!.split(".");
+      const holder = parts.length === 2 ? (item[parts[0]!] as Record<string, unknown>) : item;
+      holder[parts.at(-1)!] = q.ExpressionAttributeValues[":t"];
+      return {};
+    });
+  });
+
+  it("retries a fresh claim delivery event that came before the claim record, then records it once", async () => {
+    const now = new Date().toISOString();
+    // The claim is reserved, but SES's id is not written yet.
+    table["LOAD#4471|CLAIM"] = { pk: "LOAD#4471", sk: "CLAIM", status: "sending" };
+    await expect(handler(event("detention_claim", "Delivery", "ses-claim-9", now), context)).rejects.toThrow(/before their email's record/);
+    table["LOAD#4471|CLAIM"]!.sesMessageId = "ses-claim-9";
+    await expect(handler(event("detention_claim", "Delivery", "ses-claim-9", now), context)).resolves.toBeUndefined();
+    expect(table["LOAD#4471|CLAIM"]!.deliveredAt).toBe(now);
+    // Redelivered again: nothing changes and nothing throws.
+    await expect(handler(event("detention_claim", "Delivery", "ses-claim-9", now), context)).resolves.toBeUndefined();
+  });
+
+  it("retries an escalation event until its record exists, and drops a stale stray event", async () => {
+    const now = new Date().toISOString();
+    dynamo.on(QueryCommand).resolves({ Items: [] });
+    await expect(handler(event("dispatch_escalation", "Bounce", "ses-esc-2", now), context)).rejects.toThrow(/retrying/);
+    const old = new Date(Date.now() - 2 * 3_600_000).toISOString();
+    await expect(handler(event("dispatch_escalation", "Bounce", "ses-esc-3", old), context)).resolves.toBeUndefined();
+    // A claim event for another email's id is not retried.
+    table["LOAD#4471|CLAIM"] = { pk: "LOAD#4471", sk: "CLAIM", sesMessageId: "ses-claim-other" };
+    await expect(handler(event("detention_claim", "Delivery", "ses-claim-9", now), context)).resolves.toBeUndefined();
+  });
+
+  it("emails dispatch once about a bounced notice, however often SES redelivers it", async () => {
+    const now = new Date().toISOString();
+    await expect(handler(event("detention_notice", "Bounce", "ses-notice-7", now), context)).rejects.toThrow(/retrying/);
+    (table["LOAD#4471|META"]!.notice as Record<string, unknown>).messageId = "ses-notice-7";
+    await handler(event("detention_notice", "Bounce", "ses-notice-7", now), context);
+    await handler(event("detention_notice", "Bounce", "ses-notice-7", now), context);
+    expect((table["LOAD#4471|META"]!.notice as Record<string, unknown>).bouncedAt).toBe(now);
+    expect(ses.commandCalls(SendEmailCommand)).toHaveLength(1);
   });
 });
 

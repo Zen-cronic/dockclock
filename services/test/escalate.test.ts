@@ -74,7 +74,7 @@ describe("dispatch escalation records", () => {
     await noticeHandler(sesEvent("detention_claim", "Delivery", "ses-claim-1"), {} as Context);
     await noticeHandler(sesEvent("dispatch_escalation", "Bounce", "ses-esc-1"), {} as Context);
     const updates = dynamo.commandCalls(UpdateCommand).map((c) => c.args[0].input);
-    expect(updates[0]).toMatchObject({ Key: { pk: "LOAD#4471", sk: "CLAIM" }, UpdateExpression: "SET deliveredAt = if_not_exists(deliveredAt, :t)", ConditionExpression: "sesMessageId = :m", ExpressionAttributeValues: { ":t": "2026-10-17T18:00:01.000Z", ":m": "ses-claim-1" } });
+    expect(updates[0]).toMatchObject({ Key: { pk: "LOAD#4471", sk: "CLAIM" }, UpdateExpression: "SET deliveredAt = if_not_exists(deliveredAt, :t)", ConditionExpression: "sesMessageId = :m AND attribute_not_exists(deliveredAt)", ExpressionAttributeValues: { ":t": "2026-10-17T18:00:01.000Z", ":m": "ses-claim-1" } });
     expect(updates[1]).toMatchObject({ Key: { pk: "LOAD#4471", sk: "EMAIL#escalation#t#ses-esc-1" }, UpdateExpression: "SET bouncedAt = if_not_exists(bouncedAt, :t)" });
   });
 
