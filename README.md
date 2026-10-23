@@ -87,6 +87,7 @@ What each AWS service does: [`docs/architecture.md`](docs/architecture.md).
 | Opt-in record and STOP/START | No message without a recorded opt-in; STOP stops every message |
 | Utility template `dockclock_notice_sent` | Tells the driver that the contract's detention notice was emailed and when free time ends |
 | Utility template with Approve / Hold buttons (`dockclock_dispatch_approval`) | The dispatcher's one-tap decision that releases the claim; it resumes the waiting Step Functions workflow |
+| Document message (`PostWhatsAppMessageMedia` from S3, then a `document` send) | Sends the one-page PDF claim summary back to dispatch once the claim is filed, inside the window the Approve tap opened |
 
 Per load this is **3 utility templates (driver dispatch, notice sent, dispatcher approval) plus about 5 messages inside the free 24-hour window**, and 2 SES emails (the notice and the claim).
 
