@@ -2,7 +2,7 @@ import { Fragment, type ReactNode } from "react";
 import { clock, dateLong } from "../format.js";
 import type { ConsoleMessage } from "../model/model.js";
 import { channelName } from "./badges.js";
-import { IconPin } from "./icons.js";
+import { IconDoc, IconPin } from "./icons.js";
 
 // ConversationView: a neutral phone frame drawn from DockClock's own message records. WhatsApp and
 // RCS look different on purpose (RCS uses rich cards and suggestion chips), but neither copies the
@@ -107,6 +107,22 @@ function Bubble({ m, timeZone, switched, anyLocation }: { m: ConsoleMessage; tim
           <span>Signed</span><b>{f.receiverSigned ? "yes" : "no"}</b>
           <span>Photo</span><b>{f.photoStored ? "stored" : "not stored"}</b>
         </span>
+      </>
+    );
+  }
+  // A WhatsApp document: the file as a tile (name, type, hash of its bytes), then its caption.
+  if (m.kind === "document" && m.document) {
+    const d = m.document;
+    inner = (
+      <>
+        <span className="docfile">
+          <i aria-hidden="true"><IconDoc width={16} /></i>
+          <span>
+            <b>{d.filename}</b>
+            <span className="small" title={d.sha256 ? `sha256 ${d.sha256}` : undefined}>PDF{d.sha256 ? ` ∙ sha256 ${d.sha256.slice(0, 12)}…` : ""}</span>
+          </span>
+        </span>
+        {d.caption}
       </>
     );
   }

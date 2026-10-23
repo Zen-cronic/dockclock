@@ -9,6 +9,7 @@ const KIND: Record<string, ConsoleMessage["kind"]> = {
   wa_reply_buttons: "buttons",
   wa_location_request: "location_request",
   wa_flow: "flow",
+  wa_document: "document",
   wa_button_reply: "buttons",
   wa_location: "location",
   wa_flow_reply: "flow_reply",
@@ -94,6 +95,7 @@ function messagesFromApi(v: Api.LoadView, photos: Photo[]): ConsoleMessage[] {
     if (m.failover?.action === "rerouted_to_rcs") out.failover = { from: "whatsapp", to: "rcs", note: "WhatsApp failed; resent on RCS" };
     const photo = m.photoId ? byId.get(m.photoId) : undefined;
     if (photo) out.photo = photo;
+    if (m.document) out.document = { ...m.document };
     const reason = (m as { notSentReason?: string }).notSentReason;
     if (reason) out.notSentReason = reason;
     return out;

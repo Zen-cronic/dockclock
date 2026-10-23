@@ -34,7 +34,7 @@ export interface ConsoleMessage {
   direction: "in" | "out";
   party: "driver" | "dispatcher" | "counterparty";
   purpose: string;
-  kind: "template" | "text" | "buttons" | "location_request" | "location" | "flow" | "flow_reply" | "image" | "card" | "email";
+  kind: "template" | "text" | "buttons" | "location_request" | "location" | "flow" | "flow_reply" | "image" | "card" | "document" | "email";
   body: string;
   status: MessageStatus;
   receipts?: { acceptedAt?: string; sentAt?: string; deliveredAt?: string; readAt?: string; failedAt?: string };
@@ -45,6 +45,8 @@ export interface ConsoleMessage {
   location?: { insideGeofence: boolean | null; note: string };
   flowReply?: { inTime: string | null; outTime: string | null; receiverSigned: boolean; delayReason: string | null; photoStored: boolean };
   photo?: Photo;
+  // A file sent as a WhatsApp document (the PDF claim summary).
+  document?: { filename: string; caption: string; sha256: string | null };
   emailId?: string;
   subject?: string;
   notSentReason?: string;

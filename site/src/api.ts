@@ -217,6 +217,7 @@ export type MessageKind =
   | "wa_reply_buttons" // interactive message with quick-reply buttons
   | "wa_location_request" // interactive "Send location" request
   | "wa_flow" // a WhatsApp Flow opened by a call-to-action button (the BOL camera form)
+  | "wa_document" // a file with a caption (the one-page PDF claim summary, sent after filing)
   // WhatsApp, inbound
   | "wa_button_reply"
   | "wa_location"
@@ -262,6 +263,9 @@ export interface ApiMessage {
   flowReply?: { inTime: string | null; outTime: string | null; receiverSigned: boolean; delayReason: string | null };
   // Inbound photo: links into LoadView.photos.
   photoId?: string;
+  // Outbound document: the file name the recipient saw, its caption (also the body) and the
+  // SHA-256 of the file's bytes, which matches the claim email's PDF attachment.
+  document?: { filename: string; caption: string; sha256: string | null };
   status: MessageStatus;
   notSentReason?: string;
   receipts?: { acceptedAt?: string; sentAt?: string; deliveredAt?: string; readAt?: string; failedAt?: string };

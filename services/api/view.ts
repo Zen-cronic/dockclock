@@ -265,8 +265,8 @@ function runInfoOf(p: Parts, hasSends: boolean): RunInfo {
 
 // Message kinds by channel and stored type.
 const OUT_KIND: Record<DriverChannel, Record<string, MessageKind>> = {
-  whatsapp: { template: "wa_template", text: "wa_text", buttons: "wa_reply_buttons", location_request: "wa_location_request", flow: "wa_flow", card: "wa_text", unknown: "wa_text" },
-  rcs: { card: "rcs_rich_card", text: "rcs_text", location_request: "rcs_location_request", buttons: "rcs_text", unknown: "rcs_text", template: "rcs_text", flow: "rcs_text" },
+  whatsapp: { template: "wa_template", text: "wa_text", buttons: "wa_reply_buttons", location_request: "wa_location_request", flow: "wa_flow", document: "wa_document", card: "wa_text", unknown: "wa_text" },
+  rcs: { card: "rcs_rich_card", text: "rcs_text", location_request: "rcs_location_request", buttons: "rcs_text", unknown: "rcs_text", template: "rcs_text", flow: "rcs_text", document: "rcs_text" },
 };
 const IN_KIND: Record<DriverChannel, Record<string, MessageKind>> = {
   whatsapp: { button: "wa_button_reply", location: "wa_location", flow: "wa_flow_reply", image: "wa_image", text: "wa_text_reply" },
@@ -385,6 +385,7 @@ function conversation(p: Parts, photos: PhotoInfo[], receipts: Record<string, It
     const failover = failoverOf(receipt);
     const provenance: Provenance = s.synthetic === true ? "synthetic_input" : "recorded";
     const template = obj(m.template);
+    const doc = obj(m.document);
     const message: Omit<ApiMessage, "id"> = {
       at,
       channel,
@@ -397,6 +398,7 @@ function conversation(p: Parts, photos: PhotoInfo[], receipts: Record<string, It
       ...(str(m.footer) ? { footer: String(m.footer) } : {}),
       ...(str(template.name) ? { template: { name: String(template.name), language: String(template.language ?? "") } } : {}),
       ...(actions ? { actions } : {}),
+      ...(m.kind === "document" && str(doc.filename) ? { document: { filename: scrubText(String(doc.filename)), caption: scrubText(String(m.text ?? "")), sha256: /^[0-9a-f]{64}$/.test(String(doc.sha256)) ? String(doc.sha256) : null } } : {}),
       status,
       ...(notSent ? { notSentReason: String(s.notSentReason ?? "Not sent.") } : {}),
       ...(Object.keys(receiptTimes).length ? { receipts: receiptTimes } : {}),

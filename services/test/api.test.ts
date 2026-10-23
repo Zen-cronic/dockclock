@@ -9,7 +9,9 @@ import { buildMime } from "@dockclock/mail";
 import { findLeaks } from "@dockclock/sanitize";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { handler } from "../api/handler.js";
-import { renderRcs } from "../src/outbound.js";
+import { NOT_SENT, renderRcs, renderWhatsApp, sendRecord } from "../src/outbound.js";
+import { RECEIPT_TEXT } from "../src/claim-receipt.js";
+import { documentMessage } from "../src/sender.js";
 import { rcsDispatchCard } from "../src/rcs.js";
 
 const dynamo = mockClient(DynamoDBDocumentClient);
@@ -363,5 +365,30 @@ describe("console read API", () => {
     expect(email.bodyNote).toBe("The sent email's bytes, kept with the load's packs. Its plain-text part is shown.");
     expect(findLeaks(JSON.parse(res.body), ACCOUNT)).toEqual([]);
     expect(res.body).not.toContain("gmail.com");
+  });
+
+  it("shows the PDF claim summary sent over WhatsApp as a document, with its file name, caption and hash", async () => {
+    const items = partitions["SMOKE-RCS-1"]!;
+    const sha = createHash("sha256").update("%PDF-1.7 fictional").digest("hex");
+    const caption = RECEIPT_TEXT.en_US.caption("SMOKE-RCS-1", "$1.00");
+    // As sendDocument records it: the rendered body plus the file's hash, never the media id or S3 key.
+    const shown = { ...renderWhatsApp(documentMessage("1234567890123456", "detention-claim-SMOKE-RCS-1.pdf", caption)), document: { filename: "detention-claim-SMOKE-RCS-1.pdf", sha256: sha } };
+    expect(shown).toEqual({ kind: "document", text: caption, document: { filename: "detention-claim-SMOKE-RCS-1.pdf", sha256: sha } });
+    items.push(
+      { ...sendRecord({ loadId: "SMOKE-RCS-1", messageId: "out-doc", channel: "whatsapp", purpose: "claim_receipt", audience: "dispatcher", sentAt: T(17, 41), message: shown }) },
+      { ...sendRecord({ loadId: "SMOKE-RCS-1", messageId: "not-sent-doc", channel: "whatsapp", purpose: "claim_receipt", audience: "driver", sentAt: T(17, 42), message: shown, notSentReason: NOT_SENT.windowClosed }) },
+    );
+    const res = await get("/api/loads/SMOKE-RCS-1");
+    expect(findLeaks(JSON.parse(res.body), ACCOUNT)).toEqual([]);
+    const view = JSON.parse(res.body).data as { messages: Array<Record<string, unknown>>; timeline: Array<{ title: string; record?: Record<string, unknown> }> };
+    const docs = view.messages.filter((m) => m.kind === "wa_document");
+    expect(docs).toEqual([
+      expect.objectContaining({ party: "dispatcher", purpose: "claim_receipt", body: caption, status: "accepted", document: { filename: "detention-claim-SMOKE-RCS-1.pdf", caption, sha256: sha } }),
+      expect.objectContaining({ party: "driver", status: "not_sent", notSentReason: NOT_SENT.windowClosed, document: { filename: "detention-claim-SMOKE-RCS-1.pdf", caption, sha256: sha } }),
+    ]);
+    expect(res.body).not.toContain("1234567890123456");
+    const feed = await get("/api/messages");
+    expect(findLeaks(JSON.parse(feed.body), ACCOUNT)).toEqual([]);
+    expect(JSON.parse(feed.body).data.items.some((m: { kind: string; preview: string }) => m.kind === "wa_document" && m.preview.startsWith("Claim summary for load SMOKE-RCS-1"))).toBe(true);
   });
 });
