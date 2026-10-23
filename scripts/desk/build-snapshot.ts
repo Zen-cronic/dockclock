@@ -115,13 +115,16 @@ export function buildSnapshot(src: SnapshotSources): ReplaySnapshot {
   for (const s of sends) {
     const at = String(s.sentAt);
     const m = obj(s.message);
-    const receipt = src.receipts[String(s.messageId)] ?? {};
+    // A send the gate blocked (a test number, an opted-out driver) was composed, never sent: no
+    // receipts, and it says so, as services/api/view.ts conversation() does.
+    const notSent = s.status === "not_sent";
+    const receipt = notSent ? {} : (src.receipts[String(s.messageId)] ?? {});
     const receipts: NonNullable<ChatMessage["receipts"]> = {};
     for (const k of ["accepted", "sent", "delivered", "read", "failed"] as const) {
       const v = str(receipt[`${k}At`]);
       if (v) receipts[`${k}At`] = v;
     }
-    const status: ChatMessage["status"] = receipts.failedAt ? "failed" : receipts.readAt ? "read" : receipts.deliveredAt ? "delivered" : receipts.sentAt ? "sent" : "accepted";
+    const status: ChatMessage["status"] = notSent ? "not_sent" : receipts.failedAt ? "failed" : receipts.readAt ? "read" : receipts.deliveredAt ? "delivered" : receipts.sentAt ? "sent" : "accepted";
     const msgKind = String(m.kind ?? "text");
     const kindOut: ChatMessage["kind"] = msgKind === "card" ? "buttons" : msgKind === "unknown" ? "text" : (msgKind as ChatMessage["kind"]);
     const purpose = String(s.purpose);
@@ -138,6 +141,7 @@ export function buildSnapshot(src: SnapshotSources): ReplaySnapshot {
       ...(Array.isArray(m.buttons) && m.buttons.length ? { buttons: m.buttons.map((b) => ({ title: String(b) })) } : {}),
       ...(str(m.flowCta) ? { flowCta: String(m.flowCta) } : {}),
       status,
+      ...(notSent ? { notSentReason: scrubText(String(s.notSentReason ?? "Not sent.")) } : {}),
       receipts,
       provenance: "recorded",
     };
@@ -146,10 +150,10 @@ export function buildSnapshot(src: SnapshotSources): ReplaySnapshot {
       message,
       event: {
         at,
-        title: `DockClock sent ${purposeWords(purpose)}`,
+        title: `${notSent ? "DockClock composed" : "DockClock sent"} ${purposeWords(purpose)}${notSent ? " (not sent)" : ""}`,
         services: s.channel === "rcs" ? ["Lambda", "EUM RCS"] : ["Lambda", "EUM Social"],
-        tone: purpose === "dispatch_approval" ? "money" : "neutral",
-        record: obj(scrub({ sk: `SEND#${at}`, channel: s.channel, purpose, audience: s.audience, message: m, receipts })),
+        tone: purpose === "dispatch_approval" ? "money" : status === "failed" ? "refused" : "neutral",
+        record: obj(scrub({ sk: `SEND#${at}`, channel: s.channel, purpose, audience: s.audience, status, message: m, receipts })),
         provenance: "recorded",
       },
     });

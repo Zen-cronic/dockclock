@@ -165,6 +165,20 @@ describe("desk snapshot", () => {
     expect(snapshot.pack.pack).toEqual((await sources()).signedPack.pack);
   });
 
+  it("shows a send the gate blocked as composed, not sent, with no receipts", async () => {
+    const src = await sources();
+    src.items.push({ pk: "LOAD#LIVE-test1", sk: `SEND#${T(13, 1)}#blocked-1`, kind: "send", messageId: "blocked-1", channel: "whatsapp", purpose: "location_request", audience: "driver", sentAt: T(13, 1), message: { kind: "location_request", text: "Share your location" }, status: "not_sent", notSentReason: `Not sent: ${PHONE} is a test number.` } as never);
+    src.receipts["blocked-1"] = { pk: "MSG#blocked-1", sk: "RECEIPT", deliveredAt: T(13, 2) } as never;
+    const snapshot = buildSnapshot(src);
+    const blocked = snapshot.messages.find((m) => m.at === T(13, 1))!;
+    expect(blocked).toMatchObject({ status: "not_sent", receipts: {} });
+    expect(blocked.notSentReason).toMatch(/^Not sent: /);
+    expect(blocked.notSentReason).not.toContain(PHONE);
+    const event = snapshot.timeline.find((t) => t.messageId === blocked.id)!;
+    expect(event.title).toBe("DockClock composed a location request (not sent)");
+    expect(event.title).not.toMatch(/DockClock sent/);
+  });
+
   it("emits JSON that type-checks against the site's ReplaySnapshot contract", async () => {
     const snapshot = buildSnapshot(await sources());
     const dir = mkdtempSync(join(tmpdir(), "desk-snapshot-"));
