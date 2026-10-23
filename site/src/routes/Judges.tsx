@@ -239,7 +239,7 @@ export function Judges() {
         title = "“You weren't there that long”";
         say = isRealPhoneRun(load) ? `Both pins carry ${channel}'s server time.` : `Replayed test pins, through the live ${channel} pipeline.`;
         chips = lane === "rcs" ? ["rcs"] : ["whatsapp", "rcs"];
-        const photo = load.photos.find((p) => p.url);
+        const photo = load.photos.find((p) => p.url && p.legible !== false);
         extra = (
           <>
             <PinProof load={load} />
@@ -306,7 +306,7 @@ export function Judges() {
           <div className="dockband">
             <div className="lbl">Text this</div>
             <div className="led" style={{ fontSize: 96, marginTop: 6 }}>DEMO</div>
-            <p className="small" style={{ color: "var(--nav-dim)", marginTop: 10 }}>RCS: recorded only (test agent).</p>
+            <p className="small" style={{ color: "var(--nav-dim)", marginTop: 10 }}>RCS runs are recorded, not open to try.</p>
           </div>
         );
         break;
@@ -328,8 +328,9 @@ export function Judges() {
             </Link>
           ))}
         </nav>
+        {/* Copy, proof, then the buttons: on a phone the proof comes before Next. */}
         <div className="stage">
-          <div>
+          <div className="copy">
             {step === "proved" && (
               <div className="segctl lane" role="group" aria-label="Driver's channel" style={{ marginBottom: 18 }}>
                 <button aria-pressed={lane === "whatsapp"} onClick={() => setLane("whatsapp")}><IconWhatsApp />WhatsApp</button>
@@ -345,15 +346,17 @@ export function Judges() {
                 <p className="say">{say}</p>
                 <Carried chips={chips} />
                 {extra && <div className="extra">{extra}</div>}
-                <div className="acts">
-                  {i > 0 && <button className="btn" onClick={() => go(JUDGE_STEPS[i - 1]!)}>Back</button>}
-                  {i < JUDGE_STEPS.length - 1 && <button className="btn primary" onClick={() => go(JUDGE_STEPS[i + 1]!)}>{i === 0 ? "Start" : "Next"}</button>}
-                  {link && <Link className="btn" to={link[0]}>{link[1]}<IconChevron className="go" /></Link>}
-                </div>
               </>
             )}
           </div>
-          <div>{visual}</div>
+          <div className="vis">{visual}</div>
+          {load && (
+            <div className="acts">
+              {i > 0 && <button className="btn" onClick={() => go(JUDGE_STEPS[i - 1]!)}>Back</button>}
+              {i < JUDGE_STEPS.length - 1 && <button className="btn primary" onClick={() => go(JUDGE_STEPS[i + 1]!)}>{i === 0 ? "Start" : "Next"}</button>}
+              {link && <Link className="btn" to={link[0]}>{link[1]}<IconChevron className="go" /></Link>}
+            </div>
+          )}
         </div>
       </div>
     </Page>

@@ -148,7 +148,7 @@ export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: str
       </div>
       <div className="whatif-out">
         <Outcome recorded={recorded} computed={any ? computed : null} />
-        {any && reasons.length > 0 && <p className="whatif-why">{sentence(REASON_WORDS[reasons[0]!])}.</p>}
+        {any && reasons.length > 0 && <p className="whatif-why"><Mark ok={false} />{sentence(REASON_WORDS[reasons[0]!])}.</p>}
       </div>
       <div className="whatif-rules">
         <div className="card">
@@ -199,7 +199,7 @@ export function QuickWhatIf({ load, ids }: { load: LoadDetail; ids: string[] }) 
         ))}
       </div>
       <Outcome recorded={run(base)} computed={on.size ? computed : null} />
-      {on.size > 0 && reasons.length > 0 && <p className="whatif-why">{sentence(REASON_WORDS[reasons[0]!])}.</p>}
+      {on.size > 0 && reasons.length > 0 && <p className="whatif-why"><Mark ok={false} />{sentence(REASON_WORDS[reasons[0]!])}.</p>}
     </>
   );
 }
