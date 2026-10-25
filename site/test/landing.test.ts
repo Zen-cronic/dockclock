@@ -162,3 +162,39 @@ describe("landing claims follow the load", () => {
     expect(html).not.toMatch(/\$\d+ an hour/);
   });
 });
+
+// The wait scene draws only a finished stay, and its heading follows the record.
+describe("wait scene on other loads", () => {
+  const raw = (name: string) => JSON.parse(readFileSync(new URL(`../fixtures/api/loads/${name}.json`, import.meta.url), "utf8")) as { data: LoadView };
+  const wait = (v: LoadView) => renderToStaticMarkup(createElement(WaitScene, { story: buildStory(v, {})!, reduced: true }));
+  const widths = (html: string) => [...html.matchAll(/(?:width|left):\s*([-\d.]+)%/g)].map((m) => Number(m[1]));
+
+  it("draws nothing for a load that was never released", () => {
+    const v = structuredClone(raw(HERO_LOAD).data);
+    v.clock.releasedAt = null;
+    expect(buildStory(v, {})).not.toBeNull();
+    expect(wait(v)).toBe("");
+  });
+
+  it("keeps a load released inside free time on the track and does not call it owed", () => {
+    const v = structuredClone(raw(HERO_LOAD).data);
+    v.clock.releasedAt = new Date(Date.parse(v.clock.arrivedAt!) + 3 * 60_000).toISOString();
+    v.verdict!.verdict = "NOT_BILLABLE";
+    const html = wait(v);
+    expect(html).not.toMatch(/NaN|Invalid/);
+    expect(html).toContain("3 minutes at the door, inside 5 minutes of free time. Nothing was owed.");
+    expect(html).not.toContain("were owed");
+    for (const w of widths(html)) expect(w).toBeLessThanOrEqual(100);
+    expect(html).not.toContain("Free time ends");
+  });
+
+  it("says the contract owed nothing past free time on a load it does not pay", () => {
+    const html = wait(raw("SMOKE-RCS-mvh338l2").data);
+    expect(html).toContain("The contract owed nothing for the rest.");
+    expect(html).not.toContain("were owed");
+  });
+
+  it("says the rest were owed on the hero load", () => {
+    expect(wait(raw(HERO_LOAD).data)).toMatch(/minutes at the door\. 5 were free\. The rest were owed\./);
+  });
+});

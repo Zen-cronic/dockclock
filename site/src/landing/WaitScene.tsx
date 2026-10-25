@@ -8,7 +8,8 @@ import { clockSourceWords, contractWords } from "../copy/provenance.js";
 // "The wait": a pinned scroll scene. The truck backs onto Door 05 while the dock clock runs from the
 // arrival pin to the release pin, the track fills (free time dashed, billable time striped), and the
 // contract's stamp lands. Every number comes from the recorded load. Under reduced motion it is
-// drawn once, at its last frame, and does not pin.
+// drawn once, at its last frame, and does not pin. It draws only a finished stay (an arrival, a
+// release and the end of free time); a load never released has no wait to show, so nothing is drawn.
 
 const clamp = (x: number) => Math.min(1, Math.max(0, x));
 const ease = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -46,6 +47,13 @@ function useScrollProgress(reduced: boolean) {
 }
 
 
+// The heading's last sentence: what the time past free time came to, by the recorded verdict.
+function restWords(verdict: string | null | undefined): string {
+  if (verdict === "BILLABLE") return "The rest were owed.";
+  if (verdict === "NOT_BILLABLE") return "The contract owed nothing for the rest.";
+  return "A person decides the rest.";
+}
+
 function hms(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, "0")).join(":");
@@ -56,12 +64,14 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
   const narrow = useMedia("(max-width: 640px)", false);
   const { load } = story;
   const tz = load.timeZone;
-  const arrived = load.clock.arrivedAt!;
-  const released = load.clock.releasedAt!;
-  const freeEnds = load.clock.freeTimeEndsAt!;
+  const arrived = load.clock.arrivedAt ?? "";
+  const released = load.clock.releasedAt ?? "";
+  const freeEnds = load.clock.freeTimeEndsAt ?? "";
   const stay = (Date.parse(released) - Date.parse(arrived)) / 1000;
-  const free = (Date.parse(freeEnds) - Date.parse(arrived)) / 1000;
-  const freeShare = free / stay;
+  const free = Math.max(0, (Date.parse(freeEnds) - Date.parse(arrived)) / 1000);
+  // Released inside free time: the whole stay was free and free time ends past the track.
+  const insideFree = free >= stay;
+  const freeShare = clamp(free / stay);
   const amount = load.verdict?.amountUsd ?? load.summary.amountUsd ?? 0;
   const filed = story.chapters.find((c) => c.key === "filed")?.at ?? null;
   const freeMin = Math.round(free / 60);
@@ -74,13 +84,17 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
   const elapsed = run * stay;
   const billing = elapsed > free;
 
+  if (!(stay > 0) || !Number.isFinite(free)) return null;
+  const stayMin = Math.round(stay / 60);
+  const heading = insideFree ? `${stayMin} minutes at the door, inside ${freeMin} minutes of free time. Nothing was owed.` : `${stayMin} minutes at the door. ${freeMin} were free. ${restWords(load.verdict?.verdict)}`;
+
   return (
     <section className={`lp-wait ${reduced ? "still" : ""}`} ref={ref} aria-labelledby="wait-h" id="wait">
       <div className="lp-wait-pin">
         <div className="lp-wait-inner">
           <div className="lp-wait-copy">
             <p className="lp-kicker dark">The wait</p>
-            <h2 id="wait-h" className="lp-h2">{Math.round(stay / 60)} minutes at the door. {freeMin} were free. The rest were owed.</h2>
+            <h2 id="wait-h" className="lp-h2">{heading}</h2>
             <p className="lp-wait-sub">{[contractWords(load), clockSourceWords(load)].filter(Boolean).join(" ")}</p>
           </div>
 
@@ -159,11 +173,11 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
             <div className="bar">
               <i className="free" style={{ width: `${Math.min(run, freeShare) * 100}%` }} />
               <i className="bill" style={{ left: `${freeShare * 100}%`, width: `${Math.max(0, run - freeShare) * 100}%` }} />
-              <span className="mark" style={{ left: `${freeShare * 100}%` }} />
+              {!insideFree && <span className="mark" style={{ left: `${freeShare * 100}%` }} />}
             </div>
             <div className="ticks">
               <span style={{ left: 0 }}>Arrived {clock(arrived, tz)}</span>
-              <span style={{ left: `${freeShare * 100}%` }}>{narrow ? "Free ends" : "Free time ends"} {clock(freeEnds, tz)}</span>
+              {!insideFree && <span style={{ left: `${freeShare * 100}%` }}>{narrow ? "Free ends" : "Free time ends"} {clock(freeEnds, tz)}</span>}
               <span style={{ left: "100%" }}>Released {clock(released, tz)}</span>
             </div>
           </div>
