@@ -323,12 +323,12 @@ export function Judges() {
       <div className="judge">
         <div className="steps-m" aria-hidden="true">
           <span className="mono">{i + 1} / {JUDGE_STEPS.length}</span>
-          <span className="segs">{JUDGE_STEPS.map((s, n) => <i key={s} className={n < i ? "done" : n === i ? "current" : ""} />)}</span>
+          <span className="segs">{JUDGE_STEPS.map((s, n) => <i key={s} className={n < i ? "done" : n === i ? "current" : ""}>{String(n + 1).padStart(2, "0")}</i>)}</span>
         </div>
         <nav className="steps" aria-label="Steps">
           {JUDGE_STEPS.map((s, n) => (
             <Link key={s} to={`/judges/${s}${params.toString() ? `?${params}` : ""}`} className={`${s === step ? "active" : ""} ${n < i ? "done" : ""}`} aria-current={s === step ? "step" : undefined} aria-label={LABELS[s]} title={LABELS[s]}>
-              <span className="n" aria-hidden="true">{n < i ? <IconCheck /> : ""}</span>
+              <span className="n" aria-hidden="true">{String(n + 1).padStart(2, "0")}</span>
               <span>{LABELS[s]}</span>
             </Link>
           ))}

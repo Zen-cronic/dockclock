@@ -176,14 +176,20 @@ a { color: inherit; }
 
 /* Stamp */
 /* Verdict: a dock-door sign. Sign-black plate, a dock light, the word; money on a safety-yellow panel. */
-.verdict { display: inline-flex; align-items: stretch; vertical-align: middle; border-radius: 4px; overflow: hidden; white-space: nowrap; box-shadow: 0 1px 0 rgba(21, 23, 28, 0.12); }
+.verdict { display: inline-flex; align-items: stretch; vertical-align: middle; border-radius: 4px; overflow: hidden; white-space: nowrap; }
+.verdict.v-notowed, .verdict.v-review { box-shadow: 0 1px 0 rgba(21, 23, 28, 0.18); }
 .verdict .plate { display: inline-flex; align-items: center; gap: 7px; padding: 0 9px 0 8px; min-height: 26px; background: var(--side); color: #fff; font: 800 14px / 1 var(--display); letter-spacing: 0.07em; text-transform: uppercase; }
 .verdict .light { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--light, transparent); box-shadow: inset 0 0 0 1.5px var(--light-ring, var(--light, transparent)); }
-.verdict.v-owed { --light: #3ccf86; }
+.verdict.v-owed { --light: var(--go); }
+.verdict.v-owed .plate, .verdict.v-open .plate { background: var(--card); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.verdict.v-owed .plate { border-radius: inherit; }
+.verdict.v-owed:has(.amount) .plate { border-radius: 0; }
+.verdict.v-open .plate { color: var(--ink-2); box-shadow: inset 0 0 0 1.5px var(--rule-2); }
 .verdict.v-notowed { --light: #ff6b5e; }
 .verdict.v-review { --light: transparent; --light-ring: #c9cdd3; }
-.verdict.v-open .light { background: transparent; box-shadow: none; border: 1.5px dashed var(--nav-dim); }
+.verdict.v-open .light { background: transparent; box-shadow: none; border: 1.5px dashed var(--ink-3); }
 .verdict .amount { display: inline-flex; align-items: center; padding: 0 9px; background: var(--safety); color: var(--ink); font: 800 15px / 1 var(--display); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+.verdict .amount.none { background: var(--card-2); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--rule-2); }
 .verdict.lg { border-radius: 6px; }
 .verdict.lg .plate { min-height: 44px; padding: 0 14px 0 13px; gap: 10px; font-size: 21px; }
 .verdict.lg .light { width: 12px; height: 12px; }
@@ -720,6 +726,10 @@ a:hover .go { transform: translateX(2px); }
   .table.msgs.flat .loadchip { font-size: 11px; padding: 2px 6px; }
 }
 
+/* In the two-up What-if cards the sign stacks: the word over its amount, the same shape on both sides */
+.compare .verdict.lg { display: inline-grid; grid-template-columns: minmax(0, max-content); }
+.compare .verdict.lg .amount { justify-content: flex-start; min-height: 46px; }
+.compare .verdict.lg.v-owed .plate { border-radius: 0; }
 /* Verdict signs in the two-up What-if cards on phones: one size down so both fit */
 @media (max-width: 860px) {
   .compare .verdict.lg .plate { min-height: 36px; font-size: 16px; padding: 0 10px 0 9px; gap: 7px; }
@@ -729,3 +739,68 @@ a:hover .go { transform: translateX(2px); }
 
 /* Tags read as dock labels, not pills: the same square-cut 3 px corner as the verdict sign */
 .badge, .pill, .loadhead .runchip { border-radius: 3px; }
+
+/* Judges stepper: a row of numbered door plates. The number sits on a sign-black plate; a step
+   passed gets a green dock light under its number; the current step stands on a safety keyline. */
+.steps { gap: 8px; }
+.steps a { gap: 0; padding: 0 12px 0 0; min-height: 36px; border-radius: 4px; color: var(--ink-2); background: var(--card); box-shadow: inset 0 0 0 1px var(--rule-2); overflow: hidden; }
+.steps a .n { width: 34px; height: 36px; margin-right: 10px; border-radius: 0; font: 800 15px / 1 var(--display); letter-spacing: 0.04em; background: var(--side-2); color: var(--nav-text); position: relative; }
+.steps a .n:empty::after { content: none; }
+.steps a.done .n { background: var(--side); color: #fff; }
+.steps a.done .n::after { content: ""; position: absolute; left: 50%; bottom: 5px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: #3ccf86; }
+.steps a.active { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--side), 0 0 0 3px var(--safety); }
+.steps a.active .n { background: var(--side); color: var(--safety); }
+.steps a:hover { color: var(--ink); }
+@media (max-width: 860px) {
+  .steps-m .segs { gap: 3px; }
+  .steps-m .segs i { width: auto; min-width: 24px; height: 22px; border-radius: 3px; background: var(--side-2); color: var(--nav-dim); font: 800 11.5px / 22px var(--display); font-style: normal; text-align: center; }
+  .steps-m .segs i.done { background: var(--side); color: #fff; box-shadow: inset 0 -3px 0 #3ccf86; }
+  .steps-m .segs i.current { background: var(--side); color: var(--safety); box-shadow: 0 0 0 2px var(--safety); }
+}
+
+/* Receipt strip (StatusPill) */
+.receipt { display: inline-flex; align-items: center; gap: 7px; font: 600 11px / 1 var(--mono); letter-spacing: 0.03em; color: var(--ink-2); white-space: nowrap; }
+.receipt .cells { display: inline-flex; gap: 2px; }
+.receipt .cells i { width: 7px; height: 12px; border-radius: 1.5px; background: var(--card); box-shadow: inset 0 0 0 1px var(--rule-2); }
+.receipt .cells i.on { background: var(--ink-3); box-shadow: none; }
+.receipt.r-delivered, .receipt.r-read { color: var(--go); }
+.receipt.r-delivered .cells i.on, .receipt.r-read .cells i.on { background: var(--go); }
+.receipt.r-failed, .receipt.r-failover { color: var(--stop); }
+.receipt.r-failed .cells i.on, .receipt.r-failover .cells i.on { background: var(--stop); }
+.receipt.r-received { color: var(--ink-3); }
+.receipt.r-received .cells i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); border-radius: 50%; width: 10px; height: 10px; }
+.receipt.r-not_sent { color: var(--ink-3); }
+.receipt.r-not_sent .cells i { background: transparent; box-shadow: none; border: 1px dashed var(--rule-2); }
+
+/* Segmented controls and filter chips: square-cut like the rest of the dock signage */
+.segctl { border-radius: 5px; }
+.segctl button { border-radius: 3px; }
+
+/* What-if facts as latch switches: a square-cut slot with a lever block; off, the lever sits left on
+   a light slot; on, the slot is sign black and the lever moves right */
+.switch input { width: 44px; height: 24px; border-radius: 3px; background: var(--card-2); box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+.switch input::after { top: 4px; left: 4px; width: 12px; height: 16px; border-radius: 2px; background: var(--ink-2); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.25); }
+.switch input::before { content: ""; position: absolute; top: 9px; right: 8px; width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--rule-2); }
+.switch input:checked { background: var(--side); box-shadow: inset 0 0 0 1.5px var(--side); }
+.switch input:checked::after { left: 28px; background: #fff; }
+.switch input:checked::before { right: auto; left: 8px; background: var(--safety); box-shadow: none; }
+
+/* COMPUTED: outlined in pink, so the recorded and computed tags no longer read as two filled pills */
+.badge.computed { background: transparent; color: var(--pink); box-shadow: inset 0 0 0 1.5px var(--pink); }
+
+/* Loading: a dot-matrix readout */
+.empty.loading { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.empty .led { font: 800 26px / 1 var(--led); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.empty .ledots { display: inline-flex; gap: 5px; }
+.empty .ledots i { width: 6px; height: 6px; background: var(--ink-2); animation: ledot 1.2s infinite; }
+.empty .ledots i:nth-child(2) { animation-delay: 0.2s; }
+.empty .ledots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ledot { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
+
+/* The dock-clock panel: a lighter yellow frame, and record pins large enough to read against the legend */
+.dockband { box-shadow: inset 0 0 0 1px var(--side), inset 0 0 0 2px rgba(255, 196, 0, 0.7); }
+.dockband .pins .pin { width: 10px; height: 10px; box-shadow: 0 0 0 2px var(--side); }
+.dockband .pins .pin.refused { box-shadow: inset 0 0 0 2px #ff6a5c, 0 0 0 2px var(--side); }
+.tl .dot { width: 9px; height: 9px; }
+.tl .dot:not(.money):not(.agent):not(.ok):not(.refused) { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rule-2); }
+.tl .dot.agent { background: #6d86ee; box-shadow: 0 0 0 1px var(--carbon); }
