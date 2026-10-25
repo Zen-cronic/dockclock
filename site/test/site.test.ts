@@ -256,6 +256,12 @@ describe("release tap and pin", async () => {
     expect(releaseLine({ releasedAt: null, endedAt: "2026-10-26T18:55:00.000Z" }, tz)).toMatch(/ended without a release/);
   });
 
+  it("says a late pin was late, not confirmed", () => {
+    const tz = "America/New_York";
+    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "2026-10-23T19:07:00.000Z" }, tz)).toBe("Clock stopped at the Released tap 2:55 PM; pin late at 3:07 PM (12 min, limit 10), so a person reviews the load");
+    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "2026-10-23T19:05:00.000Z" }, tz)).toMatch(/pin confirmed 3:05 PM$/);
+  });
+
   it("moves the release pin with an early Released tap, so the what-if turns on free time", async () => {
     const { moveRelease } = await import("../src/ui/WhatIfPanel.js");
     const v = structuredClone(body.data);
