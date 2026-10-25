@@ -37,6 +37,23 @@ export function toCents(amountUsd: number): number {
   return Math.round(amountUsd * 100);
 }
 
+// An AWS resource name, a phone number or a 12-digit run (an account id) in the opening. The load
+// id is required, so a match that lies wholly inside one of its occurrences is allowed: a load id
+// with a 12-digit run (PO-123456789012) is not an account id. A match that only overlaps the load
+// id (Account 999901439999 on load 0143) still counts.
+const LEAK = /arn:aws|\+\d{10,15}|(?<!\d)\d{12}(?!\d)/g;
+
+function leaks(body: string, loadId: string): boolean {
+  const named: Array<[number, number]> = [];
+  for (let at = body.indexOf(loadId); loadId && at !== -1; at = body.indexOf(loadId, at + 1)) named.push([at, at + loadId.length]);
+  for (const match of body.matchAll(LEAK)) {
+    const start = match.index;
+    const end = start + match[0].length;
+    if (!named.some(([from, to]) => from <= start && end <= to)) return true;
+  }
+  return false;
+}
+
 export function checkClaim(request: ClaimRequest, basis: SealedClaimBasis): ClaimDecision {
   const refuse = (reason: string): ClaimDecision => ({ ok: false, reason });
   if (request.loadId !== basis.loadId) return refuse("load id does not match the sealed load");
@@ -51,10 +68,7 @@ export function checkClaim(request: ClaimRequest, basis: SealedClaimBasis): Clai
   }
   if (!request.body.includes(amount)) return refuse(`the email must state the contract amount ${amount}`);
   if (!request.body.includes(basis.loadId)) return refuse("the email must name the load id");
-  // The load id is required above, so it is taken out before the check: a load id with a 12-digit
-  // run (PO-123456789012) is not an account id.
-  const unnamed = request.body.split(basis.loadId).join(" ");
-  if (/arn:aws|\+\d{10,15}|(^|\D)\d{12}(\D|$)/.test(unnamed)) return refuse("the opening may not hold an AWS resource name, account id or phone number");
+  if (leaks(request.body, basis.loadId)) return refuse("the opening may not hold an AWS resource name, account id or phone number");
   if (request.body.length < SUMMARY_MIN || request.body.length > SUMMARY_MAX) return refuse(`the opening must be ${SUMMARY_MIN}-${SUMMARY_MAX} characters (one or two sentences)`);
   return { ok: true };
 }

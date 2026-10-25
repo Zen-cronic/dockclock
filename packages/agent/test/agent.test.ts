@@ -46,6 +46,18 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     expect(leaked.ok === false && leaked.reason).toMatch(/account id/);
   });
 
+  it("refuses an account id or phone number that a short numeric load id would split", () => {
+    // Fictional: a 555-01xx number and a made-up account id, each holding the load id.
+    const id = "0143";
+    const named = body.replaceAll("LIVE-abc", id);
+    const shortBasis = { ...basis, loadId: id };
+    expect(checkClaim({ ...request, loadId: id, body: named }, shortBasis)).toEqual({ ok: true });
+    for (const leak of ["Account 999901439999.", "Call +14165550143.", "Key arn:aws:kms:x/0143."]) {
+      const leaked = checkClaim({ ...request, loadId: id, body: `${named} ${leak}` }, shortBasis);
+      expect(leaked.ok, leak).toBe(false);
+    }
+  });
+
   it("refuses unsealed, non-billable, unapproved or already-sent loads", () => {
     expect(checkClaim(request, { ...basis, phase: "documented" }).ok).toBe(false);
     expect(checkClaim(request, { ...basis, verdict: "NEEDS_HUMAN" }).ok).toBe(false);
