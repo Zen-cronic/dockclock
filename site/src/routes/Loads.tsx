@@ -5,7 +5,7 @@ import { Page } from "../ui/AppShell.js";
 import { ChannelBadge, SourceBadge, Verdict } from "../ui/badges.js";
 import { EmptyState } from "../ui/EmptyState.js";
 
-const RUN_WORDS: Record<string, string> = { phone: "Real phone", demo: "Judge demo", operator: "Operator tap", integration: "Test run" };
+const RUN_WORDS: Record<string, string> = { phone: "Real phone", demo: "Judge demo", operator: "Test load ∙ real tap", integration: "Test run" };
 
 export function Loads() {
   const q = useLoads();

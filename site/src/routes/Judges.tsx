@@ -235,14 +235,14 @@ export function Judges() {
       case "start":
         kicker = "ATRI 2024 ∙ 40 drivers × $5,103.95";
         title = "$204,000 a year, unpaid";
-        say = "Detention a 40-driver carrier never collects. Follow one claim.";
+        say = "Detention is the pay a shipper owes when it keeps a truck waiting past the free time in the contract. A 40-driver carrier never collects about this much a year. Follow one claim through the five reasons brokers give for not paying.";
         visual = <DockClockBand load={load} legend={false} />;
         extra = <Facts load={load} />;
         break;
       case "proved": {
-        kicker = "Denial 1 of 5";
+        kicker = "Reason 1 of 5";
         title = "“You weren't there that long”";
-        say = isRealPhoneRun(load) ? `Both pins carry ${channel}'s server time.` : `Replayed test pins, through the live ${channel} pipeline.`;
+        say = isRealPhoneRun(load) ? `The arrival and release pins carry ${channel}'s own server time, not a time someone typed.` : `A test load: the pins are replayed test messages, run through the live ${channel} system.`;
         chips = lane === "rcs" ? ["rcs"] : ["whatsapp", "rcs"];
         const photo = load.photos.find((p) => p.url && p.legible !== false);
         extra = (
@@ -257,20 +257,20 @@ export function Judges() {
         break;
       }
       case "notice": {
-        kicker = "Denial 2 of 5";
+        kicker = "Reason 2 of 5";
         title = "“You never gave notice”";
         const n = load.emails.find((e) => e.purpose === "notice");
         const free = load.clock.freeTimeEndsAt;
         say = !n
           ? load.clause.noticeLeadMinutes === null ? "This contract doesn't ask for one." : "No notice was sent on this load."
-          : free && Date.parse(n.sentAt) <= Date.parse(free) ? "DockClock emailed the shipper before free time ran out." : "The notice went out after free time ended.";
+          : free && Date.parse(n.sentAt) <= Date.parse(free) ? "DockClock emailed the notice before free time ran out, as the contract asks." : "The notice went out after free time ended.";
         chips = n ? ["ses", "scheduler"] : [];
         visual = <NoticeCard load={load} />;
         link = n ? [`/loads/${id}/emails`, "Emails"] : null;
         break;
       }
       case "filed": {
-        kicker = "Denial 3 of 5";
+        kicker = "Reason 3 of 5";
         title = "“You filed too late”";
         const sent = load.claim?.sentAt;
         const out = load.clock.releasedAt;
@@ -283,9 +283,9 @@ export function Judges() {
         break;
       }
       case "break":
-        kicker = "Denial 4 of 5";
+        kicker = "Reason 4 of 5";
         title = "“The evidence was edited”";
-        say = "Sealed with AWS KMS. Change the amount and your browser's check fails.";
+        say = "The evidence is signed with AWS KMS. Raise the amount and watch your browser's check fail.";
         chips = ["kms"];
         visual = (
           <>
@@ -296,22 +296,22 @@ export function Judges() {
         link = [`/loads/${id}/evidence`, "Evidence"];
         break;
       case "change":
-        kicker = "Denial 5 of 5";
+        kicker = "Reason 5 of 5";
         title = "“It isn't owed”";
-        say = "Sometimes that's true. Flip a fact and the same rules agree.";
+        say = "Sometimes that's true, and DockClock says so. Change one fact and the same contract rules decide again, in your browser.";
         chips = ["engine"];
         visual = <QuickWhatIf load={load} ids={["early", "noticeLate", "window"]} />;
         link = [`/loads/${id}/whatif`, "All facts"];
         break;
       case "phone":
         title = "Try it on your phone";
-        say = "Text DEMO on WhatsApp. Number on our Devpost page.";
+        say = "Text DEMO on WhatsApp to the number on our Devpost page. You play the driver and the dispatcher. It takes about 10 minutes.";
         chips = ["whatsapp"];
         visual = (
           <div className="dockband">
             <div className="lbl">Text this</div>
             <div className="led" style={{ fontSize: 96, marginTop: 6 }}>DEMO</div>
-            <p className="small" style={{ color: "var(--nav-dim)", marginTop: 10 }}>RCS runs are recorded, not open to try.</p>
+            <p className="small" style={{ color: "var(--nav-dim)", marginTop: 10 }}>RCS can't be tried here: our RCS agent reaches only registered testers.</p>
           </div>
         );
         break;
