@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { buildApp } from "../lib/app.js";
 import { CoreStack } from "../lib/core-stack.js";
 import { DESK_PLACEHOLDER_CONTEXT, DeskStack, deskSource } from "../lib/desk-stack.js";
+import { DESK_STACK, STACKS, deployPlan } from "../lib/deploy-stacks.js";
 
 const config = {
   account: "111122223333",
@@ -255,5 +256,34 @@ describe("desk source", () => {
     const core2 = new CoreStack(asked, "Core", { env: { account: config.account, region: config.region } });
     const placeholder = new DeskStack(asked, "Desk", { env: { account: config.account, region: config.region }, core: core2, config, root: root() });
     expect(Annotations.fromStack(placeholder).findError("*", Match.anyValue())).toHaveLength(0);
+  });
+});
+
+describe("npm run deploy", () => {
+  const built = { path: "site/dist", error: null };
+  const missing = { path: "infra/desk-placeholder", error: "site/dist/index.html is missing" };
+
+  it("knows every stack the app defines", () => {
+    const { app } = buildApp(config, new App({ context: { "aws:cdk:bundling-stacks": [], [DESK_PLACEHOLDER_CONTEXT]: "1" } }));
+    expect(app.node.children.map((c) => c.node.id).sort()).toEqual([...STACKS].sort());
+  });
+
+  it("deploys every stack when the site is built", () => {
+    expect(deployPlan(built, [])).toEqual({ args: ["--all"], note: null });
+  });
+
+  // The CLI refuses a whole deploy when one selected stack carries an error, so --all without a
+  // site build would stop the Messaging and Agent stacks too.
+  it("leaves only the desk out when the site is not built, and says so", () => {
+    const plan = deployPlan(missing, []);
+    expect(plan.args).toEqual(STACKS.filter((s) => s !== DESK_STACK));
+    expect(plan.args).not.toContain("--all");
+    expect(plan.note).toMatch(/Skipping DockClockDesk: site\/dist\/index.html is missing/);
+  });
+
+  it("deploys the stacks named on the command line as asked, and the placeholder when asked for", () => {
+    expect(deployPlan(missing, ["DockClockMessaging"])).toEqual({ args: ["DockClockMessaging"], note: null });
+    expect(deployPlan(missing, ["DockClockDesk"])).toEqual({ args: ["DockClockDesk"], note: null });
+    expect(deployPlan(missing, ["-c", `${DESK_PLACEHOLDER_CONTEXT}=1`])).toEqual({ args: ["--all", "-c", `${DESK_PLACEHOLDER_CONTEXT}=1`], note: null });
   });
 });

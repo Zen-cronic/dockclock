@@ -21,8 +21,9 @@ export const DESK_PLACEHOLDER_CONTEXT = "dockclock:deskPlaceholder";
 // What the desk serves: the built site (site/dist). The deployment prunes the bucket, so deploying
 // the placeholder by accident would take the live console down. Without a build, and without the
 // placeholder asked for, the result carries an error that the DeskStack records as an annotation:
-// the CDK CLI then refuses to synthesize or deploy the desk, while every other stack still deploys
-// (the CLI checks annotations only on the stacks it was asked for).
+// the CDK CLI then refuses to synthesize or deploy the desk. The CLI checks annotations on every
+// stack it was asked for, so `cdk deploy --all` would stop every stack; `npm run deploy` therefore
+// leaves the desk out when there is no build (deploy-stacks.ts), and the other stacks still ship.
 export interface DeskSource {
   path: string;
   error: string | null;
