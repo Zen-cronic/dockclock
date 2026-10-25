@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { clockEndOf, releaseTimeOf } from "@dockclock/clause-engine";
 import { clock, dateLong, usd, zoneName } from "../format.js";
 import type { Photo } from "../model/model.js";
 import type { SignedPackInfo } from "../snapshot.js";
@@ -25,10 +26,15 @@ const TAMPERS: Array<[keyof Tamper, string, string]> = [
   ["check", "Failed check", ""],
 ];
 
-function tampered(pack: PackShape, t: Tamper): PackShape {
+// The Release switch moves the time that stopped the clock: the Released tap on a pack that has one
+// (version 2), the release pin on an older pack.
+export function tampered(pack: PackShape, t: Tamper): PackShape {
   const p = structuredClone(pack);
   if (t.amount && p.evaluation) p.evaluation.amountUsd = 9999;
-  if (t.release && p.events?.released?.serverAt) p.events.released.serverAt = new Date(Date.parse(p.events.released.serverAt) + 30 * 60_000).toISOString();
+  const end = t.release ? clockEndOf(p.events) : null;
+  const moved = end ? new Date(Date.parse(end.at) + 30 * 60_000).toISOString() : null;
+  if (moved && end?.by === "released_tap" && p.events?.releasedTap) p.events.releasedTap.serverAt = moved;
+  else if (moved && p.events?.released) p.events.released.serverAt = moved;
   if (t.check && p.corroboration?.signals) {
     for (const s of p.corroboration.signals) s.ok = true;
     p.corroboration.confidence = "high";
@@ -86,7 +92,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
   const signals = (p: PackShape) => `${(p.corroboration?.signals ?? []).filter((s) => s.ok).length} of ${(p.corroboration?.signals ?? []).length}`;
   const diffs: string[] = [];
   if (t.amount) diffs.push(`amount ${usd(orig.evaluation?.amountUsd ?? 0)} → ${usd(9999)}`);
-  if (t.release) diffs.push(`released ${when(orig.events?.released?.serverAt)} → ${when(now.events?.released?.serverAt)}`);
+  if (t.release) diffs.push(`${orig.events?.releasedTap?.serverAt ? "Released tap" : "released"} ${when(releaseTimeOf(orig.events) ?? undefined)} → ${when(releaseTimeOf(now.events) ?? undefined)}`);
   if (t.check) diffs.push(`checks ${signals(orig)} → ${signals(now)}`);
   return (
     <div className="grid-2">

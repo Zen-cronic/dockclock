@@ -284,6 +284,26 @@ describe("release tap and pin", async () => {
   });
 });
 
+// The tamper switch moves what stopped the clock: the Released tap on a version 2 pack, the pin on v1.
+describe("evidence tamper", async () => {
+  const { tampered } = await import("../src/ui/EvidencePanel.js");
+  const at = (h: number, m: number) => `2026-10-23T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00.000Z`;
+  const on = { amount: false, release: true, check: false };
+
+  it("moves the Released tap, not the pin, on a pack whose clock stopped at the tap", () => {
+    const pack = { events: { releasedTap: { serverAt: at(18, 55) }, released: { serverAt: at(18, 57) } } };
+    const now = tampered(pack, on);
+    expect(now.events?.releasedTap?.serverAt).toBe(at(19, 25));
+    expect(now.events?.released?.serverAt).toBe(at(18, 57));
+    expect(pack.events.releasedTap.serverAt).toBe(at(18, 55));
+  });
+
+  it("moves the release pin on an older pack without a tap", () => {
+    const now = tampered({ events: { released: { serverAt: at(18, 57) } } }, on);
+    expect(now.events?.released?.serverAt).toBe(at(19, 27));
+  });
+});
+
 describe("message monitor order", () => {
   const row = (id: string, loadId: string, at: string, over: Partial<FeedRow> = {}): FeedRow => ({
     id, at, loadId, runKind: "integration", channel: "whatsapp", direction: "out", party: "driver", purpose: "notice", preview: "", status: "delivered", failover: false, synthetic: false, localId: id, isEmail: false, ...over,
