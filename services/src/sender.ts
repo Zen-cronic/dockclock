@@ -229,13 +229,27 @@ export async function send(target: Target, body: Body, purpose: string, loadId: 
 }
 
 // A file in S3 to send as a WhatsApp document: the object, the name the recipient sees, a caption,
-// and the SHA-256 of the bytes (kept with the send record so the console can show it).
+// and the SHA-256 of the bytes (kept with the send record so the console can show it). `upload`
+// lets a caller sending one file to several people upload it once and reuse the media id.
 export interface DocumentFile {
   bucket: string;
   key: string;
   filename: string;
   caption: string;
   sha256: string;
+  upload?: () => Promise<string | undefined>;
+}
+
+// PostWhatsAppMessageMedia reads the object from S3 (with this function's own S3 permission) and
+// returns a media id, or undefined when the upload failed (logged).
+export async function uploadMedia(bucket: string, key: string, purpose: string, loadId: string): Promise<string | undefined> {
+  try {
+    const upload = await messaging.send(new PostWhatsAppMessageMediaCommand({ originationPhoneNumberId: env.originationPhoneId(), sourceS3File: { bucketName: bucket, key } }));
+    return upload.mediaId ?? undefined;
+  } catch (error) {
+    log("media_upload_failed", { purpose, loadId, error: (error as Error).name });
+    return undefined;
+  }
 }
 
 // Sends one file as a WhatsApp document through the same gates as send(): the gates first, so a
@@ -251,13 +265,7 @@ export async function sendDocument(target: Target, file: DocumentFile, purpose: 
     await recordBlocked(loadId, purpose, "whatsapp", shown, audience, gate.blocked);
     return null;
   }
-  let mediaId: string | undefined;
-  try {
-    const upload = await messaging.send(new PostWhatsAppMessageMediaCommand({ originationPhoneNumberId: env.originationPhoneId(), sourceS3File: { bucketName: file.bucket, key: file.key } }));
-    mediaId = upload.mediaId;
-  } catch (error) {
-    log("media_upload_failed", { purpose, loadId, error: (error as Error).name });
-  }
+  const mediaId = file.upload ? await file.upload() : await uploadMedia(file.bucket, file.key, purpose, loadId);
   if (!mediaId) {
     await recordBlocked(loadId, purpose, "whatsapp", shown, audience, NOT_SENT.uploadFailed);
     return null;

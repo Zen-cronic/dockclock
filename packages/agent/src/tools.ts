@@ -267,9 +267,9 @@ async function sendDetentionClaim(input: ClaimRequest) {
       new UpdateCommand({
         TableName: env("TABLE_NAME"),
         Key: key(load.loadId, "CLAIM"),
-        UpdateExpression: `SET #s = :s, sentAt = :t, sesMessageId = :m, subject = :sub${mimeKey ? ", mimeKey = :k" : ""}${pdfKey ? ", pdfKey = :p, pdfName = :pn" : ""}`,
+        UpdateExpression: `SET #s = :s, sentAt = :t, sesMessageId = :m, subject = :sub${mimeKey ? ", mimeKey = :k" : ""}${pdfKey ? ", pdfKey = :p, pdfName = :pn, pdfSha256 = :ph" : ""}`,
         ExpressionAttributeNames: { "#s": "status" },
-        ExpressionAttributeValues: { ":s": "sent", ":t": sentAt, ":m": sesMessageId, ":sub": subject, ...(mimeKey ? { ":k": mimeKey } : {}), ...(pdfKey ? { ":p": pdfKey, ":pn": claimPdfName(load.loadId) } : {}) },
+        ExpressionAttributeValues: { ":s": "sent", ":t": sentAt, ":m": sesMessageId, ":sub": subject, ...(mimeKey ? { ":k": mimeKey } : {}), ...(pdfKey ? { ":p": pdfKey, ":pn": claimPdfName(load.loadId), ":ph": sha256Hex(pdf) } : {}) },
       }),
     );
   } catch (error) {

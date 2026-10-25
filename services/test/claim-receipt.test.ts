@@ -9,7 +9,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { LANGUAGES } from "../src/messages.js";
 import { NOT_SENT } from "../src/outbound.js";
 import { handler as tellOutcome } from "../src/outcome.js";
-import { RECEIPT_TEXT, sendClaimReceipts, windowOpen } from "../src/claim-receipt.js";
+import { ALREADY_HANDLED, RECEIPT_TEXT, sendClaimReceipts, windowOpen } from "../src/claim-receipt.js";
 import type { LoadItem } from "../src/store.js";
 
 const dynamo = mockClient(DynamoDBDocumentClient);
@@ -32,6 +32,8 @@ let load: LoadItem;
 let claim: Record<string, unknown> | undefined;
 let events: Array<Record<string, unknown>>;
 let optedOut: Set<string>;
+// Receipt reservations taken on the CLAIM record (attribute names), as DynamoDB would keep them.
+let reserved: Set<string>;
 
 function baseLoad(over: Partial<LoadItem> = {}): LoadItem {
   return {
@@ -78,6 +80,7 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     claim = { pk: "LOAD#L1", sk: "CLAIM", status: "sent", amountUsd: 17.28, pdfKey: "packs/L1/claim.pdf", pdfName: "detention-claim-L1.pdf" };
     events = [{ sk: `EVENT#${recently()}#w1`, type: "flow", channel: "whatsapp", serverAt: recently() }];
     optedOut = new Set();
+    reserved = new Set();
     secrets.on(GetSecretValueCommand).resolves({ SecretString: "k" });
     s3.on(GetObjectCommand).resolves({ Body: { transformToByteArray: async () => PDF } } as never);
     let media = 0;
@@ -95,31 +98,36 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     });
     dynamo.on(QueryCommand).callsFake(() => ({ Items: [...events].reverse() }));
     dynamo.on(PutCommand).resolves({});
-    dynamo.on(UpdateCommand).resolves({});
+    dynamo.on(UpdateCommand).callsFake((input: { Key: { sk: string }; ConditionExpression?: string; ExpressionAttributeNames?: Record<string, string> }) => {
+      const name = input.ExpressionAttributeNames?.["#r"];
+      if (input.Key.sk === "CLAIM" && name && input.ConditionExpression?.includes("attribute_not_exists(#r)")) {
+        if (reserved.has(name)) throw Object.assign(new Error("taken"), { name: "ConditionalCheckFailedException" });
+        reserved.add(name);
+      }
+      return {};
+    });
   });
 
-  it("uploads the stored PDF from S3, then sends it as a document to the dispatcher and to a driver whose window is open", async () => {
+  it("uploads the stored PDF from S3 once, then sends it as a document to the dispatcher and to a driver whose window is open", async () => {
     const results = await sendClaimReceipts(load);
     expect(results).toEqual([
       { audience: "dispatcher", channel: "whatsapp", sent: true },
       { audience: "driver", channel: "whatsapp", sent: true },
     ]);
     const uploads = messaging.commandCalls(PostWhatsAppMessageMediaCommand).map((c) => c.args[0].input);
-    expect(uploads).toEqual([
-      { originationPhoneNumberId: "phone-number-id-test", sourceS3File: { bucketName: "evidence-bucket", key: "packs/L1/claim.pdf" } },
-      { originationPhoneNumberId: "phone-number-id-test", sourceS3File: { bucketName: "evidence-bucket", key: "packs/L1/claim.pdf" } },
-    ]);
-    // Upload, then the send that names the uploaded media, for each recipient in turn.
+    expect(uploads).toEqual([{ originationPhoneNumberId: "phone-number-id-test", sourceS3File: { bucketName: "evidence-bucket", key: "packs/L1/claim.pdf" } }]);
+    // One upload, then one send per recipient naming the same media id.
     expect(messaging.calls().map((c) => (c.args[0] as { constructor: { name: string } }).constructor.name)).toEqual([
       "PostWhatsAppMessageMediaCommand",
       "SendWhatsAppMessageCommand",
-      "PostWhatsAppMessageMediaCommand",
       "SendWhatsAppMessageCommand",
     ]);
     const sent = whatsappSent();
     expect(sent.map((m) => m.to)).toEqual([DISPATCHER, DRIVER]);
     expect(sent[0]).toMatchObject({ type: "document", document: { id: "media-1", filename: "detention-claim-L1.pdf", caption: "Claim summary for load L1: $17.28. The signed evidence pack went with the claim email." } });
-    expect(sent[1]!.document!.id).toBe("media-2");
+    expect(sent[1]!.document!.id).toBe("media-1");
+    // The file was read once, for its hash.
+    expect(s3.commandCalls(GetObjectCommand)).toHaveLength(1);
     expect(messaging.commandCalls(SendWhatsAppMessageCommand)[0]!.args[0].input.metaApiVersion).toBe("v23.0");
     // Each send is recorded on the load with the file name, the caption and the PDF's hash.
     const rows = records();
@@ -175,6 +183,7 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     // RCS replies and failover records do not open a WhatsApp window.
     events = [{ type: "flow", channel: "whatsapp", serverAt: longAgo() }, { type: "text", channel: "rcs", serverAt: recently() }, { type: "failover", channel: "rcs", serverAt: recently() }];
     dynamo.resetHistory();
+    reserved.clear();
     await sendClaimReceipts(load);
     expect(records().find((r) => r.audience === "driver")).toMatchObject({ notSentReason: NOT_SENT.windowClosed });
   });
@@ -238,10 +247,54 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     expect(whatsappSent().map((m) => m.type)).toEqual(["text", "document", "document"]);
 
     messaging.reset();
+    reserved.clear();
     messaging.on(SendWhatsAppMessageCommand).rejectsOnce(Object.assign(new Error("down"), { name: "ThrottlingException" })).resolves({ messageId: "out-x" });
     messaging.on(PostWhatsAppMessageMediaCommand).resolves({ mediaId: "media-x" });
     await expect(tellOutcome({ kind: "filed", loadId: "L1" })).rejects.toThrow("down");
-    expect(messaging.commandCalls(PostWhatsAppMessageMediaCommand)).toHaveLength(2);
+    expect(messaging.commandCalls(PostWhatsAppMessageMediaCommand)).toHaveLength(1);
+    expect(whatsappSent().map((m) => m.type)).toEqual(["text", "document", "document"]);
+  });
+
+  it("sends each recipient's PDF once: a retry of the outcome step after the PDF went sends no second copy", async () => {
+    messaging.on(SendWhatsAppMessageCommand).rejectsOnce(Object.assign(new Error("down"), { name: "ThrottlingException" })).resolves({ messageId: "out-x" });
+    await expect(tellOutcome({ kind: "filed", loadId: "L1" })).rejects.toThrow("down");
+    expect(whatsappSent().filter((m) => m.type === "document").map((m) => m.to)).toEqual([DISPATCHER, DRIVER]);
+    // Step Functions retries the step: the text goes, the PDF does not go again.
+    messaging.reset();
+    messaging.on(SendWhatsAppMessageCommand).resolves({ messageId: "out-y" });
+    messaging.on(PostWhatsAppMessageMediaCommand).resolves({ mediaId: "media-y" });
+    dynamo.resetHistory();
+    const retried = await tellOutcome({ kind: "filed", loadId: "L1" });
+    expect(retried.sent).toBe(true);
+    expect(whatsappSent().map((m) => m.type)).toEqual(["text"]);
+    expect(messaging.commandCalls(PostWhatsAppMessageMediaCommand)).toHaveLength(0);
+    expect(retried.receipts).toEqual([
+      { audience: "dispatcher", channel: "whatsapp", sent: false, skipped: ALREADY_HANDLED },
+      { audience: "driver", channel: "whatsapp", sent: false, skipped: ALREADY_HANDLED },
+    ]);
+    // No second not-sent row either: the console shows the one real send per recipient.
+    expect(records()).toEqual([]);
+  });
+
+  it("uses the PDF hash recorded at filing instead of reading the file again", async () => {
+    claim = { ...claim, pdfSha256: "c".repeat(64) };
+    await sendClaimReceipts(load);
+    expect(s3.commandCalls(GetObjectCommand)).toHaveLength(0);
+    expect(records().map((r) => (r.message as { document?: { sha256?: string } }).document?.sha256)).toEqual(["c".repeat(64), "c".repeat(64)]);
+  });
+
+  it("records a send that throws as not sent and carries on to the next recipient", async () => {
+    // The opt-out check cannot be read, so each send throws before any message goes.
+    dynamo.on(GetCommand).callsFake((input: { Key: { pk: string; sk: string } }) => {
+      if (input.Key.pk.startsWith("OPTOUT#")) throw Object.assign(new Error("throttled"), { name: "ProvisionedThroughputExceededException" });
+      if (input.Key.sk === "CLAIM") return { Item: claim };
+      return {};
+    });
+    const results = await sendClaimReceipts(load);
+    expect(results.map((r) => [r.audience, r.sent])).toEqual([["dispatcher", false], ["driver", false]]);
+    expect(messaging.commandCalls(SendWhatsAppMessageCommand)).toHaveLength(0);
+    expect(records().map((r) => [r.audience, r.status, r.notSentReason])).toEqual([["dispatcher", "not_sent", NOT_SENT.failed], ["driver", "not_sent", NOT_SENT.failed]]);
+    expect(records()[0]!.message).toEqual({ kind: "document", text: expect.stringContaining("Claim summary for load L1"), document: { filename: "detention-claim-L1.pdf", sha256: PDF_SHA } });
   });
 
   it("never sends the PDF after the verdict message", async () => {

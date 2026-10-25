@@ -98,6 +98,9 @@ describe("send_detention_claim", () => {
     expect(createHash("sha256").update(pdfPut.Body as Uint8Array).digest("hex")).toBe(attached.sha256);
     const update = dynamo.commandCalls(UpdateCommand)[0]!.args[0].input;
     expect(update.ExpressionAttributeValues).toMatchObject({ ":p": "packs/SMOKE-mve8yfv3/claim.pdf", ":pn": "detention-claim-SMOKE-mve8yfv3.pdf", ":sub": parseMime(raw).subject });
+    // The PDF's hash is kept on the claim record, so the WhatsApp receipt need not read the file again.
+    expect(update.UpdateExpression).toContain("pdfSha256 = :ph");
+    expect(update.ExpressionAttributeValues?.[":ph"]).toBe(attached.sha256);
   });
 
   it("refuses a different amount or digest before anything is built or reserved", async () => {

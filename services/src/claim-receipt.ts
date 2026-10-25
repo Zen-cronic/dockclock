@@ -1,12 +1,12 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { sha256Hex } from "@dockclock/evidence";
 import { loadPageUrl } from "@dockclock/mail";
 import { driverKey } from "./identity.js";
 import type { Language } from "./messages.js";
-import { NOT_SENT, type Audience } from "./outbound.js";
+import { NOT_SENT, type Audience, type SentMessage } from "./outbound.js";
 import { rcsText } from "./rcs.js";
-import { recordBlocked, sendDocument, sendRcs, type Target } from "./sender.js";
+import { recordBlocked, sendDocument, sendRcs, uploadMedia, type Target } from "./sender.js";
 import { ddb, type LoadItem } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
@@ -17,7 +17,9 @@ import { keys } from "./keys.js";
 // carrier load's driver too while their own window is still open. An RCS driver gets a short text
 // with the amount and a link to the load's console page instead of a file. Every send passes the
 // gates in sender.ts. Nothing here may fail the load: each recipient is tried on its own, and a
-// failure is logged and recorded as not sent.
+// failure is logged and recorded as not sent. Each recipient is reserved on the CLAIM record before
+// anything is sent, so a retried outcome step (its text failed after the PDF went) never sends the
+// PDF twice. The file is uploaded to WhatsApp once and its media id reused for every recipient.
 
 export const RECEIPT_PURPOSE = "claim_receipt";
 
@@ -56,7 +58,12 @@ interface ClaimItem {
   amountUsd?: number;
   pdfKey?: string;
   pdfName?: string;
+  // The PDF's SHA-256, recorded when the claim was filed (claims filed before it was kept have none).
+  pdfSha256?: string;
 }
+
+// Why a recipient got nothing on this run: an earlier run of the step already handled them.
+export const ALREADY_HANDLED = "already handled by an earlier run of this step";
 
 export interface ReceiptResult {
   audience: Audience;
@@ -92,11 +99,35 @@ async function dispatcherTarget(): Promise<Target> {
   return { address, driverKey: await driverKey(address) };
 }
 
-// The PDF's bytes are read once to take their SHA-256 (the same hash the console shows for the claim
-// email's attachment); WhatsApp then reads the same object itself through PostWhatsAppMessageMedia.
-async function pdfHash(key: string): Promise<string> {
+// The PDF's SHA-256 (the same hash the console shows for the claim email's attachment): the one
+// recorded at filing, else the stored bytes read once. WhatsApp reads the object itself through
+// PostWhatsAppMessageMedia.
+async function pdfHash(claim: ClaimItem, key: string): Promise<string> {
+  if (claim.pdfSha256 && /^[0-9a-f]{64}$/.test(claim.pdfSha256)) return claim.pdfSha256;
   const object = await s3.send(new GetObjectCommand({ Bucket: env.bucket(), Key: key }));
   return sha256Hex(await object.Body!.transformToByteArray());
+}
+
+const RESERVATION: Record<Audience, string> = { dispatcher: "receiptDispatcherAt", driver: "receiptDriverAt" };
+
+// Takes this recipient's one claim receipt. False when an earlier run already took it.
+async function reserve(loadId: string, audience: Audience): Promise<boolean> {
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: env.table(),
+        Key: keys.claim(loadId),
+        UpdateExpression: "SET #r = :t",
+        ConditionExpression: "attribute_exists(pk) AND attribute_not_exists(#r)",
+        ExpressionAttributeNames: { "#r": RESERVATION[audience] },
+        ExpressionAttributeValues: { ":t": new Date().toISOString() },
+      }),
+    );
+    return true;
+  } catch (error) {
+    if ((error as Error).name === "ConditionalCheckFailedException") return false;
+    throw error;
+  }
 }
 
 export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]> {
@@ -117,12 +148,22 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
   if (!claim.pdfKey) fileProblem = NOT_SENT.noPdf;
   else {
     try {
-      sha256 = await pdfHash(claim.pdfKey);
+      sha256 = await pdfHash(claim, claim.pdfKey);
     } catch (error) {
       log("claim_receipt_pdf_unreadable", { loadId: load.loadId, error: (error as Error).name });
       fileProblem = NOT_SENT.noPdf;
     }
   }
+
+  // One upload for every WhatsApp recipient. Only a media id is kept: a failed upload is tried again
+  // for the next recipient.
+  let mediaId: string | undefined;
+  const upload = async () => {
+    mediaId ??= claim.pdfKey ? await uploadMedia(env.bucket(), claim.pdfKey, RECEIPT_PURPOSE, load.loadId) : undefined;
+    return mediaId;
+  };
+
+  const documentShown = (language: Language): SentMessage => ({ kind: "document", text: RECEIPT_TEXT[language].caption(load.loadId, amount), document: { filename, ...(sha256 ? { sha256 } : {}) } });
 
   const document = async (target: Target, language: Language, audience: Audience): Promise<ReceiptResult> => {
     const caption = RECEIPT_TEXT[language].caption(load.loadId, amount);
@@ -131,12 +172,12 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
       await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: caption, document: { filename } }, audience, reason);
       return { audience, channel: "whatsapp", sent: false, skipped: reason };
     }
-    const id = await sendDocument(target, { bucket: env.bucket(), key: claim.pdfKey, filename, caption, sha256 }, RECEIPT_PURPOSE, load.loadId, { audience });
+    const id = await sendDocument(target, { bucket: env.bucket(), key: claim.pdfKey, filename, caption, sha256, upload }, RECEIPT_PURPOSE, load.loadId, { audience });
     return { audience, channel: "whatsapp", sent: id !== null };
   };
 
   const notSent = async (audience: Audience, language: Language, reason: string): Promise<ReceiptResult> => {
-    await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: RECEIPT_TEXT[language].caption(load.loadId, amount), document: { filename, ...(sha256 ? { sha256 } : {}) } }, audience, reason);
+    await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", documentShown(language), audience, reason);
     return { audience, channel: "whatsapp", sent: false, skipped: reason };
   };
 
@@ -152,17 +193,29 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
     return { audience: "driver", channel: "rcs", sent: id !== null };
   };
 
+  const language = load.language ?? "en_US";
+
+  // Reserve, then send. A send that throws is recorded as not sent, as every other failure is; the
+  // reservation stays, since the message may already have gone.
   const attempt = async (audience: Audience, run: () => Promise<ReceiptResult | null>) => {
+    const rcs = load.channel === "rcs" && audience === "driver";
+    const channel = rcs ? "rcs" : "whatsapp";
     try {
+      if (!(await reserve(load.loadId, audience))) {
+        log("claim_receipt_skipped", { loadId: load.loadId, audience, reason: ALREADY_HANDLED });
+        results.push({ audience, channel, sent: false, skipped: ALREADY_HANDLED });
+        return;
+      }
       const result = await run();
       if (result) results.push(result);
     } catch (error) {
       log("claim_receipt_failed", { loadId: load.loadId, audience, error: (error as Error).name });
-      results.push({ audience, channel: load.channel === "rcs" && audience === "driver" ? "rcs" : "whatsapp", sent: false, skipped: (error as Error).name });
+      const shown: SentMessage = rcs ? { kind: "text", text: RECEIPT_TEXT[language].caption(load.loadId, amount) } : documentShown(audience === "dispatcher" ? "en_US" : language);
+      await recordBlocked(load.loadId, RECEIPT_PURPOSE, channel, shown, audience, NOT_SENT.failed);
+      results.push({ audience, channel, sent: false, skipped: (error as Error).name });
     }
   };
 
-  const language = load.language ?? "en_US";
   if (load.demo === true) {
     // The judge approved their own claim, so the judge is the one waiting for it.
     await attempt("driver", () => (load.channel === "rcs" ? rcsLink() : document(driver, language, "driver")));

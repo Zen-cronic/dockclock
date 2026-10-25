@@ -140,4 +140,5 @@ export const NOT_SENT = {
   sendFailed: "Not sent: WhatsApp did not accept the message.",
   windowClosed: "Not sent: the driver has not written in the last 24 hours, and WhatsApp then allows only approved templates.",
   testLoad: "Not sent: a test load. Dispatch is only messaged when the test asks for it.",
+  failed: "Not sent: the send stopped on an error.",
 } as const;
