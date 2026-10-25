@@ -68,15 +68,6 @@ a { color: inherit; }
 .chan { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: var(--t-13); color: var(--ink-2); white-space: nowrap; }
 .chan svg { width: 16px; height: 16px; flex: none; }
 
-.pill { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 999px; font: 600 11px / 1 var(--mono); letter-spacing: 0.03em; white-space: nowrap; }
-.pill.accepted { box-shadow: inset 0 0 0 1px var(--rule-2); color: var(--ink-2); }
-.pill.sent { background: var(--card-2); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--rule-2); }
-.pill.delivered { box-shadow: inset 0 0 0 1px var(--go); color: var(--go); }
-.pill.read { background: var(--go); color: #fff; }
-.pill.received { background: var(--card-2); color: var(--ink-2); }
-.pill.failed { background: var(--stop); color: #fff; }
-.pill.failover { box-shadow: inset 0 0 0 1px var(--stop); color: var(--stop); }
-.pill.not_sent { box-shadow: inset 0 0 0 1px var(--rule-2); color: var(--ink-3); background: repeating-linear-gradient(-45deg, transparent 0 4px, var(--card-2) 4px 8px); }
 
 /* Card */
 .card { background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); box-shadow: var(--shadow); }
@@ -174,7 +165,6 @@ a { color: inherit; }
 .table .what { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table .num { font: 800 22px / 1 var(--display); }
 
-/* Stamp */
 /* Verdict: a dock-door sign. Sign-black plate, a dock light, the word; money on a safety-yellow panel. */
 .verdict { display: inline-flex; align-items: stretch; vertical-align: middle; border-radius: 4px; overflow: hidden; white-space: nowrap; }
 .verdict.v-notowed { box-shadow: 0 1px 0 rgba(21, 23, 28, 0.18); }
@@ -421,7 +411,6 @@ a { color: inherit; }
   .table td, .table th { padding: 10px 8px; }
   .table .what { max-width: 120px; }
   .table .hide-m, .small.hide-m { display: none; }
-  .table .pill { padding: 0 6px; font-size: 10.5px; }
   .table .chan .cn { display: none; }
   .stage h1 { font-size: 40px; }
   .judge { min-height: 0; }
@@ -440,7 +429,7 @@ a { color: inherit; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* Overrides: timeline reasons, dock band legend, pills, judges stage */
+/* Overrides: timeline reasons, dock band legend, judges stage */
 .tl .why { font-size: var(--t-13); color: var(--stop); text-align: right; white-space: nowrap; }
 .dockband .bandlegend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; font-size: 11.5px; color: var(--nav-dim); }
 .dockband .bandnote { margin-top: 6px; font-size: 11.5px; color: var(--nav-dim); }
@@ -450,9 +439,6 @@ a { color: inherit; }
 .dockband .bandlegend i.ok { background: #3fbf7a; }
 .dockband .bandlegend i.refused { background: transparent; box-shadow: inset 0 0 0 2px #ff6a5c; }
 .grid-2 { align-items: start; }
-.pill.accepted, .pill.sent, .pill.received, .pill.not_sent { background: transparent; box-shadow: inset 0 0 0 1px var(--rule-2); color: var(--ink-3); }
-.pill.delivered, .pill.read { background: var(--go-soft); box-shadow: none; color: var(--go); }
-.pill.failed, .pill.failover { background: var(--stop-soft); box-shadow: none; color: var(--stop); }
 .judge .stage { align-content: start; align-items: start; padding-bottom: 0; grid-template-columns: 460px minmax(0, 1fr); gap: var(--s6); }
 .judge { min-height: 0; }
 .steps { margin-bottom: var(--s6); }
@@ -482,20 +468,12 @@ main.page:focus { outline: none; }
 .progress button[aria-pressed="true"] { background: var(--side); border-color: var(--side); color: #fff; }
 .progress button .dot { width: 7px; height: 7px; background: var(--safety); box-shadow: none; }
 
-/* Overrides: test strip, status pills, grouped tables, progress bar */
+/* Overrides: test strip, grouped tables, progress bar */
 .teststrip { padding: 8px 32px; font-size: var(--t-13); font-weight: 600; color: var(--ink); background: var(--safety-soft); border-bottom: 1px solid #ecd98a; position: relative; padding-left: 44px; }
 .teststrip::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 14px; background: var(--hazard); }
 .tl .t .why { color: var(--stop); font-weight: 600; }
 .flow .svcline { margin-top: 3px; font: 400 12px var(--mono); color: var(--ink-3); }
 .dockband .split .early b { color: var(--nav-dim); }
-.pill { gap: 6px; }
-.pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
-.pill.received { background: transparent; box-shadow: none; color: var(--ink-3); padding-left: 0; }
-.pill.received i { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
-.pill.not_sent { background: transparent; box-shadow: none; border: 1px dashed var(--rule-2); color: var(--ink-3); }
-.pill.not_sent i { display: none; }
-.pill.failed, .pill.failover { background: var(--stop); color: #fff; }
-.pill.failed i, .pill.failover i { background: #fff; }
 .table td .chan { vertical-align: middle; line-height: 1; }
 .table td .chan svg { display: block; }
 .table tr.group td { background: var(--card-2); font: 600 12px var(--mono); color: var(--ink-2); padding-top: 9px; padding-bottom: 9px; cursor: default; }
@@ -677,7 +655,6 @@ a:hover .go { transform: translateX(2px); }
 .mailhead { display: flex; align-items: center; gap: 10px; }
 .mailhead > svg { width: 18px; height: 18px; flex: none; }
 .mailhead b { font: 800 20px / 1 var(--display); text-transform: uppercase; letter-spacing: 0.03em; }
-.mailhead .pill { margin-left: auto; }
 .mailcard .subj { font-weight: 600; overflow-wrap: anywhere; }
 .mailcard .kv-list { margin-top: 0; }
 .mailcard .kv-list dd { overflow-wrap: anywhere; }
@@ -739,7 +716,7 @@ a:hover .go { transform: translateX(2px); }
 }
 
 /* Tags read as dock labels, not pills: the same square-cut 3 px corner as the verdict sign */
-.badge, .pill, .loadhead .runchip { border-radius: 3px; }
+.badge, .loadhead .runchip { border-radius: 3px; }
 
 /* Judges stepper: a row of numbered door plates. The number sits on a sign-black plate; a step
    passed gets a green dock light under its number; the current step stands on a safety keyline. */
