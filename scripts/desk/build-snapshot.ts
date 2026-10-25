@@ -6,7 +6,7 @@ import { clauseById, detentionStartsAt } from "@dockclock/clause-engine";
 import { canonicalJson, checkGeofence, facilityById, type SignedPack } from "@dockclock/evidence";
 import { parseMime, scrub, scrubText } from "@dockclock/sanitize";
 import { type Language } from "../../services/src/messages.js";
-import { addressOnly, agentRunsOf, attachmentNote, isSynthetic, buttonAction, checkEngineInput, engineInputOf, clauseInfo, INBOUND_SERVICES, inboundTitle, obj, purposeWords, runKindOf, sha256, str, tapTitle, toCents, verdictWords, type Item } from "../../services/api/describe.js";
+import { addressOnly, agentRunsOf, attachmentNote, isPrivateDemo, isSynthetic, buttonAction, checkEngineInput, engineInputOf, clauseInfo, INBOUND_SERVICES, inboundTitle, obj, purposeWords, runKindOf, sha256, shownInboundEvent, shownInboundText, str, tapTitle, toCents, verdictWords, type Item } from "../../services/api/describe.js";
 import type {
   ApprovalInfo,
   ChatMessage,
@@ -48,6 +48,8 @@ export function buildSnapshot(src: SnapshotSources): ReplaySnapshot {
   const claimItem = bySk("CLAIM");
   const kind = runKindOf(meta, approvalItem);
   const synthetic = isSynthetic(meta);
+  // A DEMO load: the sender's typed text stays out of the public replay file, as on the console.
+  const demo = isPrivateDemo(meta, approvalItem);
   const driverProvenance: Provenance = synthetic ? "synthetic_input" : "recorded";
   const evaluation = signed.pack.evaluation;
   const packDigest = sha256(canonicalJson(signed.pack));
@@ -106,9 +108,9 @@ export function buildSnapshot(src: SnapshotSources): ReplaySnapshot {
     } else if (type === "image") {
       message = { ...base, purpose: "photo", kind: "image", body: "Photo" };
     } else if (type === "text") {
-      message = { ...base, purpose: "text", kind: "text", body: scrubText(String(detail.text ?? "")) };
+      message = { ...base, purpose: "text", kind: "text", body: shownInboundText(e, demo) };
     }
-    const record = obj(scrub({ ...e, sk: `EVENT#${at}` }));
+    const record = obj(scrub({ ...shownInboundEvent(e, demo), sk: `EVENT#${at}` }));
     pending.push({ at, ...(message ? { message } : {}), event: { at, title, ...(eventDetail ? { detail: eventDetail } : {}), services, outcome, tone, record, provenance: driverProvenance } });
   }
 

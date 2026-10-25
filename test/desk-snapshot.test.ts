@@ -11,6 +11,7 @@ import { renderWhatsApp } from "../services/src/outbound.js";
 import { dispatchTemplate } from "../services/src/sender.js";
 import { findLeaks } from "@dockclock/sanitize";
 import { buildSnapshot } from "../scripts/desk/build-snapshot.js";
+import { DEMO_TEXT_BODY } from "../services/api/describe.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const ACCOUNT = "925432502717";
@@ -163,6 +164,22 @@ describe("desk snapshot", () => {
     const again = evaluate({ loadId: "LIVE-test1", clauseId: "lakeshore-foods", facility: facility.name, ...snapshot.verdict.engineInput }, clauseById("lakeshore-foods"));
     expect(again.amountUsd).toBe(snapshot.verdict.amountUsd);
     expect(snapshot.pack.pack).toEqual((await sources()).signedPack.pack);
+  });
+
+  // The same rule as the read API (services/api/view.ts): a DEMO sender's typed words never leave the load.
+  it("keeps a DEMO sender's typed text out of the replay file, even in the raw record", async () => {
+    const src = await sources();
+    const meta = src.items.find((i) => i.sk === "META")!;
+    Object.assign(meta, { demo: true, ws: "demo" });
+    const words = "my private words to dispatch";
+    const text = src.items.find((i) => (i as { type?: string }).type === "text") as unknown as { detail: { text: string } };
+    text.detail.text = words;
+    const snapshot = buildSnapshot(src);
+    expect(snapshot.run.kind).toBe("demo");
+    expect(snapshot.messages.find((m) => m.kind === "text")?.body).toBe(DEMO_TEXT_BODY);
+    expect(JSON.stringify(snapshot)).not.toContain(words);
+    // A carrier load still shows the (scrubbed) text.
+    expect(buildSnapshot(await sources()).messages.find((m) => m.kind === "text")?.body).toBe("call me at <phone removed>");
   });
 
   it("shows a send the gate blocked as composed, not sent, with no receipts", async () => {

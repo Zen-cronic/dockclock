@@ -41,13 +41,17 @@ import {
   buttonAction,
   checkEngineInput,
   clauseInfo,
+  DEMO_PHOTO_NOTE,
   engineInputOf,
   INBOUND_SERVICES,
   inboundTitle,
+  isPrivateDemo,
   obj,
   purposeWords,
   runKindOf,
   sha256,
+  shownInboundEvent,
+  shownInboundText,
   str,
   tapTitle,
   toCents,
@@ -74,11 +78,8 @@ export interface LoadSources {
 
 const RUN_LABEL: Record<RunKind, string> = { phone: "Real phone", operator: "Operator tap", integration: "Test run", demo: "Judge demo" };
 const COUNTERPARTY_NOTE = "Delivered to our test mailbox, not to a real company.";
-// A judge DEMO load runs on the judge's own phone and shows on the public console: their typed
-// text and their photo are kept with the load but not served. Taps, pins (already without
-// coordinates) and DockClock's own messages are shown.
-export const DEMO_TEXT_BODY = "Text reply (not shown publicly)";
-export const DEMO_PHOTO_NOTE = "Photo kept with the load; not shown publicly";
+// The DEMO privacy rule lives in describe.ts, shared with the replay exporter.
+export { DEMO_PHOTO_NOTE, DEMO_TEXT_BODY } from "./describe.js";
 
 function facilityOf(id: string): Facility & { known: boolean } {
   try {
@@ -140,7 +141,7 @@ function partsOf(items: Item[], now: string): Parts {
     approvalItem,
     request: bySk("APPROVAL_REQUEST"),
     claimItem: bySk("CLAIM"),
-    demo: runKind === "demo",
+    demo: isPrivateDemo(meta, approvalItem),
     now,
   };
 }
@@ -307,8 +308,7 @@ function conversation(p: Parts, photos: PhotoInfo[], receipts: Record<string, It
     const detail = obj(e.detail);
     const channel: DriverChannel = e.channel === "rcs" ? "rcs" : "whatsapp";
     // A judge's own typed text never reaches the public console, not even in the raw record.
-    const shown = p.demo && type === "text" ? { ...e, detail: { ...detail, text: undefined } } : e;
-    const record = obj(scrub({ ...shown, sk: `EVENT#${at}` }));
+    const record = obj(scrub({ ...shownInboundEvent(e, p.demo), sk: `EVENT#${at}` }));
     if (type === "failover") {
       const escalated = outcome === "ESCALATED_UNREACHABLE";
       pending.push({
@@ -358,7 +358,7 @@ function conversation(p: Parts, photos: PhotoInfo[], receipts: Record<string, It
       const isBol = str(e.messageId) !== null && e.messageId === bol.messageId;
       message = { ...base, purpose: "photo", body: isBol ? "Bill of lading photo" : "Photo", ...(isBol && photos[0] ? { photoId: photos[0].id } : {}) };
     } else if (kind && type === "text") {
-      message = { ...base, purpose: "text", body: p.demo ? DEMO_TEXT_BODY : scrubText(String(detail.text ?? "")) };
+      message = { ...base, purpose: "text", body: shownInboundText(e, p.demo) };
     }
     const photoId = message?.photoId;
     pending.push({

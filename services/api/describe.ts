@@ -31,6 +31,28 @@ export function runKindOf(meta: Item, approval: Item | null): RunKind {
   return approval?.approver === "dispatcher-whatsapp" ? "operator" : "integration";
 }
 
+// A DEMO load runs on the sender's own phone and shows publicly (the console and any replay file
+// exported from it): their typed text and their photo are kept with the load but not shown.
+// Taps, pins (already without coordinates) and DockClock's own messages are shown. The read API and
+// the replay exporter both apply this rule through the functions below.
+export const DEMO_TEXT_BODY = "Text reply (not shown publicly)";
+export const DEMO_PHOTO_NOTE = "Photo kept with the load; not shown publicly";
+
+export function isPrivateDemo(meta: Item, approval: Item | null): boolean {
+  return runKindOf(meta, approval) === "demo";
+}
+
+// A driver's inbound event as it may be shown: on a DEMO load a typed text loses its words, even in
+// the raw record.
+export function shownInboundEvent(event: Item, demo: boolean): Item {
+  return demo && event.type === "text" ? { ...event, detail: { ...obj(event.detail), text: undefined } } : event;
+}
+
+// The body of a driver's typed text as shown: scrubbed, and never the words on a DEMO load.
+export function shownInboundText(event: Item, demo: boolean): string {
+  return demo ? DEMO_TEXT_BODY : scrubText(String(obj(event.detail).text ?? ""));
+}
+
 export function clauseInfo(clause: ClauseSpec): ClauseInfo {
   return {
     id: clause.id,
