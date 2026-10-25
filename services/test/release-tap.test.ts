@@ -138,9 +138,14 @@ describe("console views of the Released tap", () => {
 
   it("says when the pin confirmed the tap, or that it came too late", async () => {
     const ok = (await view(T(17, 20), T(17, 23))).workflow.find((s) => s.key === "released")!;
-    expect(ok).toMatchObject({ state: "done", at: T(17, 20), detail: "Clock stopped at 13:20 EDT. Confirmed by the location pin at 13:23 EDT, 3 min later, inside the facility." });
+    expect(ok).toMatchObject({ state: "done", at: T(17, 20), detail: "Clock stopped at 13:20 EDT. Confirmed by the location pin at 13:23 EDT, 3 min after the tap, inside the facility." });
     const late = (await view(T(17, 20), T(17, 32))).workflow.find((s) => s.key === "released")!;
-    expect(late).toMatchObject({ state: "failed", detail: "Clock stopped at 13:20 EDT. The location pin came at 13:32 EDT, 12 min later (limit 10), so a person reviews the load." });
+    expect(late).toMatchObject({ state: "failed", detail: "Clock stopped at 13:20 EDT. The location pin came at 13:32 EDT, 12 min after the tap (limit 10), so a person reviews the load." });
+    // A pin before the tap is not "later", and a gap just past the limit is not rounded onto it.
+    const early = (await view(T(17, 20), T(17, 5))).workflow.find((s) => s.key === "released")!;
+    expect(early).toMatchObject({ state: "failed", detail: "Clock stopped at 13:20 EDT. The location pin came at 13:05 EDT, 15 min before the tap (limit 10), so a person reviews the load." });
+    const justOver = (await view(T(17, 20), new Date(Date.parse(T(17, 30)) + 25_000).toISOString())).workflow.find((s) => s.key === "released")!;
+    expect(justOver.detail).toContain("10.5 min after the tap (limit 10)");
   });
 
   it("does not fail the release step on a pin time that does not parse", async () => {

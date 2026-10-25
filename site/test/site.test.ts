@@ -258,7 +258,9 @@ describe("release tap and pin", async () => {
 
   it("says a late pin was late, not confirmed", () => {
     const tz = "America/New_York";
-    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "2026-10-23T19:07:00.000Z" }, tz)).toBe("Clock stopped at the Released tap 2:55 PM; pin late at 3:07 PM (12 min, limit 10), so a person reviews the load");
+    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "2026-10-23T19:07:00.000Z" }, tz)).toBe("Clock stopped at the Released tap 2:55 PM; pin late at 3:07 PM (12 min after the tap, limit 10), so a person reviews the load");
+    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "2026-10-23T19:05:25.000Z" }, tz)).toBe("Clock stopped at the Released tap 2:55 PM; pin late at 3:05 PM (10.5 min after the tap, limit 10), so a person reviews the load");
+    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "2026-10-23T18:40:00.000Z" }, tz)).toBe("Clock stopped at the Released tap 2:55 PM; pin early at 2:40 PM (15 min before the tap, limit 10), so a person reviews the load");
     expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "2026-10-23T19:05:00.000Z" }, tz)).toMatch(/pin confirmed 3:05 PM$/);
   });
 

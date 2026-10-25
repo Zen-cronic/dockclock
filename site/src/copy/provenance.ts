@@ -1,7 +1,7 @@
 // Copy follows provenance. Every claim the console makes about how a load was proved or approved
 // comes from these functions, which read the records instead of assuming the happy path. The site
 // tests render a test load through them and fail on "WhatsApp server times" or "tapped".
-import { pinMissedWindow, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes } from "@dockclock/clause-engine";
+import { pinMissedWindow, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, releasePinGapWords } from "@dockclock/clause-engine";
 import { clock } from "../format.js";
 import type { LoadDetail } from "../model/model.js";
 
@@ -90,8 +90,9 @@ export function releaseLine(c: Pick<LoadDetail["clock"], "releasedAt" | "release
     // A pin time that does not parse is not late (the engine does not hold the load for it).
     if (!Number.isFinite(Date.parse(c.releasePinAt))) return stopped;
     if (!pinMissedWindow(c.releasedAt, c.releasePinAt)) return `${stopped}; pin confirmed ${clock(c.releasePinAt, timeZone)}`;
-    const gap = Math.round(Math.abs(releasePinGapMinutes(c.releasedAt, c.releasePinAt)));
-    return `${stopped}; pin late at ${clock(c.releasePinAt, timeZone)} (${gap} min, limit ${RELEASE_PIN_WINDOW_MINUTES}), so a person reviews the load`;
+    const early = releasePinGapMinutes(c.releasedAt, c.releasePinAt) < 0;
+    const gap = releasePinGapWords(c.releasedAt, c.releasePinAt);
+    return `${stopped}; pin ${early ? "early" : "late"} at ${clock(c.releasePinAt, timeZone)} (${gap} the tap, limit ${RELEASE_PIN_WINDOW_MINUTES}), so a person reviews the load`;
   }
   if (c.releasedAt) return null;
   if (c.endedAt) return `Clock stopped at ${clock(c.endedAt, timeZone)}: the load ended without a release`;

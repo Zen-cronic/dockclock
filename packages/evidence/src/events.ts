@@ -1,5 +1,5 @@
 import type { BolReading, LoadEvidence } from "@dockclock/clause-engine";
-import { BOL_TOLERANCE_MINUTES, clockEndOf, pinConfirmsTap, releasePinGapMinutes, RELEASE_PIN_WINDOW_MINUTES, type ClockEnd } from "@dockclock/clause-engine";
+import { BOL_TOLERANCE_MINUTES, clockEndOf, pinConfirmsTap, releasePinGapWords, RELEASE_PIN_WINDOW_MINUTES, type ClockEnd } from "@dockclock/clause-engine";
 import { checkGeofence, type Facility, type LonLat } from "./geofence.js";
 
 export type Channel = "whatsapp" | "rcs";
@@ -137,11 +137,10 @@ export function corroborate(record: LoadRecord): Corroboration {
   }
   const tap = record.releasedTap ?? null;
   if (tap && record.released) {
-    const gap = releasePinGapMinutes(tap.serverAt, record.released.serverAt);
     signals.push({
       name: "released_pin_confirms_tap",
       ok: pinConfirmsTap(tap.serverAt, record.released.serverAt),
-      detail: `pin ${Math.round(Math.abs(gap))} min ${gap < 0 ? "before" : "after"} the Released tap (limit ${RELEASE_PIN_WINDOW_MINUTES}); the clock stopped at the tap`,
+      detail: `pin ${releasePinGapWords(tap.serverAt, record.released.serverAt)} the Released tap (limit ${RELEASE_PIN_WINDOW_MINUTES}); the clock stopped at the tap`,
     });
   }
   // The paper's out time is compared with whatever ended the clock: the tap, or on older loads the pin.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clockEndOf, pinConfirmsTap, pinMissedWindow, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, releaseTimeOf } from "../src/index.js";
+import { clockEndOf, pinConfirmsTap, pinMissedWindow, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, releasePinGapWords, releaseTimeOf } from "../src/index.js";
 
 const TAP = "2026-10-23T18:32:59.000Z";
 const PIN = "2026-10-23T18:40:00.000Z";
@@ -29,6 +29,17 @@ describe("the release time", () => {
     expect(pinMissedWindow(TAP, at(RELEASE_PIN_WINDOW_MINUTES + 0.5))).toBe(true);
     expect(pinMissedWindow(TAP, at(-RELEASE_PIN_WINDOW_MINUTES - 0.5))).toBe(true);
     expect(pinMissedWindow(TAP, at(RELEASE_PIN_WINDOW_MINUTES))).toBe(false);
+  });
+
+  it("words the gap by its side of the tap and never rounds a missed window onto the limit", () => {
+    const at = (seconds: number) => new Date(Date.parse(TAP) + seconds * 1000).toISOString();
+    expect(releasePinGapWords(TAP, PIN)).toBe("7 min after");
+    expect(releasePinGapWords(TAP, at(-15 * 60))).toBe("15 min before");
+    expect(releasePinGapWords(TAP, at(10 * 60 + 25))).toBe("10.5 min after");
+    expect(releasePinGapWords(TAP, at(10 * 60 + 1))).toBe("10.1 min after");
+    expect(releasePinGapWords(TAP, at(-(10 * 60 + 25)))).toBe("10.5 min before");
+    // Inside the window, whole minutes as before.
+    expect(releasePinGapWords(TAP, at(9 * 60 + 40))).toBe("10 min after");
   });
 
   it("never calls a pin late on a time that does not parse", () => {
