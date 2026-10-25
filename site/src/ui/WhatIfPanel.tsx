@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { LoadEvidence } from "@dockclock/clause-engine";
+import { BOL_TOLERANCE_MINUTES, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, type LoadEvidence } from "@dockclock/clause-engine";
 import { baseline, clauseSpec, REASON_WORDS, run } from "../engine.js";
 import { clock, duration, usd } from "../format.js";
 import type { LoadDetail } from "../model/model.js";
@@ -33,6 +33,20 @@ export function earlyRelease(d: LoadDetail): { out: string; paperOut: string } |
   return { out: iso(f - lead), paperOut: iso(f - lead - Math.min(2 * 60_000, lead / 5)) };
 }
 
+// Moves the Released tap to `at` and the release pin with it, keeping the recorded gap (held inside
+// the confirm window), so the early release is decided on free time alone.
+export function moveRelease(e: LoadEvidence, at: string): LoadEvidence {
+  if (!e.released) return e;
+  const out: LoadEvidence = { ...e, released: { ...e.released, at } };
+  if (!e.releasePinAt) return out;
+  const gap = releasePinGapMinutes(e.released.at, e.releasePinAt);
+  const kept = Math.max(-RELEASE_PIN_WINDOW_MINUTES, Math.min(RELEASE_PIN_WINDOW_MINUTES, gap));
+  return { ...out, releasePinAt: iso(Date.parse(at) + kept * 60_000) };
+}
+
+// A pin this long after the Released tap is past the confirm window.
+const PIN_LATE_MINUTES = RELEASE_PIN_WINDOW_MINUTES + 2;
+
 export function whatIfs(d: LoadDetail): WhatIf[] {
   const spec = clauseSpec(d.clause.id);
   const early = earlyRelease(d);
@@ -44,7 +58,7 @@ export function whatIfs(d: LoadDetail): WhatIf[] {
       label: "Driver left before free time ended",
       hint: early ? `out at ${clock(early.out, tz)}` : "",
       applies: Boolean(early),
-      apply: (e) => ({ ...e, released: e.released && early ? { ...e.released, at: early.out } : e.released, bol: e.bol && early ? { ...e.bol, checkOut: early.paperOut } : e.bol }),
+      apply: (e) => (early ? { ...moveRelease(e, early.out), bol: e.bol ? { ...e.bol, checkOut: early.paperOut } : e.bol } : e),
     },
     {
       id: "late",
@@ -58,10 +72,10 @@ export function whatIfs(d: LoadDetail): WhatIf[] {
     },
     {
       id: "pinLate",
-      label: "Pin 12 min after Released",
-      hint: "limit 10 min",
+      label: `Pin ${PIN_LATE_MINUTES} min after Released`,
+      hint: `limit ${RELEASE_PIN_WINDOW_MINUTES} min`,
       applies: Boolean(d.verdict?.engineInput.releasePinAt),
-      apply: (e) => (e.released ? { ...e, releasePinAt: iso(Date.parse(e.released.at) + 12 * 60_000) } : e),
+      apply: (e) => (e.released ? { ...e, releasePinAt: iso(Date.parse(e.released.at) + PIN_LATE_MINUTES * 60_000) } : e),
     },
     { id: "unsigned", label: "Receiver didn't sign the paper", hint: "no signed bill of lading", applies: true, apply: (e) => ({ ...e, bol: e.bol ? { ...e.bol, signed: false } : e.bol }) },
     { id: "conflict", label: "Paper out-time 40 min after the Released tap", hint: "paper and phone disagree", applies: true, apply: (e) => ({ ...e, bol: e.bol && e.released ? { ...e.bol, checkOut: iso(Date.parse(e.released.at) + 40 * 60_000) } : e.bol }) },
@@ -87,7 +101,7 @@ const RULES: Array<[string, (d: LoadDetail) => string, string[]]> = [
   ["Free time", (d) => duration(d.clause.freeTimeMinutes), ["WITHIN_FREE_TIME"]],
   ["On time", (d) => (d.clause.requireOnTimeArrival ? "required" : "not required"), ["LATE_ARRIVAL"]],
   ["Signed paper", (d) => (d.clause.acceptedRecords.includes("signed_bol_times") ? "both times" : "not required"), ["NO_STATEMENT_OF_RECORD"]],
-  ["Paper vs phone", () => "within 15 min", ["BOL_TIMESTAMP_CONFLICT", "PIN_OUTSIDE_GEOFENCE", "RELEASE_PIN_LATE"]],
+  ["Paper vs phone", () => `within ${BOL_TOLERANCE_MINUTES} min`, ["BOL_TIMESTAMP_CONFLICT", "PIN_OUTSIDE_GEOFENCE", "RELEASE_PIN_LATE"]],
   ["Notice", (d) => (d.clause.noticeLeadMinutes === null ? "not required" : "before free time ends"), ["NOTICE_MISSING", "NOTICE_LATE"]],
   ["Claim window", (d) => hoursWords(d.clause.claimWindowHours), ["CLAIM_WINDOW_EXPIRED"]],
 ];

@@ -255,6 +255,27 @@ describe("release tap and pin", async () => {
     expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z" }, tz)).toBeNull();
     expect(releaseLine({ releasedAt: null, endedAt: "2026-10-26T18:55:00.000Z" }, tz)).toMatch(/ended without a release/);
   });
+
+  it("moves the release pin with an early Released tap, so the what-if turns on free time", async () => {
+    const { moveRelease } = await import("../src/ui/WhatIfPanel.js");
+    const v = structuredClone(body.data);
+    v.verdict!.engineInput.releasePinAt = new Date(Date.parse(tapAt) + 2 * 60_000).toISOString();
+    const d = detailFromApi(v, "fixture");
+    const early = whatIfs(d).find((w) => w.id === "early")!;
+    const moved = early.apply(recordedInput(d)!);
+    expect(Date.parse(moved.releasePinAt!) - Date.parse(moved.released!.at)).toBe(2 * 60_000);
+    const result = run(moved);
+    expect(result.verdict).toBe("NOT_BILLABLE");
+    expect(result.reasons).toContain("WITHIN_FREE_TIME");
+    expect(result.reasons).not.toContain("RELEASE_PIN_LATE");
+    // A recorded gap past the window is held inside it, and a load without a pin gains none.
+    const base = recordedInput(d)!;
+    const wide = moveRelease({ ...base, releasePinAt: new Date(Date.parse(tapAt) + 30 * 60_000).toISOString() }, tapAt);
+    expect(Date.parse(wide.releasePinAt!) - Date.parse(tapAt)).toBe(10 * 60_000);
+    const noPin = { ...base };
+    delete noPin.releasePinAt;
+    expect(moveRelease(noPin, tapAt).releasePinAt).toBeUndefined();
+  });
 });
 
 describe("message monitor order", () => {

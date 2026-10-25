@@ -1,4 +1,4 @@
-import { baselineClaim, buildFixtures, clauseById, evaluate, scorecard, type Evaluation, type LoadEvidence, type ReasonCode } from "@dockclock/clause-engine";
+import { baselineClaim, BOL_TOLERANCE_MINUTES, buildFixtures, clauseById, evaluate, RELEASE_PIN_WINDOW_MINUTES, scorecard, type Evaluation, type LoadEvidence, type ReasonCode } from "@dockclock/clause-engine";
 import type { ReplaySnapshot } from "./snapshot.js";
 
 // The real clause engine (packages/clause-engine), compiled into this page.
@@ -6,7 +6,7 @@ import type { ReplaySnapshot } from "./snapshot.js";
 export const REASON_WORDS: Record<ReasonCode, string> = {
   MISSING_TIMESTAMP: "an arrival or release location is missing",
   PIN_OUTSIDE_GEOFENCE: "a location was outside the facility",
-  BOL_TIMESTAMP_CONFLICT: "the times written on the bill of lading differ from the locations by more than 15 minutes",
+  BOL_TIMESTAMP_CONFLICT: `the times written on the bill of lading differ from the locations by more than ${BOL_TOLERANCE_MINUTES} minutes`,
   LATE_ARRIVAL: "the truck arrived after the appointment",
   WITHIN_FREE_TIME: "the wait stayed within the free time",
   NOTICE_MISSING: "the contract needs a notice before detention starts and none was sent",
@@ -15,7 +15,7 @@ export const REASON_WORDS: Record<ReasonCode, string> = {
   CLAIM_WINDOW_EXPIRED: "the claim was filed after the contract's claim window closed",
   SHIPPER_CONFIRMATION_REQUIRED: "the contract needs the shipper's confirmation",
   CAP_APPLIED: "the contract's cap applies",
-  RELEASE_PIN_LATE: "the release location was not shared within 10 minutes of tapping Released",
+  RELEASE_PIN_LATE: `the release location was not shared within ${RELEASE_PIN_WINDOW_MINUTES} minutes of tapping Released`,
 };
 
 export function recordedEvidence(snap: ReplaySnapshot): LoadEvidence {
