@@ -134,6 +134,13 @@ describe("console read API", () => {
     expect(view.clock.driverTimes).toBe("synthetic_input");
   });
 
+  it("labels each run kind as the site's fallback does", async () => {
+    const { RUN_LABELS } = await import("../../site/src/snapshot.js");
+    const list = JSON.parse((await get("/api/loads")).body) as { data: { loads: Array<{ runKind: keyof typeof RUN_LABELS; runLabel: string }> } };
+    for (const l of list.data.loads) expect(l.runLabel).toBe(RUN_LABELS[l.runKind]);
+    expect(RUN_LABELS.operator).toBe("Test load ∙ real tap");
+  });
+
   it("lists demo-workspace loads only and answers 404 for any other load", async () => {
     const list = JSON.parse((await get("/api/loads")).body);
     expect(list.data.loads.map((l: { loadId: string }) => l.loadId).sort()).toEqual(["SMOKE-RCS-1", "SMOKE-RCS-2"]);

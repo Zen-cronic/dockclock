@@ -12,7 +12,7 @@ import type { LoadView } from "../src/api.js";
 import { canonicalJson } from "../src/canonical.js";
 import { headline, recordedEvidence, run } from "../src/engine.js";
 import { createHash as shimHash } from "../src/shims/node-crypto.js";
-import type { ReplaySnapshot } from "../src/snapshot.js";
+import { RUN_LABELS, type ReplaySnapshot } from "../src/snapshot.js";
 import { derToRaw, verifyPack } from "../src/verify.js";
 import { filterFeed, orderFeed, parseSort } from "../src/model/feedOrder.js";
 import type { FeedRow } from "../src/model/model.js";
@@ -397,5 +397,14 @@ describe("live fallback and recovery", async () => {
   it("stops polling a finished live load and never polls recorded-only data", () => {
     expect(refetchMs({ source: "live", fallback: false, liveFailures: 0, pollMs: null }, { onlyWhilePolling: true })).toBe(false);
     expect(refetchMs({ source: "replay", fallback: false, liveFailures: 0, pollMs: null })).toBe(false);
+  });
+});
+
+// The console API's runLabel and the Loads table's fallback read the same words.
+describe("run labels", () => {
+  it("gives a recorded API list the labels the site would fall back to", () => {
+    const list = JSON.parse(readFileSync(new URL("../fixtures/api/loads.json", import.meta.url), "utf8")) as { data: { loads: Array<{ runKind: keyof typeof RUN_LABELS; runLabel?: string }> } };
+    for (const l of list.data.loads) if (l.runLabel !== undefined) expect(l.runLabel).toBe(RUN_LABELS[l.runKind]);
+    expect(RUN_LABELS.operator).toBe("Test load ∙ real tap");
   });
 });

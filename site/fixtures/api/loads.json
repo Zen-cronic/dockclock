@@ -664,7 +664,7 @@
    {
     "loadId": "SMOKE-mve8yfv3",
     "runKind": "operator",
-    "runLabel": "Operator tap",
+    "runLabel": "Test load ∙ real tap",
     "createdAt": "2026-10-18T19:57:13.081Z",
     "lastActivityAt": "2026-10-18T19:58:16.987Z",
     "facility": {

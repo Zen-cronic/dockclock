@@ -28,6 +28,10 @@ export type Provenance = "recorded" | "rendered_from_template" | "synthetic_inpu
 //   demo:        a judge's DEMO keyword run
 export type RunKind = "phone" | "operator" | "integration" | "demo";
 
+// The run kind in a few words. The console API sends it as runLabel and the site falls back to it,
+// so a load reads the same from either source.
+export const RUN_LABELS: Record<RunKind, string> = { phone: "Real phone", operator: "Test load ∙ real tap", integration: "Test run", demo: "Judge demo" };
+
 export type Channel = "whatsapp" | "rcs" | "email";
 
 // The AWS service (and, where useful, API) behind a step, for the timeline's small tags.

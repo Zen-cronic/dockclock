@@ -32,6 +32,7 @@ import type {
   VerdictInfo,
   WorkflowStep,
 } from "../../site/src/api.js";
+import { RUN_LABELS } from "../../site/src/snapshot.js";
 import {
   addressOnly,
   agentRunsOf,
@@ -77,7 +78,6 @@ export interface LoadSources {
   now: string;
 }
 
-const RUN_LABEL: Record<RunKind, string> = { phone: "Real phone", operator: "Operator tap", integration: "Test run", demo: "Judge demo" };
 const COUNTERPARTY_NOTE = "Delivered to our test mailbox, not to a real company.";
 // The DEMO privacy rule lives in describe.ts, shared with the replay exporter.
 export { DEMO_PHOTO_NOTE, DEMO_TEXT_BODY } from "./describe.js";
@@ -230,7 +230,7 @@ export function summaryOf(items: Item[], now: string = new Date().toISOString())
   return {
     loadId: p.loadId,
     runKind: p.runKind,
-    runLabel: RUN_LABEL[p.runKind],
+    runLabel: RUN_LABELS[p.runKind],
     createdAt: String(p.meta.createdAt ?? p.meta.appointmentAt),
     lastActivityAt: latest(...stamps, str(notice.sentAt), str(notice.deliveredAt)) ?? String(p.meta.createdAt),
     facility: { id: p.facility.id, name: p.facility.name, timeZone: p.facility.timeZone },

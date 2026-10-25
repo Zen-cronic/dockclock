@@ -136,7 +136,7 @@ export interface LoadsPage {
 export interface LoadSummary {
   loadId: string;
   runKind: RunKind;
-  // A short label for the run kind badge: "Test run", "Judge demo", "Real phone", "Operator tap".
+  // A short label for the run kind badge: "Test run", "Judge demo", "Real phone", "Test load ∙ real tap" (RUN_LABELS).
   runLabel: string;
   createdAt: string;
   lastActivityAt: string;

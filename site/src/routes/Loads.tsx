@@ -1,11 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { hasRecordedDetail, useLoads } from "../model/client.js";
+import { RUN_LABELS } from "../snapshot.js";
 import { usd } from "../format.js";
 import { Page } from "../ui/AppShell.js";
 import { ChannelBadge, SourceBadge, Verdict } from "../ui/badges.js";
 import { EmptyState } from "../ui/EmptyState.js";
-
-const RUN_WORDS: Record<string, string> = { phone: "Real phone", demo: "Judge demo", operator: "Test load ∙ real tap", integration: "Test run" };
 
 export function Loads() {
   const q = useLoads();
@@ -36,7 +35,7 @@ export function Loads() {
                     <td className="id">{l.id}{!open && <span className="rowtag">Summary only</span>}</td>
                     <td className="hide-m">{l.facility}</td>
                     <td><ChannelBadge channel={l.channel} />{l.failover ? <span className="small"> ∙ after failover</span> : null}</td>
-                    <td className="run small">{l.runLabel ?? RUN_WORDS[l.runKind]}</td>
+                    <td className="run small">{l.runLabel ?? RUN_LABELS[l.runKind]}</td>
                     <td><Verdict verdict={l.verdict} /></td>
                     <td className="num">{usd(l.amountUsd)}</td>
                   </tr>

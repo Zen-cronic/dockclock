@@ -3,6 +3,7 @@
 // tests render a test load through them and fail on "WhatsApp server times" or "tapped".
 import { pinMissedWindow, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, releasePinGapWords } from "@dockclock/clause-engine";
 import { clock } from "../format.js";
+import { RUN_LABELS } from "../snapshot.js";
 import type { LoadDetail } from "../model/model.js";
 
 type Words = { short: string; long: string };
@@ -19,16 +20,7 @@ export function acceptsAnyLocation(d: Pick<LoadDetail, "summary" | "snapshot">):
 
 // A few words for a badge: what kind of run this was.
 export function runLabel(d: Pick<LoadDetail, "run" | "approval">): string {
-  switch (d.run.kind) {
-    case "phone":
-      return "Real phone";
-    case "demo":
-      return "Judge demo";
-    case "operator":
-      return "Test load ∙ real tap";
-    default:
-      return "Test load";
-  }
+  return d.run.kind === "integration" ? "Test load" : RUN_LABELS[d.run.kind];
 }
 
 export function provedWords(d: Pick<LoadDetail, "run" | "clock" | "verdict" | "summary">): Words {
