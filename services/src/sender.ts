@@ -148,8 +148,19 @@ export async function isDemoEnrolled(driverKey: string): Promise<boolean> {
   return typeof out.Item?.expiresAt === "string" && Date.parse(out.Item.expiresAt) > Date.now();
 }
 
+// How far a send got: "gates" until the provider call starts, "sending" while it may have gone
+// out, "accepted" once the provider returned a message id. A caller that must know which side of
+// the send call an error came from passes one in and reads it after a throw.
+export interface SendProgress {
+  stage: "gates" | "sending" | "accepted";
+}
+
 // audience: who the message is for, by role (default the driver); recorded with the send.
-type SendOptions = { ignoreOptOut?: boolean; audience?: Audience };
+type SendOptions = { ignoreOptOut?: boolean; audience?: Audience; progress?: SendProgress };
+
+const mark = (options: SendOptions, stage: SendProgress["stage"]) => {
+  if (options.progress) options.progress.stage = stage;
+};
 
 // The gates every driver message passes, whatever the channel, in order: replies enabled, the
 // allowlist (or a judge's 24-hour demo enrolment), and the driver's opt-out. Returns the canonical
@@ -215,6 +226,7 @@ export async function send(target: Target, body: Body, purpose: string, loadId: 
     return null;
   }
   const address = gate.address;
+  mark(options, "sending");
   const out = await messaging.send(
     new SendWhatsAppMessageCommand({
       originationPhoneNumberId: env.originationPhoneId(),
@@ -223,6 +235,7 @@ export async function send(target: Target, body: Body, purpose: string, loadId: 
     }),
   );
   const messageId = out.messageId ?? null;
+  if (messageId) mark(options, "accepted");
   log("send_accepted", { purpose, loadId, messageId, channel: "whatsapp" });
   if (messageId) await recordSend(messageId, loadId, purpose, "whatsapp", renderWhatsApp(body), options.audience ?? "driver");
   return messageId;
@@ -271,6 +284,7 @@ export async function sendDocument(target: Target, file: DocumentFile, purpose: 
     return null;
   }
   let messageId: string | null = null;
+  mark(options, "sending");
   try {
     const out = await messaging.send(
       new SendWhatsAppMessageCommand({
@@ -287,6 +301,7 @@ export async function sendDocument(target: Target, file: DocumentFile, purpose: 
     await recordBlocked(loadId, purpose, "whatsapp", shown, audience, NOT_SENT.sendFailed);
     return null;
   }
+  mark(options, "accepted");
   log("send_accepted", { purpose, loadId, messageId, channel: "whatsapp" });
   try {
     await recordSend(messageId, loadId, purpose, "whatsapp", shown, audience);
@@ -310,6 +325,7 @@ export async function sendRcs(target: Target, content: RcsMessageContent, purpos
   const address = gate.address;
   if (address.kind !== "phone") throw new Error("RCS needs a phone number");
   const configurationSet = env.rcsConfigurationSet();
+  mark(options, "sending");
   const out = await sms.send(
     new SendRcsMessageCommand({
       DestinationPhoneNumber: address.e164,
@@ -320,6 +336,7 @@ export async function sendRcs(target: Target, content: RcsMessageContent, purpos
     }),
   );
   const messageId = out.MessageId ?? null;
+  if (messageId) mark(options, "accepted");
   log("send_accepted", { purpose, loadId, messageId, channel: "rcs" });
   if (messageId) await recordSend(messageId, loadId, purpose, "rcs", renderRcs(content), options.audience ?? "driver");
   return messageId;

@@ -6,7 +6,7 @@ import { driverKey } from "./identity.js";
 import type { Language } from "./messages.js";
 import { NOT_SENT, type Audience, type SentMessage } from "./outbound.js";
 import { rcsText } from "./rcs.js";
-import { recordBlocked, sendDocument, sendRcs, uploadMedia, type Target } from "./sender.js";
+import { recordBlocked, sendDocument, sendRcs, uploadMedia, type SendProgress, type Target } from "./sender.js";
 import { ddb, type LoadItem } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
@@ -17,9 +17,11 @@ import { keys } from "./keys.js";
 // carrier load's driver too while their own window is still open. An RCS driver gets a short text
 // with the amount and a link to the load's console page instead of a file. Every send passes the
 // gates in sender.ts. Nothing here may fail the load: each recipient is tried on its own, and a
-// failure is logged and recorded as not sent. Each recipient is reserved on the CLAIM record before
-// anything is sent, so a retried outcome step (its text failed after the PDF went) never sends the
-// PDF twice. The file is uploaded to WhatsApp once and its media id reused for every recipient.
+// failure is logged. Each recipient is reserved on the CLAIM record before anything is sent, so a
+// retried outcome step (its text failed after the PDF went) never sends the PDF twice. A failure
+// before the send call releases the reservation, so a retry can still send; once the send call has
+// started the message may have gone, so the reservation stays. The file is uploaded to WhatsApp
+// once and its media id reused for every recipient.
 
 export const RECEIPT_PURPOSE = "claim_receipt";
 
@@ -64,6 +66,9 @@ interface ClaimItem {
 
 // Why a recipient got nothing on this run: an earlier run of the step already handled them.
 export const ALREADY_HANDLED = "already handled by an earlier run of this step";
+
+// The send call itself failed, so the message may or may not have gone. It is not sent again.
+export const SEND_UNCONFIRMED = "the send call failed and the message may have gone; not sent again";
 
 export interface ReceiptResult {
   audience: Audience;
@@ -110,8 +115,8 @@ async function pdfHash(claim: ClaimItem, key: string): Promise<string> {
 
 const RESERVATION: Record<Audience, string> = { dispatcher: "receiptDispatcherAt", driver: "receiptDriverAt" };
 
-// Takes this recipient's one claim receipt. False when an earlier run already took it.
-async function reserve(loadId: string, audience: Audience): Promise<boolean> {
+// Takes this recipient's one claim receipt, writing `at`. False when an earlier run already took it.
+async function reserve(loadId: string, audience: Audience, at: string): Promise<boolean> {
   try {
     await ddb.send(
       new UpdateCommand({
@@ -120,13 +125,32 @@ async function reserve(loadId: string, audience: Audience): Promise<boolean> {
         UpdateExpression: "SET #r = :t",
         ConditionExpression: "attribute_exists(pk) AND attribute_not_exists(#r)",
         ExpressionAttributeNames: { "#r": RESERVATION[audience] },
-        ExpressionAttributeValues: { ":t": new Date().toISOString() },
+        ExpressionAttributeValues: { ":t": at },
       }),
     );
     return true;
   } catch (error) {
     if ((error as Error).name === "ConditionalCheckFailedException") return false;
     throw error;
+  }
+}
+
+// Gives back a reservation this run took, when nothing was sent, so a retry can send. Only the
+// value this run wrote is removed. Best effort: a release that fails leaves the recipient handled.
+async function release(loadId: string, audience: Audience, at: string): Promise<void> {
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: env.table(),
+        Key: keys.claim(loadId),
+        UpdateExpression: "REMOVE #r",
+        ConditionExpression: "#r = :t",
+        ExpressionAttributeNames: { "#r": RESERVATION[audience] },
+        ExpressionAttributeValues: { ":t": at },
+      }),
+    );
+  } catch (error) {
+    log("claim_receipt_release_failed", { loadId, audience, error: (error as Error).name });
   }
 }
 
@@ -165,14 +189,14 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
 
   const documentShown = (language: Language): SentMessage => ({ kind: "document", text: RECEIPT_TEXT[language].caption(load.loadId, amount), document: { filename, ...(sha256 ? { sha256 } : {}) } });
 
-  const document = async (target: Target, language: Language, audience: Audience): Promise<ReceiptResult> => {
+  const document = async (target: Target, language: Language, audience: Audience, progress: SendProgress): Promise<ReceiptResult> => {
     const caption = RECEIPT_TEXT[language].caption(load.loadId, amount);
     if (!claim.pdfKey || !sha256) {
       const reason = fileProblem ?? NOT_SENT.noPdf;
       await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: caption, document: { filename } }, audience, reason);
       return { audience, channel: "whatsapp", sent: false, skipped: reason };
     }
-    const id = await sendDocument(target, { bucket: env.bucket(), key: claim.pdfKey, filename, caption, sha256, upload }, RECEIPT_PURPOSE, load.loadId, { audience });
+    const id = await sendDocument(target, { bucket: env.bucket(), key: claim.pdfKey, filename, caption, sha256, upload }, RECEIPT_PURPOSE, load.loadId, { audience, progress });
     return { audience, channel: "whatsapp", sent: id !== null };
   };
 
@@ -183,48 +207,67 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
 
   // An RCS driver gets the amount and the console link, never a file. Only demo-workspace loads
   // have a console page; without one the filed message already said everything a link would add.
-  const rcsLink = async (): Promise<ReceiptResult | null> => {
+  const rcsLink = async (progress: SendProgress): Promise<ReceiptResult | null> => {
     const link = loadPageUrl(load.loadId, load.ws);
     if (!link) {
       log("claim_receipt_skipped", { loadId: load.loadId, reason: "RCS driver and no console page for this load" });
       return null;
     }
-    const id = await sendRcs(driver, rcsText(RECEIPT_TEXT[load.language ?? "en_US"].rcsLink(load.loadId, amount, link)), RECEIPT_PURPOSE, load.loadId);
+    const id = await sendRcs(driver, rcsText(RECEIPT_TEXT[load.language ?? "en_US"].rcsLink(load.loadId, amount, link)), RECEIPT_PURPOSE, load.loadId, { progress });
     return { audience: "driver", channel: "rcs", sent: id !== null };
   };
 
   const language = load.language ?? "en_US";
 
-  // Reserve, then send. A send that throws is recorded as not sent, as every other failure is; the
-  // reservation stays, since the message may already have gone.
-  const attempt = async (audience: Audience, run: () => Promise<ReceiptResult | null>) => {
+  // Reserve, then send. Where a throw came from decides what happens to the reservation and the
+  // record. Before the send call nothing went: the reservation is released and the send recorded
+  // as not sent. During the send call the message may have gone: the reservation stays and nothing
+  // is recorded as not sent. After the provider accepted it (a receipt row failed to write) it was
+  // sent.
+  const attempt = async (audience: Audience, run: (progress: SendProgress) => Promise<ReceiptResult | null>) => {
     const rcs = load.channel === "rcs" && audience === "driver";
     const channel = rcs ? "rcs" : "whatsapp";
+    const progress: SendProgress = { stage: "gates" };
+    const at = new Date().toISOString();
+    let reserved = false;
     try {
-      if (!(await reserve(load.loadId, audience))) {
+      if (!(await reserve(load.loadId, audience, at))) {
         log("claim_receipt_skipped", { loadId: load.loadId, audience, reason: ALREADY_HANDLED });
         results.push({ audience, channel, sent: false, skipped: ALREADY_HANDLED });
         return;
       }
-      const result = await run();
+      reserved = true;
+      const result = await run(progress);
       if (result) results.push(result);
     } catch (error) {
-      log("claim_receipt_failed", { loadId: load.loadId, audience, error: (error as Error).name });
+      const name = (error as Error).name;
+      if (progress.stage === "accepted") {
+        log("claim_receipt_record_failed", { loadId: load.loadId, audience, error: name });
+        results.push({ audience, channel, sent: true });
+        return;
+      }
+      if (progress.stage === "sending") {
+        log("claim_receipt_unconfirmed", { loadId: load.loadId, audience, error: name });
+        results.push({ audience, channel, sent: false, skipped: SEND_UNCONFIRMED });
+        return;
+      }
+      log("claim_receipt_failed", { loadId: load.loadId, audience, error: name });
+      if (reserved) await release(load.loadId, audience, at);
       const shown: SentMessage = rcs ? { kind: "text", text: RECEIPT_TEXT[language].caption(load.loadId, amount) } : documentShown(audience === "dispatcher" ? "en_US" : language);
       await recordBlocked(load.loadId, RECEIPT_PURPOSE, channel, shown, audience, NOT_SENT.failed);
-      results.push({ audience, channel, sent: false, skipped: (error as Error).name });
+      results.push({ audience, channel, sent: false, skipped: name });
     }
   };
 
   if (load.demo === true) {
     // The judge approved their own claim, so the judge is the one waiting for it.
-    await attempt("driver", () => (load.channel === "rcs" ? rcsLink() : document(driver, language, "driver")));
+    await attempt("driver", (progress) => (load.channel === "rcs" ? rcsLink(progress) : document(driver, language, "driver", progress)));
   } else {
     // The dispatcher reads the approval template in English (dockclock_dispatch_approval).
-    await attempt("dispatcher", async () => (load.synthetic && !load.askDispatcher ? notSent("dispatcher", "en_US", NOT_SENT.testLoad) : document(await dispatcherTarget(), "en_US", "dispatcher")));
-    await attempt("driver", async () => {
-      if (load.channel === "rcs") return rcsLink();
-      return windowOpen(await lastDriverWhatsAppAt(load.loadId)) ? document(driver, language, "driver") : notSent("driver", language, NOT_SENT.windowClosed);
+    await attempt("dispatcher", async (progress) => (load.synthetic && !load.askDispatcher ? notSent("dispatcher", "en_US", NOT_SENT.testLoad) : document(await dispatcherTarget(), "en_US", "dispatcher", progress)));
+    await attempt("driver", async (progress) => {
+      if (load.channel === "rcs") return rcsLink(progress);
+      return windowOpen(await lastDriverWhatsAppAt(load.loadId)) ? document(driver, language, "driver", progress) : notSent("driver", language, NOT_SENT.windowClosed);
     });
   }
   log("claim_receipts", { loadId: load.loadId, results: results.map((r) => ({ audience: r.audience, channel: r.channel, sent: r.sent })) });

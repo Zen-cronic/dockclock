@@ -9,7 +9,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { LANGUAGES } from "../src/messages.js";
 import { NOT_SENT } from "../src/outbound.js";
 import { handler as tellOutcome } from "../src/outcome.js";
-import { ALREADY_HANDLED, RECEIPT_TEXT, sendClaimReceipts, windowOpen } from "../src/claim-receipt.js";
+import { ALREADY_HANDLED, RECEIPT_TEXT, SEND_UNCONFIRMED, sendClaimReceipts, windowOpen } from "../src/claim-receipt.js";
 import type { LoadItem } from "../src/store.js";
 
 const dynamo = mockClient(DynamoDBDocumentClient);
@@ -34,6 +34,18 @@ let events: Array<Record<string, unknown>>;
 let optedOut: Set<string>;
 // Receipt reservations taken on the CLAIM record (attribute names), as DynamoDB would keep them.
 let reserved: Set<string>;
+
+type Update = { Key: { sk: string }; UpdateExpression?: string; ConditionExpression?: string; ExpressionAttributeNames?: Record<string, string> };
+// Takes and releases reservations on the CLAIM record, as DynamoDB's conditions would.
+function reservations(input: Update) {
+  const name = input.ExpressionAttributeNames?.["#r"];
+  if (input.Key.sk === "CLAIM" && name && input.ConditionExpression?.includes("attribute_not_exists(#r)")) {
+    if (reserved.has(name)) throw Object.assign(new Error("taken"), { name: "ConditionalCheckFailedException" });
+    reserved.add(name);
+  }
+  if (input.Key.sk === "CLAIM" && name && input.UpdateExpression?.startsWith("REMOVE")) reserved.delete(name);
+  return {};
+}
 
 function baseLoad(over: Partial<LoadItem> = {}): LoadItem {
   return {
@@ -98,14 +110,7 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     });
     dynamo.on(QueryCommand).callsFake(() => ({ Items: [...events].reverse() }));
     dynamo.on(PutCommand).resolves({});
-    dynamo.on(UpdateCommand).callsFake((input: { Key: { sk: string }; ConditionExpression?: string; ExpressionAttributeNames?: Record<string, string> }) => {
-      const name = input.ExpressionAttributeNames?.["#r"];
-      if (input.Key.sk === "CLAIM" && name && input.ConditionExpression?.includes("attribute_not_exists(#r)")) {
-        if (reserved.has(name)) throw Object.assign(new Error("taken"), { name: "ConditionalCheckFailedException" });
-        reserved.add(name);
-      }
-      return {};
-    });
+    dynamo.on(UpdateCommand).callsFake(reservations);
   });
 
   it("uploads the stored PDF from S3 once, then sends it as a document to the dispatcher and to a driver whose window is open", async () => {
@@ -295,6 +300,45 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     expect(messaging.commandCalls(SendWhatsAppMessageCommand)).toHaveLength(0);
     expect(records().map((r) => [r.audience, r.status, r.notSentReason])).toEqual([["dispatcher", "not_sent", NOT_SENT.failed], ["driver", "not_sent", NOT_SENT.failed]]);
     expect(records()[0]!.message).toEqual({ kind: "document", text: expect.stringContaining("Claim summary for load L1"), document: { filename: "detention-claim-L1.pdf", sha256: PDF_SHA } });
+  });
+
+  it("gives back the reservation when a throw came before the send, so a retry still sends the PDF", async () => {
+    const throttled = () => Object.assign(new Error("throttled"), { name: "ProvisionedThroughputExceededException" });
+    dynamo.on(GetCommand).callsFake((input: { Key: { pk: string; sk: string } }) => {
+      if (input.Key.pk.startsWith("OPTOUT#")) throw throttled();
+      if (input.Key.sk === "CLAIM") return { Item: claim };
+      return {};
+    });
+    await sendClaimReceipts(load);
+    expect(messaging.commandCalls(SendWhatsAppMessageCommand)).toHaveLength(0);
+    expect(reserved.size).toBe(0);
+    // Step Functions retries the step once the table answers again: both PDFs go.
+    dynamo.on(GetCommand).callsFake((input: { Key: { pk: string; sk: string } }) => (input.Key.sk === "CLAIM" ? { Item: claim } : {}));
+    expect((await sendClaimReceipts(load)).map((r) => r.sent)).toEqual([true, true]);
+    expect(whatsappSent().map((m) => m.to)).toEqual([DISPATCHER, DRIVER]);
+  });
+
+  it("counts an RCS link whose receipt row failed to write as sent, keeps the reservation and records no not-sent row", async () => {
+    load = baseLoad({ demo: true, channel: "rcs", ws: "demo" });
+    dynamo.on(UpdateCommand).callsFake((input: Update) => {
+      if (input.Key.sk === "RECEIPT" || !input.ExpressionAttributeNames?.["#r"]) throw Object.assign(new Error("throttled"), { name: "ThrottlingException" });
+      return reservations(input);
+    });
+    expect(await sendClaimReceipts(load)).toEqual([{ audience: "driver", channel: "rcs", sent: true }]);
+    expect(sms.commandCalls(SendRcsMessageCommand)).toHaveLength(1);
+    expect(records().filter((r) => r.status === "not_sent")).toEqual([]);
+    expect(reserved.has("receiptDriverAt")).toBe(true);
+    // A retry sends no second link.
+    expect(await sendClaimReceipts(load)).toEqual([{ audience: "driver", channel: "rcs", sent: false, skipped: ALREADY_HANDLED }]);
+    expect(sms.commandCalls(SendRcsMessageCommand)).toHaveLength(1);
+  });
+
+  it("keeps the reservation and records no not-sent row when the RCS send call itself throws", async () => {
+    load = baseLoad({ demo: true, channel: "rcs", ws: "demo" });
+    sms.on(SendRcsMessageCommand).rejects(Object.assign(new Error("timed out"), { name: "TimeoutError" }));
+    expect(await sendClaimReceipts(load)).toEqual([{ audience: "driver", channel: "rcs", sent: false, skipped: SEND_UNCONFIRMED }]);
+    expect(records()).toEqual([]);
+    expect(reserved.has("receiptDriverAt")).toBe(true);
   });
 
   it("never sends the PDF after the verdict message", async () => {
