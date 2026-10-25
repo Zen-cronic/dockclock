@@ -147,18 +147,19 @@ The landing page tells one recorded load from dispatch to the filed claim, then 
 
 All three are OFL, self-hosted from `@fontsource` (latin subsets), pinned exact.
 
-**Tokens** (scoped to `.lp` in `landing.css`): `--serif`, `--sans`, `--tag`; `--door` `#dfe3df` and `--door-rib` `#cdd2cd` (the roll-up door plate and the kicker bar). Colours are Door 05's, with the same meanings: safety yellow is money and billable time (plus the primary button, as in the console).
+**Tokens** (scoped to `.lp` in `landing.css`): `--serif`, `--sans`, `--tag`; `--door` `#dfe3df` (the kicker bar). The roll-up door plate is 30 px slats of `#e4e7e4` with a `#d3d8d3` rib and a `#f1f3f1` highlight, a sign-black bottom seal and the hazard bumper. Colours are Door 05's, with the same meanings: safety yellow is money and billable time (plus the primary button, as in the console).
 
 | Component | File | Notes |
 |---|---|---|
+| StaticHero | `HeroPlayer.tsx` | Reduced motion, top of the page: the filed claim in the receiver's inbox, still |
 | Story | `story.ts` | Builds six chapters (Dispatched, Arrived, Notice, Released, Approved, Filed) from the featured WhatsApp load's recorded read-API responses and its two emails, picking records by purpose. No message, time or email is written by hand; changing `FEATURED.whatsapp` changes the hero |
-| HeroPlayer | `HeroPlayer.tsx` | The recorded load, one record at a time, on the device that received it: driver's phone, receiver's inbox, dispatcher's phone. A plate drawn as a roll-up door with a hazard bumper. Chapter list with recorded times (desktop), six seekable segments, play/pause and replay, the recorded time of the current frame, a one-line caption and the provenance line. Plays once when 35% in view, pauses out of view |
-| Phone, Mail | `Devices.tsx` | The phone reuses the console's `.phone`/`.bub` classes; a tap shows a press ripple on the button before the reply. The mail view stops at the signature separator (the hashes are in the console) and names attachments plainly |
+| HeroPlayer | `HeroPlayer.tsx` | The recorded load, one record at a time, on the device that received it: driver's phone, receiver's inbox, dispatcher's phone. A plate drawn as a roll-up door with a hazard bumper. Chapter list with recorded times (desktop), one thin scrubber split into six seekable steps, play/pause and replay, the recorded time of the current frame, a one-line caption and the provenance line. Plays once when 35% in view, pauses out of view |
+| Phone, Mail | `Devices.tsx` | The phone reuses the console's `.phone`/`.bub` classes; a tap shows a press ripple on the button before the reply. The mail view stops at the signature separator (the hashes are in the console), keeps whole paragraphs that fit and marks a cut with […], and names attachments plainly |
 | Storyboard | `HeroPlayer.tsx` | Reduced motion: all six chapters at once, as numbered frames (3 columns, 2 under 1080 px, 1 under 640 px) |
 | WaitScene | `WaitScene.tsx` | A pinned scroll scene on sign black: a flat truck backs onto door 05 while the dot-matrix clock runs from the arrival pin to the release pin (white, then safety yellow once billable), the track fills (free time dashed, billable striped) and the stamp and amount land. Every number comes from the load. Under reduced motion it is drawn once at its last frame and does not pin |
 | Refusals | `Landing.tsx` | The five refusals as quotes, each answered in one sentence with a mono proof chip of the load's own times and a "See it" link to its judge step |
 | Numbers | `Landing.tsx` | A sentence that fills from grey to ink as it scrolls, and three ATRI figures that count up once (the money figure carries the hazard rule) |
-| Try, Closing, Footer | `Landing.tsx` | The DEMO steps on sign black; the judge path and console CTAs; console links and the fictional-companies line |
+| Try, Closing, Footer | `Landing.tsx` | The DEMO steps on sign black; the judge path and console CTAs beside the load's sealed evidence pack as a canary card (load, sealed time, digest, KMS signature, Object Lock, a link to break it); a hazard rule over the footer's console links and the fictional-companies line |
 
 **Motion:** message beat 1050 ms, button press 560 ms, mail hold 4.6 s, device swap 420 ms opacity and 520 ms lift on `--ease`, bubble rise 300 ms; count-up 1.2 s; the wait scene and the fill sentence follow the scroll. Under `prefers-reduced-motion` nothing autoplays or animates.
 
