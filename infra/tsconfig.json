@@ -13,6 +13,9 @@
   "references": [
     {
       "path": "../packages/agent"
+    },
+    {
+      "path": "../packages/mail"
     }
   ]
 }

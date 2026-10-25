@@ -4,7 +4,7 @@
 
 import { releaseTimeOf, type ClauseSpec } from "@dockclock/clause-engine";
 import { acceptsAnyLocation, isoToLocalDateTime, type Facility } from "@dockclock/evidence";
-import { buildMime, FICTIONAL_NOTE, loadPageUrl, minutesText, noticeTerms, pinSource, PUBLIC_KEY_URL, renderHtml, renderText, signatureLines, type Letter } from "@dockclock/mail";
+import { buildMime, FICTIONAL_NOTE, loadPageUrl, minutesText, noticeTerms, pinSource, publicKeyUrl, renderHtml, renderText, signatureLines, type Letter } from "@dockclock/mail";
 import { formatUsd } from "./claim.js";
 
 // The sealed pack fields the claim reads.
@@ -120,7 +120,7 @@ export function claimLetter(facts: ClaimFacts, opening: string, from: string, re
     ],
     closing: `Please arrange payment of ${facts.amount} under the rate confirmation. The claim summary (PDF) and the signed evidence pack (JSON) are attached.`,
     signature: signatureLines(from, replyTo),
-    links: [...(facts.loadPage ? [{ label: "Verify this claim", href: facts.loadPage }] : []), { label: "Public key", href: PUBLIC_KEY_URL }],
+    links: [...(facts.loadPage ? [{ label: "Verify this claim", href: facts.loadPage }] : []), { label: "Public key", href: publicKeyUrl() }],
     notes: [`Evidence pack ${facts.packId}, sha256 ${facts.packDigest.slice(0, 16)}…`, FICTIONAL_NOTE],
   };
 }

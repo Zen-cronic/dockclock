@@ -3,7 +3,7 @@
 // from ClaimFacts, the same object the email renders, so the PDF and the email cannot disagree.
 
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
-import { addressOf, BRAND_MARK_PATHS, BRAND_MARK_VIEWBOX, CARRIER_NAME, FICTIONAL_NOTE, PUBLIC_KEY_URL } from "@dockclock/mail";
+import { addressOf, BRAND_MARK_PATHS, BRAND_MARK_VIEWBOX, CARRIER_NAME, FICTIONAL_NOTE, publicKeyUrl } from "@dockclock/mail";
 import type { ClaimFacts } from "./claim-email.js";
 
 const hex = (value: string) => {
@@ -178,11 +178,11 @@ export async function buildClaimPdf(facts: ClaimFacts, options: ClaimPdfOptions)
   c.heading("Evidence");
   c.row("Evidence pack", facts.packId);
   c.row("SHA-256", facts.packDigest, fonts.mono, 8.6);
-  c.row("Signature", `Signed with AWS KMS (ECDSA P-256). Verify at ${facts.loadPage ?? PUBLIC_KEY_URL}`);
+  c.row("Signature", `Signed with AWS KMS (ECDSA P-256). Verify at ${facts.loadPage ?? publicKeyUrl()}`);
 
   c.heading("Appendix: how to verify");
   c.paragraph(
-    `The attached ${facts.packId}.json holds the sealed pack and its signature. Write the file's "pack" field as canonical JSON (object keys sorted at every level, no spaces) and take its SHA-256: it equals the SHA-256 above. signatureBase64 is an ECDSA P-256 signature (DER) over that hash, made by AWS KMS. Check it with the public key at ${PUBLIC_KEY_URL} (SPKI SHA-256 ${facts.spkiSha256}). The signature covers the pack's fields, not the file's bytes. DockClock's verifier (npm run verify:pack) applies exactly this rule.`,
+    `The attached ${facts.packId}.json holds the sealed pack and its signature. Write the file's "pack" field as canonical JSON (object keys sorted at every level, no spaces) and take its SHA-256: it equals the SHA-256 above. signatureBase64 is an ECDSA P-256 signature (DER) over that hash, made by AWS KMS. Check it with the public key at ${publicKeyUrl()} (SPKI SHA-256 ${facts.spkiSha256}). The signature covers the pack's fields, not the file's bytes. DockClock's verifier (npm run verify:pack) applies exactly this rule.`,
     8.5,
   );
 

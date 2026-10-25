@@ -1,3 +1,5 @@
+import { DEFAULT_CONSOLE_URL } from "@dockclock/mail";
+
 export interface DockClockConfig {
   account: string;
   region: string;
@@ -24,6 +26,8 @@ export interface DockClockConfig {
   claimsFromEmail: string;
   counterpartyEmailBroker: string;
   counterpartyEmailShipper: string;
+  // The console's public address, linked from emails, PDFs and RCS texts (Lambda env CONSOLE_URL).
+  consoleUrl: string;
 }
 
 function required(name: string): string {
@@ -54,5 +58,6 @@ export function configFromEnv(): DockClockConfig {
     counterpartyEmailBroker: required("DOCKCLOCK_COUNTERPARTY_EMAIL_BROKER"),
     counterpartyEmailShipper: required("DOCKCLOCK_COUNTERPARTY_EMAIL_SHIPPER"),
     rcsAgentId: process.env.DOCKCLOCK_RCS_AGENT_ID ?? "",
+    consoleUrl: process.env.DOCKCLOCK_CONSOLE_URL || DEFAULT_CONSOLE_URL,
   };
 }

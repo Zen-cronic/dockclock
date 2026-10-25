@@ -56,6 +56,7 @@ export class MessagingStack extends Stack {
         environment: {
           TABLE_NAME: core.table.tableName,
           NODE_OPTIONS: "--enable-source-maps",
+          CONSOLE_URL: config.consoleUrl,
           ...(config.demoFacility ? { DEMO_FACILITY: config.demoFacility } : {}),
           ...environment,
         },

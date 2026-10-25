@@ -49,7 +49,7 @@ export class AgentStack extends Stack {
         tracing: lambda.Tracing.ACTIVE,
         loggingFormat: lambda.LoggingFormat.JSON,
         logGroup: new logs.LogGroup(this, `${name}Logs`, { retention: logs.RetentionDays.TWO_WEEKS, removalPolicy: RemovalPolicy.DESTROY }),
-        environment: { NODE_OPTIONS: "--enable-source-maps", ...(config.demoFacility ? { DEMO_FACILITY: config.demoFacility } : {}), ...environment },
+        environment: { NODE_OPTIONS: "--enable-source-maps", CONSOLE_URL: config.consoleUrl, ...(config.demoFacility ? { DEMO_FACILITY: config.demoFacility } : {}), ...environment },
         bundling: { format: OutputFormat.CJS, minify: true, sourceMap: true, externalModules: [], esbuildArgs: { "--conditions": "source" } },
       });
 

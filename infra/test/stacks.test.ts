@@ -28,6 +28,7 @@ const config = {
   counterpartyEmailBroker: "broker@example.com",
   counterpartyEmailShipper: "shipper@example.com",
   rcsAgentId: "rcs-0123456789abcdef",
+  consoleUrl: "https://console.example.com",
 };
 
 describe("stacks", () => {
@@ -151,6 +152,15 @@ describe("stacks", () => {
     const policies = JSON.stringify(agentT.findResources("AWS::BedrockAgentCore::Policy"));
     expect(policies).toContain("dockclock-tools___send_detention_claim");
     expect(policies).toContain("context.input.amountCents <= 500000");
+  });
+
+  it("gives every Lambda the configured console address, so emails, PDFs and links never hardcode it", () => {
+    for (const stack of [agent, messaging]) {
+      const fns = Object.values(Template.fromStack(stack).findResources("AWS::Lambda::Function")) as Array<{ Properties: { Handler?: string; Environment?: { Variables?: Record<string, unknown> } } }>;
+      const ours = fns.filter((f) => f.Properties.Environment?.Variables?.NODE_OPTIONS === "--enable-source-maps");
+      expect(ours.length).toBeGreaterThan(0);
+      for (const f of ours) expect(f.Properties.Environment?.Variables?.CONSOLE_URL).toBe(config.consoleUrl);
+    }
   });
 
   it("records agent runs and keeps sent emails beside the packs", () => {

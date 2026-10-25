@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { addressOf, BRAND_MARK_CID, BRAND_MARK_MASTER_SHA256, BRAND_MARK_PNG_BASE64, buildMime, loadPageUrl, minutesText, pinSource, PUBLIC_KEY_URL, renderHtml, renderText, signatureLines, type Letter } from "../src/index.js";
+import { addressOf, BRAND_MARK_CID, BRAND_MARK_MASTER_SHA256, BRAND_MARK_PNG_BASE64, buildMime, consoleUrl, DEFAULT_CONSOLE_URL, loadPageUrl, minutesText, pinSource, publicKeyUrl, renderHtml, renderText, signatureLines, type Letter } from "../src/index.js";
 
 const letter: Letter = {
   kind: "Detention notice",
@@ -13,7 +13,7 @@ const letter: Letter = {
   ],
   closing: "Please release the truck.",
   signature: signatureLines("DockClock Claims <claims@example.com>", "dispatch@example.com"),
-  links: [{ label: "Public key", href: PUBLIC_KEY_URL }],
+  links: [{ label: "Public key", href: publicKeyUrl() }],
   notes: ["The carrier, the counterparty and the facility are fictional."],
 };
 
@@ -34,7 +34,7 @@ describe("letter layout", () => {
         "claims@example.com",
         "Reply to this email to reach the carrier's dispatch desk.",
         "",
-        `Public key: ${PUBLIC_KEY_URL}`,
+        `Public key: ${publicKeyUrl()}`,
         "The carrier, the counterparty and the facility are fictional.",
       ].join("\n"),
     );
@@ -46,7 +46,7 @@ describe("letter layout", () => {
     expect(html).toContain("<title>Subject &lt;x&gt;</title>");
     expect(html).toContain('role="presentation"');
     expect(html).toContain("#ffc400");
-    expect(html).toContain(`href="${PUBLIC_KEY_URL}"`);
+    expect(html).toContain(`href="${publicKeyUrl()}"`);
     expect(html).not.toMatch(/<script|<style|<link|url\(|class=/i);
     // The one image is the brand mark, referenced by Content-ID: nothing is fetched from a server.
     expect([...html.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1])).toEqual([`cid:${BRAND_MARK_CID}`]);
@@ -61,6 +61,21 @@ describe("letter layout", () => {
   it("links the console only for demo-workspace loads", () => {
     expect(loadPageUrl("LIVE-abc", "demo")).toBe("https://d3djuoqhg6b8o2.cloudfront.net/loads/LIVE-abc");
     expect(loadPageUrl("LIVE-abc", undefined)).toBeNull();
+  });
+
+  it("takes the console address from configuration, the deployed console otherwise", () => {
+    const before = process.env.CONSOLE_URL;
+    try {
+      process.env.CONSOLE_URL = "https://console.example.com/";
+      expect(loadPageUrl("LIVE-abc", "demo")).toBe("https://console.example.com/loads/LIVE-abc");
+      expect(publicKeyUrl()).toBe("https://console.example.com/keys/public-key.pem");
+      delete process.env.CONSOLE_URL;
+      expect(consoleUrl()).toBe(DEFAULT_CONSOLE_URL);
+      expect(publicKeyUrl()).toBe(`${DEFAULT_CONSOLE_URL}/keys/public-key.pem`);
+    } finally {
+      if (before === undefined) delete process.env.CONSOLE_URL;
+      else process.env.CONSOLE_URL = before;
+    }
   });
 
   it("never claims a geofence on the judge demo yard or a server time on a test load", () => {
