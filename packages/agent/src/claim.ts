@@ -51,7 +51,10 @@ export function checkClaim(request: ClaimRequest, basis: SealedClaimBasis): Clai
   }
   if (!request.body.includes(amount)) return refuse(`the email must state the contract amount ${amount}`);
   if (!request.body.includes(basis.loadId)) return refuse("the email must name the load id");
-  if (/arn:aws|\+\d{10,15}|(^|\D)\d{12}(\D|$)/.test(request.body)) return refuse("the opening may not hold an AWS resource name, account id or phone number");
+  // The load id is required above, so it is taken out before the check: a load id with a 12-digit
+  // run (PO-123456789012) is not an account id.
+  const unnamed = request.body.split(basis.loadId).join(" ");
+  if (/arn:aws|\+\d{10,15}|(^|\D)\d{12}(\D|$)/.test(unnamed)) return refuse("the opening may not hold an AWS resource name, account id or phone number");
   if (request.body.length < SUMMARY_MIN || request.body.length > SUMMARY_MAX) return refuse(`the opening must be ${SUMMARY_MIN}-${SUMMARY_MAX} characters (one or two sentences)`);
   return { ok: true };
 }

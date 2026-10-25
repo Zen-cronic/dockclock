@@ -37,6 +37,15 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     expect(result.ok === false && result.reason).toMatch(reason);
   });
 
+  it("files a load whose id holds a 12-digit run, and still refuses an account id beside it", () => {
+    const id = "PO-123456789012";
+    const named = body.replaceAll("LIVE-abc", id);
+    const poBasis = { ...basis, loadId: id };
+    expect(checkClaim({ ...request, loadId: id, body: named }, poBasis)).toEqual({ ok: true });
+    const leaked = checkClaim({ ...request, loadId: id, body: `${named} Account 111122223333.` }, poBasis);
+    expect(leaked.ok === false && leaked.reason).toMatch(/account id/);
+  });
+
   it("refuses unsealed, non-billable, unapproved or already-sent loads", () => {
     expect(checkClaim(request, { ...basis, phase: "documented" }).ok).toBe(false);
     expect(checkClaim(request, { ...basis, verdict: "NEEDS_HUMAN" }).ok).toBe(false);
