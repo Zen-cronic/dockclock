@@ -3,6 +3,7 @@ import { clock } from "../format.js";
 import { Verdict } from "../ui/badges.js";
 import { useMedia } from "./media.js";
 import type { Story } from "./story.js";
+import { clockSourceWords, contractWords } from "../copy/provenance.js";
 
 // "The wait": a pinned scroll scene. The truck backs onto Door 05 while the dock clock runs from the
 // arrival pin to the release pin, the track fills (free time dashed, billable time striped), and the
@@ -80,7 +81,7 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
           <div className="lp-wait-copy">
             <p className="lp-kicker dark">The wait</p>
             <h2 id="wait-h" className="lp-h2">{Math.round(stay / 60)} minutes at the door. {freeMin} were free. The rest were owed.</h2>
-            <p className="lp-wait-sub">Demo contract: {freeMin} minutes free, ${load.clause?.ratePerHourUsd ?? 60} an hour. The clock runs on WhatsApp's own timestamps.</p>
+            <p className="lp-wait-sub">{[contractWords(load), clockSourceWords(load)].filter(Boolean).join(" ")}</p>
           </div>
 
           <div className="lp-led" aria-label={`At the dock ${hms(stay)}`}>

@@ -4,6 +4,7 @@
 import type * as Api from "../api.js";
 import { detailFromApi } from "../model/fromApi.js";
 import type { ConsoleEmail, ConsoleMessage, LoadDetail } from "../model/model.js";
+import type { ClockEndedBy } from "../copy/provenance.js";
 import { FEATURED } from "../featured.js";
 
 export const HERO_LOAD = FEATURED.whatsapp;
@@ -48,6 +49,8 @@ export interface Story {
   thread: { driver: ConsoleMessage[]; dispatcher: ConsoleMessage[] };
   // The bill-of-lading photo, shown only when the agent's tool could read it.
   bolPhoto: string | null;
+  // What stopped the clock: the Released tap, the release pin, or nothing yet.
+  endedBy: ClockEndedBy;
 }
 
 function beatsFor(messages: ConsoleMessage[], all: ConsoleMessage[]): Beat[] {
@@ -87,6 +90,7 @@ export function buildStory(view: Api.LoadView, bodies: Partial<Record<"notice" |
   const ch4 = driver.filter((m) => !ch2.includes(m) && m !== first && t(m.at) <= t(releaseEnd));
   // The clock stops where the record says it did: the Released tap on newer loads, the pin on older ones.
   const releasedAt = load.clock.releasedAt ?? releasedTap?.at ?? releasedPin?.at ?? null;
+  const endedBy: ClockEndedBy = !releasedAt ? null : releasedTap && t(releasedTap.at) === t(releasedAt) ? "released_tap" : "released_pin";
 
   const chapters: Chapter[] = [
     { key: "dispatched", label: "Dispatched", at: first.at, caption: "The load lands on the driver's WhatsApp.", screen: { kind: "phone", party: "driver" }, beats: beatsFor([first], msgs) },
@@ -94,7 +98,7 @@ export function buildStory(view: Api.LoadView, bodies: Partial<Record<"notice" |
   ];
   if (notice) chapters.push({ key: "notice", label: "Notice", at: notice.sentAt, caption: "The receiver gets notice before free time ends.", screen: { kind: "mail", email: notice, body: bodies.notice ?? null }, beats: [{}] });
   if (releasedAt && ch4.length > 0)
-    chapters.push({ key: "released", label: "Released", at: releasedAt, caption: releasedTap && t(releasedTap.at) === t(releasedAt) ? "The Released tap stops the clock. A pin and the signed bill of lading back it up." : "A second pin stops the clock. The bill of lading comes from the camera.", screen: { kind: "phone", party: "driver" }, beats: beatsFor(ch4, msgs) });
+    chapters.push({ key: "released", label: "Released", at: releasedAt, caption: endedBy === "released_tap" ? "The Released tap stops the clock. A pin and the signed bill of lading back it up." : "A second pin stops the clock. The bill of lading comes from the camera.", screen: { kind: "phone", party: "driver" }, beats: beatsFor(ch4, msgs) });
   if (approvalAsk) {
     const beats: Beat[] = [{ message: approvalAsk }];
     if (load.approval?.decision === "approve") beats.push({ tap: { messageId: approvalAsk.id, title: approvalAsk.buttons?.[0]?.title ?? "Approve claim" } });
@@ -103,7 +107,7 @@ export function buildStory(view: Api.LoadView, bodies: Partial<Record<"notice" |
   }
   if (claim) chapters.push({ key: "filed", label: "Filed", at: claim.sentAt, caption: "The agent emails the claim with the signed evidence.", screen: { kind: "mail", email: claim, body: bodies.claim ?? null }, beats: [{}] });
   const bolPhoto = load.photos.find((p) => p.legible === true && p.url)?.url ?? null;
-  return { load, chapters, thread: { driver, dispatcher }, bolPhoto };
+  return { load, chapters, thread: { driver, dispatcher }, bolPhoto, endedBy };
 }
 
 export function heroStory(): Story | null {

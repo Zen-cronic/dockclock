@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { clock, zoneName } from "../format.js";
 import { IconChevron } from "../ui/icons.js";
+import { stayProofWords } from "../copy/provenance.js";
 import { HeroPlayer, StaticHero, Storyboard } from "./HeroPlayer.js";
 import { heroStory, type Story } from "./story.js";
 import { useMedia } from "./media.js";
@@ -131,7 +132,7 @@ function Refusals({ story }: { story: Story }) {
   const at = (key: string) => chapters.find((c) => c.key === key)?.at;
   const t = (iso?: string | null) => (iso ? clock(iso, tz) : "");
   const rows = [
-    { no: "You weren't there that long.", yes: "Two location pins, each with WhatsApp's server time.", proof: `Arrived ${t(load.clock.arrivedAt)} ∙ released ${t(load.clock.releasedAt)}`, step: "proved" },
+    { no: "You weren't there that long.", yes: stayProofWords(load, story.endedBy), proof: `Arrived ${t(load.clock.arrivedAt)} ∙ released ${t(load.clock.releasedAt)}`, step: "proved" },
     { no: "You never gave notice.", yes: "The notice is emailed before free time ends, and its delivery is recorded.", proof: `Notice ${t(at("notice"))} ∙ free time ended ${t(load.clock.freeTimeEndsAt)}`, step: "notice" },
     { no: "You filed too late.", yes: "The agent files minutes after dispatch approves, with the contract's own numbers.", proof: `Approved ${t(at("approved"))} ∙ filed ${t(at("filed"))}`, step: "filed" },
     { no: "The evidence was edited.", yes: "The pack is signed with AWS KMS. Change one byte and the check fails, in your browser.", proof: "KMS signature ∙ S3 Object Lock", step: "break" },

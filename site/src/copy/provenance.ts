@@ -50,6 +50,35 @@ export function recordingWords(d: Pick<LoadDetail, "run" | "clock" | "verdict" |
   };
 }
 
+// What ended the stay on the landing: the Released tap on newer loads, the release pin on older ones.
+export type ClockEndedBy = "released_tap" | "released_pin" | null;
+
+// The landing's answer to "you weren't there that long": the two records that bound the stay, and
+// whose times they carry.
+export function stayProofWords(d: Pick<LoadDetail, "run" | "clock" | "summary">, endedBy: ClockEndedBy): string {
+  const bounds = endedBy === "released_tap" ? "The arrival pin and the Released tap" : "Two location pins";
+  if (!isRealPhoneRun(d)) return `${bounds}, replayed as test messages with set times.`;
+  return `${bounds}, each with ${d.summary.channel === "rcs" ? "RCS" : "WhatsApp"}'s server time.`;
+}
+
+// Whose clock the dock clock runs on, in one sentence.
+export function clockSourceWords(d: Pick<LoadDetail, "run" | "clock" | "summary">): string {
+  if (!isRealPhoneRun(d)) return "The clock runs on the replayed test times.";
+  return `The clock runs on ${d.summary.channel === "rcs" ? "RCS" : "WhatsApp"}'s own timestamps.`;
+}
+
+// The load's contract in one sentence: the demo clause or another, its free time, and its rate
+// when the record has one. Null without a clause.
+export function contractWords(d: Pick<LoadDetail, "clause">): string | null {
+  const c = d.clause as LoadDetail["clause"] | null | undefined;
+  if (!c) return null;
+  const name = c.id === "judge-demo" ? "Demo contract" : "Contract";
+  const free = Number.isFinite(c.freeTimeMinutes) ? `${c.freeTimeMinutes} minutes free` : null;
+  const rate = Number.isFinite(c.ratePerHourUsd) ? `$${c.ratePerHourUsd} an hour` : null;
+  const terms = [free, rate].filter(Boolean).join(", ");
+  return terms ? `${name}: ${terms}.` : null;
+}
+
 // A workflow step that was skipped or failed, with the reason the workflow recorded.
 export function stoppedStep(d: Pick<LoadDetail, "workflow">, key: string) {
   return d.workflow?.find((w) => w.key === key && (w.state === "failed" || w.state === "skipped")) ?? null;

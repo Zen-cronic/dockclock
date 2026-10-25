@@ -7,6 +7,8 @@ import { readFileSync } from "node:fs";
 import type { LoadView } from "../src/api.js";
 import { HERO_LOAD, buildStory, heroStory } from "../src/landing/story.js";
 import { Provenance, Storyboard } from "../src/landing/HeroPlayer.js";
+import { WaitScene } from "../src/landing/WaitScene.js";
+import { stayProofWords } from "../src/copy/provenance.js";
 
 const names: RouteName[] = ["landing", "shell", "overview", "messages", "loads", "load", "judges", "fallback"];
 const tree = routeTree(Object.fromEntries(names.map((n) => [n, n])) as Record<RouteName, string>);
@@ -124,5 +126,39 @@ describe("landing hero on another load", () => {
     v.photos = [{ ...(raw("LIVE-mvlb0qzq").data.photos[0]!), legible: true, url: "photos/LIVE-mvlb0qzq-1.jpg" }];
     expect(buildStory(v, {}, (u) => `/x/${u}`)!.bolPhoto).toBe("/x/photos/LIVE-mvlb0qzq-1.jpg");
     expect(heroStory()!.bolPhoto).toBeNull();
+  });
+});
+
+// The landing's claims about pins, times and the contract come from the load, never from the hero's.
+describe("landing claims follow the load", () => {
+  const raw = (name: string) => JSON.parse(readFileSync(new URL(`../fixtures/api/loads/${name}.json`, import.meta.url), "utf8")) as { data: LoadView };
+  const wait = (v: LoadView) => renderToStaticMarkup(createElement(WaitScene, { story: buildStory(v, {})!, reduced: true }));
+
+  it("keeps the hero's own wording for the hero load", () => {
+    const s = heroStory()!;
+    expect(wait(raw(HERO_LOAD).data)).toContain("Demo contract: 5 minutes free, $60 an hour. The clock runs on WhatsApp&#x27;s own timestamps.");
+    expect(stayProofWords(s.load, s.endedBy)).toBe("Two location pins, each with WhatsApp's server time.");
+  });
+
+  it("says a test load's times were replayed, and names the Released tap when it ended the clock", () => {
+    const v = structuredClone(raw("SMOKE-DEMO-mvh3xsdv").data);
+    const html = wait(v);
+    expect(html).not.toMatch(/WhatsApp&#x27;s own timestamps|server time/);
+    expect(html).toContain("The clock runs on the replayed test times.");
+    const tap = v.messages.filter((m) => m.purpose === "tap_released").at(-1)!;
+    v.clock.releasedAt = tap.at;
+    const s = buildStory(v, {})!;
+    expect(s.endedBy).toBe("released_tap");
+    expect(stayProofWords(s.load, s.endedBy)).toBe("The arrival pin and the Released tap, replayed as test messages with set times.");
+  });
+
+  it("names a contract that is not the demo clause, and leaves out a rate the record lacks", () => {
+    const v = structuredClone(raw("SMOKE-mvh1bmmu").data);
+    expect(wait(v)).toContain("Contract: 120 minutes free, $60 an hour.");
+    expect(wait(v)).not.toContain("Demo contract");
+    delete (v.clause as Partial<typeof v.clause>).ratePerHourUsd;
+    const html = wait(v);
+    expect(html).toContain("Contract: 120 minutes free.");
+    expect(html).not.toMatch(/\$\d+ an hour/);
   });
 });
