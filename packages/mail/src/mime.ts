@@ -31,10 +31,12 @@ export function encodeHeader(value: string): string {
 
 const base64Lines = (content: Buffer | string) => (typeof content === "string" ? Buffer.from(content, "utf8") : content).toString("base64").replace(/.{1,76}/g, "$&\r\n");
 
-// `boundary` is a seed: the alternative and mixed boundaries derive from it, so tests can fix both.
-export function buildMime(parts: MailParts, boundary = `dockclock-${Date.now().toString(36)}`): string {
-  const alt = `${boundary}-alt`;
-  const rel = `${boundary}-rel`;
+// `seed` fixes the boundaries for tests. Each nesting level gets its own suffix, so no boundary is a
+// prefix of an enclosing one (RFC 2046 section 5.1.1).
+export function buildMime(parts: MailParts, seed = `dockclock-${Date.now().toString(36)}`): string {
+  const mixed = `${seed}-mix`;
+  const alt = `${seed}-alt`;
+  const rel = `${seed}-rel`;
   const html = ["Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", base64Lines(`${parts.html}\n`)];
   const htmlPart = parts.html.includes(`cid:${BRAND_MARK_CID}`)
     ? [
@@ -76,21 +78,21 @@ export function buildMime(parts: MailParts, boundary = `dockclock-${Date.now().t
   if (attachments.length === 0) return [...headers, `Content-Type: multipart/alternative; boundary="${alt}"`, "", ...alternative].join("\r\n");
   return [
     ...headers,
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    `Content-Type: multipart/mixed; boundary="${mixed}"`,
     "",
-    `--${boundary}`,
+    `--${mixed}`,
     `Content-Type: multipart/alternative; boundary="${alt}"`,
     "",
     ...alternative,
     ...attachments.flatMap((a) => [
-      `--${boundary}`,
+      `--${mixed}`,
       `Content-Type: ${a.contentType}; name="${a.filename}"`,
       `Content-Disposition: attachment; filename="${a.filename}"`,
       "Content-Transfer-Encoding: base64",
       "",
       base64Lines(a.content),
     ]),
-    `--${boundary}--`,
+    `--${mixed}--`,
     "",
   ].join("\r\n");
 }

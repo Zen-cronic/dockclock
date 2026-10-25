@@ -49,7 +49,7 @@ async function pdfText(bytes: Uint8Array): Promise<{ pages: number; text: string
 // The parts of a raw message, decoded, keyed by content type.
 function decodedParts(raw: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const part of raw.split(/--b1(?:-alt|-rel)?/)) {
+  for (const part of raw.split(/--b1-(?:mix|alt|rel)/)) {
     const type = /Content-Type: ([^;\r\n]+)/.exec(part)?.[1];
     const body = part.split("\r\n\r\n")[1];
     if (type && body && !type.startsWith("multipart/")) out[type] = Buffer.from(body.replace(/\r\n/g, ""), "base64").toString("utf8");
@@ -63,8 +63,12 @@ describe("claim email", () => {
     expect(claimSubject(facts)).toBe("Detention claim: Load SMOKE-mve8yfv3 at Lakeshore DC, Columbus OH, $90.99");
     expect(raw).toMatch(/^Subject: Detention claim: Load SMOKE-mve8yfv3 at Lakeshore DC, Columbus OH, \$90\.99\r$/m);
     expect(raw).toMatch(/^Reply-To: dispatch@example\.com\r$/m);
-    expect(raw).toContain('Content-Type: multipart/mixed; boundary="b1"');
+    expect(raw).toContain('Content-Type: multipart/mixed; boundary="b1-mix"');
     expect(raw).toContain('Content-Type: multipart/alternative; boundary="b1-alt"');
+    // No nested boundary starts with an enclosing one (RFC 2046 section 5.1.1).
+    const boundaries = [...raw.matchAll(/boundary="([^"]+)"/g)].map((m) => m[1]!);
+    expect(boundaries).toEqual(["b1-mix", "b1-alt", "b1-rel"]);
+    for (const outer of boundaries) for (const inner of boundaries) if (inner !== outer) expect(inner.startsWith(outer), `${inner} inside ${outer}`).toBe(false);
     const parsed = parseMime(raw);
     expect(parsed.hasHtml).toBe(true);
     expect(parsed.attachments.map((a) => [a.name, a.contentType])).toEqual([
