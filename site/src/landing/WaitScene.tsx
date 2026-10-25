@@ -92,7 +92,7 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
             </span>
           </div>
 
-          <svg className="lp-yard" viewBox={narrow ? "270 30 730 270" : "0 34 1000 266"} role="img" aria-label="A truck backed onto dock door 05">
+          <svg className="lp-yard" viewBox={narrow ? "100 30 900 270" : "0 34 1000 266"} role="img" aria-label="A truck backed onto dock door 05">
             {/* dock wall and door 05 */}
             <rect x="770" y="30" width="230" height="218" fill="#2a2d33" />
             <rect x="808" y="42" width="64" height="40" rx="3" fill="#121316" stroke="#ffc400" strokeWidth="4" />
@@ -106,41 +106,45 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
             <rect x="0" y="248" width="1000" height="52" fill="#1c1e22" />
             <line x1="0" x2="1000" y1="274" y2="274" stroke="#5e6573" strokeWidth="3" strokeDasharray="26 22" />
             {/* the truck: a day cab on the left, a dry van reversing onto the door */}
-            <g transform={`translate(${-560 + drive * 568} 0)`}>
-              {/* trailer body, rails, ribs, rear doors */}
-              <rect x="424" y="104" width="352" height="120" fill="#ffffff" />
-              <rect x="424" y="104" width="352" height="7" fill="#c3c8cf" />
-              <rect x="424" y="216" width="352" height="8" fill="#c3c8cf" />
-              {Array.from({ length: 9 }, (_, i) => <line key={i} x1={460 + i * 30} x2={460 + i * 30} y1="111" y2="216" stroke="#e1e4e1" strokeWidth="2" />)}
+            <g transform={`translate(${-1000 + drive * 1008} 0)`}>
+              {/* a 53 ft dry van: body, rails, ribs, a fictional fleet panel, rear doors */}
+              <rect x="236" y="104" width="540" height="120" fill="#ffffff" />
+              <rect x="236" y="104" width="540" height="7" fill="#c3c8cf" />
+              <rect x="236" y="216" width="540" height="8" fill="#c3c8cf" />
+              {Array.from({ length: 16 }, (_, i) => <line key={i} x1={268 + i * 30} x2={268 + i * 30} y1="111" y2="216" stroke="#e1e4e1" strokeWidth="2" />)}
               <rect x="736" y="111" width="40" height="105" fill="#f6f7f6" />
               <line x1="756" x2="756" y1="111" y2="216" stroke="#c3c8cf" strokeWidth="2" />
               <line x1="746" x2="746" y1="122" y2="206" stroke="#8b919c" strokeWidth="2" />
               <line x1="766" x2="766" y1="122" y2="206" stroke="#8b919c" strokeWidth="2" />
-              <rect x="430" y="111" width="270" height="78" fill="#ffffff" />
-              <text x="565" y="160" textAnchor="middle" className="lp-trailer-name">DEMO CARRIER</text>
-              <text x="565" y="181" textAnchor="middle" className="lp-trailer-sub">fictional</text>
-              {/* chassis, landing gear, rear bumper */}
-              <rect x="560" y="224" width="200" height="8" fill="#454b57" />
-              <rect x="520" y="224" width="6" height="22" fill="#454b57" />
-              <rect x="512" y="244" width="22" height="4" fill="#454b57" />
+              <rect x="330" y="122" width="340" height="62" fill="#ffffff" />
+              <text x="500" y="160" textAnchor="middle" className="lp-trailer-name">DEMO CARRIER</text>
+              <text x="500" y="180" textAnchor="middle" className="lp-trailer-sub">fictional fleet</text>
+              <rect x="652" y="196" width="72" height="14" rx="2" fill="#15171c" />
+              <text x="688" y="207" textAnchor="middle" className="lp-trailer-id">DC 0517</text>
+              {/* side skirt, chassis, landing gear, rear bumper, mud flap */}
+              <rect x="372" y="224" width="296" height="14" fill="#2a2d33" />
+              <rect x="660" y="224" width="100" height="8" fill="#454b57" />
+              <rect x="300" y="224" width="6" height="22" fill="#454b57" />
+              <rect x="292" y="244" width="22" height="4" fill="#454b57" />
               <rect x="768" y="224" width="10" height="16" fill="#454b57" />
-              {/* tractor: frame, fuel tank, cab, hood, window, door, stack, mirror */}
-              <g transform="translate(24 0)">
-              <rect x="292" y="214" width="150" height="10" fill="#454b57" />
-              <rect x="402" y="208" width="38" height="8" rx="2" fill="#2a2d33" />
-              <rect x="360" y="206" width="42" height="18" rx="9" fill="#8b919c" />
-              <path d="M292 214 V176 Q292 168 300 167 L326 165 V122 Q326 112 336 111 L382 108 Q392 108 394 118 V214 Z" fill="#d5d9de" />
-              <path d="M338 122 H384 V156 H338 Z" fill="#15171c" />
-              <line x1="336" x2="336" y1="122" y2="206" stroke="#8b919c" strokeWidth="2" />
-              <line x1="386" x2="386" y1="162" y2="206" stroke="#8b919c" strokeWidth="2" />
-              <rect x="344" y="168" width="14" height="3" rx="1.5" fill="#8b919c" />
-              <rect x="298" y="180" width="26" height="4" fill="#c3c8cf" />
-              <rect x="298" y="188" width="26" height="4" fill="#c3c8cf" />
-              <rect x="400" y="70" width="7" height="140" rx="3" fill="#8b919c" />
-              <rect x="318" y="126" width="4" height="28" fill="#454b57" />
-              <rect x="286" y="206" width="12" height="18" rx="2" fill="#2a2d33" />
+              <rect x="682" y="230" width="6" height="22" fill="#15171c" />
+              {/* tractor: frame, fuel tank, cab, hood, window, door, stack, mirror, fifth wheel */}
+              <g transform="translate(-164 0)">
+                <rect x="292" y="214" width="160" height="10" fill="#454b57" />
+                <rect x="400" y="206" width="52" height="9" rx="2" fill="#2a2d33" />
+                <rect x="360" y="206" width="42" height="18" rx="9" fill="#8b919c" />
+                <path d="M292 214 V176 Q292 168 300 167 L326 165 V122 Q326 112 336 111 L382 108 Q392 108 394 118 V214 Z" fill="#d5d9de" />
+                <path d="M338 122 H384 V156 H338 Z" fill="#15171c" />
+                <line x1="336" x2="336" y1="122" y2="206" stroke="#8b919c" strokeWidth="2" />
+                <line x1="386" x2="386" y1="162" y2="206" stroke="#8b919c" strokeWidth="2" />
+                <rect x="344" y="168" width="14" height="3" rx="1.5" fill="#8b919c" />
+                <rect x="298" y="180" width="26" height="4" fill="#c3c8cf" />
+                <rect x="298" y="188" width="26" height="4" fill="#c3c8cf" />
+                <rect x="400" y="70" width="7" height="140" rx="3" fill="#8b919c" />
+                <rect x="318" y="126" width="4" height="28" fill="#454b57" />
+                <rect x="286" y="206" width="12" height="18" rx="2" fill="#2a2d33" />
               </g>
-              {[356, 470, 506, 700, 736].map((cx) => (
+              {[168, 306, 342, 700, 736].map((cx) => (
                 <g key={cx}>
                   <circle cx={cx} cy="236" r="18" fill="#0b0c0e" />
                   <circle cx={cx} cy="236" r="9" fill="#8b919c" />
