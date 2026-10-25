@@ -143,6 +143,11 @@ describe("console views of the Released tap", () => {
     expect(late).toMatchObject({ state: "failed", detail: "Clock stopped at 13:20 EDT. The location pin came at 13:32 EDT, 12 min later (limit 10), so a person reviews the load." });
   });
 
+  it("does not fail the release step on a pin time that does not parse", async () => {
+    const v = await view(T(17, 20), "not a time");
+    expect(v.workflow.find((s) => s.key === "released")).toMatchObject({ state: "done", detail: "Clock stopped at 13:20 EDT. The location pin's time could not be read." });
+  });
+
   it("keeps the old release step for a load without a tap", async () => {
     const v = await view(null, T(17, 20));
     expect(v.clock.releasedAt).toBe(T(17, 20));

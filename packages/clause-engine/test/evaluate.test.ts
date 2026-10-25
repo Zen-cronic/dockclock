@@ -191,6 +191,12 @@ describe("release: the Released tap ends the clock, the pin confirms it", () => 
     expect(result).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["RELEASE_PIN_LATE"], amountUsd: 0 });
   });
 
+  it("does not hold a load for a release pin time that does not parse", () => {
+    const result = evaluate({ ...tapped(15, 18), releasePinAt: "not a time" }, clause);
+    expect(result.reasons).not.toContain("RELEASE_PIN_LATE");
+    expect(result.verdict).toBe("BILLABLE");
+  });
+
   it("keeps the geofence check on the confirming pin", () => {
     const result = evaluate({ ...tapped(15, 27), released: { at: at(15), insideGeofence: false } }, clause);
     expect(result.reasons).toEqual(["PIN_OUTSIDE_GEOFENCE", "RELEASE_PIN_LATE"]);

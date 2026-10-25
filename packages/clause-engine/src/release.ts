@@ -46,3 +46,10 @@ export function releasePinGapMinutes(tapAt: string, pinAt: string): number {
 export function pinConfirmsTap(tapAt: string, pinAt: string): boolean {
   return Math.abs(releasePinGapMinutes(tapAt, pinAt)) <= RELEASE_PIN_WINDOW_MINUTES;
 }
+
+// True when the release pin came too long after (or before) the Released tap: RELEASE_PIN_LATE.
+// Only a gap that can be measured is late, so a time that does not parse never sends the load to a
+// person. The engine, the console API and the site all decide "late" here, so they cannot disagree.
+export function pinMissedWindow(tapAt: string, pinAt: string): boolean {
+  return Math.abs(releasePinGapMinutes(tapAt, pinAt)) > RELEASE_PIN_WINDOW_MINUTES;
+}

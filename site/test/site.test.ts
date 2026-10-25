@@ -262,6 +262,10 @@ describe("release tap and pin", async () => {
     expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "2026-10-23T19:05:00.000Z" }, tz)).toMatch(/pin confirmed 3:05 PM$/);
   });
 
+  it("does not call a pin late on a time that does not parse, as the engine does not", () => {
+    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "not a time" }, "America/New_York")).toBe("Clock stopped at the Released tap 2:55 PM");
+  });
+
   it("moves the release pin with an early Released tap, so the what-if turns on free time", async () => {
     const { moveRelease } = await import("../src/ui/WhatIfPanel.js");
     const v = structuredClone(body.data);

@@ -3,7 +3,7 @@
 // from dispatch onwards: everything that needs the sealed pack is null until the load is sealed.
 // Every string that came from a stored record is scrubbed; handler.ts still runs findLeaks on the
 // whole response before it is sent.
-import { clauseById, detentionStartsAt, pinConfirmsTap, RELEASE_PIN_WINDOW_MINUTES, releaseTimeOf, type ClauseSpec } from "@dockclock/clause-engine";
+import { clauseById, detentionStartsAt, pinMissedWindow, RELEASE_PIN_WINDOW_MINUTES, releaseTimeOf, type ClauseSpec } from "@dockclock/clause-engine";
 import { canonicalJson, checkGeofence, facilityById, isoToLocalClock, zoneAbbreviation, type Facility, type SignedPack } from "@dockclock/evidence";
 import { parseMime, scrub, scrubText, type ParsedEmail } from "@dockclock/sanitize";
 import type { Language } from "../src/messages.js";
@@ -654,12 +654,14 @@ function releaseStep(
     const waiting = closed || phase === "sealed" ? "No location pin came to confirm it." : `Waiting for the location pin that confirms it (within ${RELEASE_PIN_WINDOW_MINUTES} minutes).`;
     return step("released", label, services, null, phase === "awaiting_release_pin", { detail: `${stopped} ${waiting}` });
   }
+  // A pin time that does not parse is not late (the engine does not hold the load for it).
+  if (!Number.isFinite(Date.parse(pinAt))) return step("released", label, services, tapAt, false, { detail: `${stopped} The location pin's time could not be read.` });
   const gap = Math.round((Date.parse(pinAt) - Date.parse(tapAt)) / 60_000);
   const pin = obj(p.meta.released);
   const inside = p.facility.known && typeof pin.lat === "number" && typeof pin.lon === "number" ? checkGeofence([pin.lon, pin.lat], p.facility).inside : null;
   const where = inside === null ? "" : inside ? ", inside the facility" : ", outside the facility";
   const pinAtWords = `${isoToLocalClock(pinAt, tz)} ${zoneAbbreviation(pinAt, tz)}`;
-  const late = !pinConfirmsTap(tapAt, pinAt);
+  const late = pinMissedWindow(tapAt, pinAt);
   const confirm = late
     ? `The location pin came at ${pinAtWords}, ${gap} min later (limit ${RELEASE_PIN_WINDOW_MINUTES}), so a person reviews the load.`
     : `Confirmed by the location pin at ${pinAtWords}, ${gap} min later${where}.`;

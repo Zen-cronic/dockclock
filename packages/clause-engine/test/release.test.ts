@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clockEndOf, pinConfirmsTap, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, releaseTimeOf } from "../src/index.js";
+import { clockEndOf, pinConfirmsTap, pinMissedWindow, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, releaseTimeOf } from "../src/index.js";
 
 const TAP = "2026-10-23T18:32:59.000Z";
 const PIN = "2026-10-23T18:40:00.000Z";
@@ -26,5 +26,13 @@ describe("the release time", () => {
     expect(pinConfirmsTap(TAP, at(RELEASE_PIN_WINDOW_MINUTES))).toBe(true);
     expect(pinConfirmsTap(TAP, at(-RELEASE_PIN_WINDOW_MINUTES))).toBe(true);
     expect(pinConfirmsTap(TAP, at(RELEASE_PIN_WINDOW_MINUTES + 0.5))).toBe(false);
+    expect(pinMissedWindow(TAP, at(RELEASE_PIN_WINDOW_MINUTES + 0.5))).toBe(true);
+    expect(pinMissedWindow(TAP, at(-RELEASE_PIN_WINDOW_MINUTES - 0.5))).toBe(true);
+    expect(pinMissedWindow(TAP, at(RELEASE_PIN_WINDOW_MINUTES))).toBe(false);
+  });
+
+  it("never calls a pin late on a time that does not parse", () => {
+    expect(pinMissedWindow(TAP, "not a time")).toBe(false);
+    expect(pinMissedWindow("", PIN)).toBe(false);
   });
 });

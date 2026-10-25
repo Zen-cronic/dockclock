@@ -1,4 +1,4 @@
-import { pinConfirmsTap } from "./release.js";
+import { pinMissedWindow } from "./release.js";
 import type { ClauseSpec, Evaluation, LoadEvidence, ReasonCode, RecordKind } from "./types.js";
 
 export const BOL_TOLERANCE_MINUTES = 15;
@@ -31,7 +31,7 @@ function hasRecord(load: LoadEvidence, accepted: readonly RecordKind[]): boolean
 export function releasePinLate(load: Pick<LoadEvidence, "released" | "releasePinAt">): boolean {
   const { released, releasePinAt } = load;
   if (!released || !releasePinAt) return false;
-  return !pinConfirmsTap(released.at, releasePinAt);
+  return pinMissedWindow(released.at, releasePinAt);
 }
 
 // Paper against phone: the written in time against the arrival pin, the written out time against
