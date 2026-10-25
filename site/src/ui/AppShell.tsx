@@ -3,14 +3,14 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import { IconJudges, IconLoads, IconMessages, IconOverview } from "./icons.js";
 
 const NAV = [
-  { to: "/", label: "Overview", icon: IconOverview, end: true },
+  { to: "/overview", label: "Overview", icon: IconOverview, end: true },
   { to: "/messages", label: "Messages", icon: IconMessages, end: false },
   { to: "/loads", label: "Loads", icon: IconLoads, end: false },
 ];
 
 function Brand() {
   return (
-    <Link className="brand" to="/" aria-label="DockClock Console home">
+    <Link className="brand" to="/overview" aria-label="DockClock Console home">
       <img src={`${import.meta.env.BASE_URL}brand-mark.svg`} alt="" />
       <b>DockClock</b>
     </Link>

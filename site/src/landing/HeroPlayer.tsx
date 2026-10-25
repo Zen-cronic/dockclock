@@ -1,0 +1,217 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { clock, dateLong, zoneName } from "../format.js";
+import type { ConsoleMessage } from "../model/model.js";
+import { IconPause, IconPlay } from "../ui/icons.js";
+import { Mail, Phone } from "./Devices.js";
+import { acceptsAnyLocation } from "../copy/provenance.js";
+import type { Chapter, Story } from "./story.js";
+
+// The hero player: the recorded load, one record at a time, on the device that received it.
+// It plays once when it scrolls into view, holds on the last frame and offers a replay. Each
+// chapter is a button that jumps there. Under reduced motion the page shows <Storyboard> instead.
+
+type Step = { c: number; kind: "show" | "press" | "hold"; message?: ConsoleMessage; tap?: string; dur: number };
+
+const SHOW = 1050;
+const PRESS = 560;
+const HOLD_MAIL = 4600;
+const CHAPTER_END = 900;
+const SWAP = 500;
+
+function stepsOf(chapters: Chapter[]): Step[] {
+  const out: Step[] = [];
+  chapters.forEach((ch, c) => {
+    const start = out.length;
+    if (ch.screen.kind === "mail") out.push({ c, kind: "hold", dur: HOLD_MAIL });
+    for (const b of ch.beats) {
+      if (b.tap) out.push({ c, kind: "press", tap: `${b.tap.messageId}:${b.tap.title}`, dur: PRESS });
+      if (b.message) out.push({ c, kind: "show", message: b.message, ...(b.tap ? { tap: `${b.tap.messageId}:${b.tap.title}` } : {}), dur: SHOW });
+    }
+    if (out.length === start) out.push({ c, kind: "hold", dur: HOLD_MAIL });
+    out[start]!.dur += c > 0 ? SWAP : 0;
+    out[out.length - 1]!.dur += CHAPTER_END;
+  });
+  return out;
+}
+
+function view(steps: Step[], pos: number) {
+  const shown = new Set<string>();
+  const tapped = new Set<string>();
+  let pressing: string | null = null;
+  for (let i = 0; i <= pos; i++) {
+    const s = steps[i]!;
+    if (s.message) shown.add(s.message.id);
+    if (s.tap) {
+      if (s.kind === "press" && i === pos) pressing = s.tap;
+      else tapped.add(s.tap);
+    }
+  }
+  return { shown, tapped, pressing, chapter: steps[pos]!.c };
+}
+
+const SCREEN_LABEL = { driver: "Driver's phone", dispatcher: "Dispatcher's phone", mail: "Receiver's inbox" } as const;
+
+function screenKey(ch: Chapter): string {
+  return ch.screen.kind === "mail" ? `mail-${ch.key}` : ch.screen.party;
+}
+
+export function HeroPlayer({ story }: { story: Story }) {
+  const { chapters, load } = story;
+  const tz = load.timeZone;
+  const steps = useMemo(() => stepsOf(chapters), [chapters]);
+  const firstOf = useMemo(() => chapters.map((_, c) => steps.findIndex((s) => s.c === c)), [chapters, steps]);
+  const [pos, setPos] = useState(0);
+  const [playing, setPlaying] = useState(true);
+  const [visible, setVisible] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const done = pos === steps.length - 1 && !playing;
+
+  useEffect(() => {
+    const el = root.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setVisible(!!e && e.intersectionRatio >= 0.35), { threshold: [0, 0.35, 1] });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!playing || !visible) return;
+    const t = setTimeout(() => {
+      if (pos < steps.length - 1) setPos(pos + 1);
+      else setPlaying(false);
+    }, steps[pos]!.dur);
+    return () => clearTimeout(t);
+  }, [playing, visible, pos, steps]);
+
+  const v = view(steps, pos);
+  const ch = chapters[v.chapter]!;
+  const active = screenKey(ch);
+  const driverMsgs = story.thread.driver.filter((m) => v.shown.has(m.id));
+  const dispatchMsgs = story.thread.dispatcher.filter((m) => v.shown.has(m.id));
+  const lastShown = steps.slice(0, pos + 1).reverse().find((s) => s.message)?.message;
+  const now = ch.screen.kind === "mail" ? ch.at : (lastShown?.at ?? ch.at);
+  const any = acceptsAnyLocation(load);
+
+  const seek = (c: number) => {
+    setPos(firstOf[c]!);
+    setPlaying(true);
+  };
+  const toggle = () => {
+    if (done) {
+      setPos(0);
+      setPlaying(true);
+    } else setPlaying(!playing);
+  };
+
+  return (
+    <div className="lp-player" ref={root}>
+      <ol className="lp-chapters" aria-label="Steps">
+        {chapters.map((c, i) => (
+          <li key={c.key}>
+            <button type="button" className={i === v.chapter ? "on" : i < v.chapter ? "past" : ""} aria-current={i === v.chapter ? "step" : undefined} onClick={() => seek(i)}>
+              <span className="n">{String(i + 1).padStart(2, "0")}</span>
+              <span className="l">{c.label}</span>
+              <span className="t">{clock(c.at, tz)}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+
+      <div className="lp-stagewrap">
+        <div className="lp-plate">
+          <span className="lp-who" key={active}>{SCREEN_LABEL[ch.screen.kind === "mail" ? "mail" : ch.screen.party]}</span>
+          <div className="lp-stage">
+            <div className={`lp-dev ${active === "driver" ? "on" : ""}`} aria-hidden={active !== "driver"}>
+              <Phone party="driver" messages={driverMsgs} timeZone={tz} pressing={v.pressing} tapped={v.tapped} anyLocation={any} />
+            </div>
+            <div className={`lp-dev ${active === "dispatcher" ? "on" : ""}`} aria-hidden={active !== "dispatcher"}>
+              <Phone party="dispatcher" messages={dispatchMsgs} timeZone={tz} pressing={v.pressing} tapped={v.tapped} />
+            </div>
+            {chapters.filter((c) => c.screen.kind === "mail").map((c) =>
+              c.screen.kind === "mail" ? (
+                <div key={c.key} className={`lp-dev lp-dev-mail ${active === `mail-${c.key}` ? "on" : ""}`} aria-hidden={active !== `mail-${c.key}`}>
+                  <Mail email={c.screen.email} body={c.screen.body} timeZone={tz} />
+                </div>
+              ) : null,
+            )}
+          </div>
+          <div className="lp-bumper" aria-hidden="true" />
+        </div>
+
+        <div className="lp-controls">
+          <button type="button" className="lp-play" onClick={toggle} aria-label={done ? "Replay" : playing ? "Pause" : "Play"}>
+            {done ? <ReplayIcon /> : playing ? <IconPause /> : <IconPlay />}
+          </button>
+          <div className="lp-track">
+            {chapters.map((c, i) => {
+              const start = firstOf[i]!;
+              const count = (firstOf[i + 1] ?? steps.length) - start;
+              const fill = i < v.chapter ? 1 : i > v.chapter ? 0 : (pos - start + 1) / count;
+              return (
+                <button type="button" key={c.key} className="lp-seg" onClick={() => seek(i)} aria-label={`Step ${i + 1}: ${c.label}`}>
+                  <i style={{ width: `${fill * 100}%`, transitionDuration: i === v.chapter && playing ? `${steps[pos]!.dur}ms` : "0ms" }} />
+                </button>
+              );
+            })}
+          </div>
+          <span className="lp-now">{clock(now, tz)} {zoneName(now, tz)}</span>
+        </div>
+        <p className="lp-caption" key={ch.key}>
+          <span className="n">{String(v.chapter + 1).padStart(2, "0")} {ch.label}</span>
+          {ch.caption}
+        </p>
+        <Provenance story={story} />
+      </div>
+    </div>
+  );
+}
+
+export function Provenance({ story }: { story: Story }) {
+  const { load } = story;
+  const first = story.thread.driver[0]?.at ?? load.summary.createdAt;
+  const phone = load.summary.runKind === "phone";
+  return (
+    <p className="lp-prov">
+      {phone ? "Recorded from a real load on a real phone" : "Recorded from a test load with synthetic driver messages"}, {dateLong(first, load.timeZone)}. {phone ? "WhatsApp server times" : "Recorded times"}, {zoneName(first, load.timeZone)}. The companies are fictional.
+    </p>
+  );
+}
+
+function ReplayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 12a8 8 0 1 0 2.4-5.7" />
+      <path d="M4 4v4.5h4.5" />
+    </svg>
+  );
+}
+
+// Reduced motion: every chapter at once, as a numbered storyboard.
+export function Storyboard({ story }: { story: Story }) {
+  const tz = story.load.timeZone;
+  const any = acceptsAnyLocation(story.load);
+  return (
+    <div className="lp-board">
+      <ol className="lp-board-list">
+        {story.chapters.map((c, i) => {
+          const msgs = c.beats.flatMap((b) => (b.message ? [b.message] : []));
+          const tapped = new Set(c.beats.flatMap((b) => (b.tap ? [`${b.tap.messageId}:${b.tap.title}`] : [])));
+          return (
+            <li key={c.key} className="lp-frame">
+              <p className="lp-frame-h">
+                <span className="n">{String(i + 1).padStart(2, "0")}</span>
+                <b>{c.label}</b>
+                <span className="t">{clock(c.at, tz)} {zoneName(c.at, tz)}</span>
+              </p>
+              <p className="lp-frame-c">{c.caption}</p>
+              <div className={`lp-frame-dev ${c.screen.kind === "mail" ? "mail" : ""}`}>
+                {c.screen.kind === "mail" ? <Mail email={c.screen.email} body={c.screen.body} timeZone={tz} /> : <Phone party={c.screen.party} messages={msgs} timeZone={tz} tapped={tapped} anyLocation={any} scroll={false} />}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      <Provenance story={story} />
+    </div>
+  );
+}
