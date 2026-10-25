@@ -112,12 +112,18 @@ export function headline(card: Scorecard): string {
   const b = card.baseline;
   const claimedOfOwed = d.claimedUsd - Math.max(0, d.claimedUsd - (card.contractPayableUsd - d.unclaimedPayableUsd));
   const allValid = d.filedValid === d.filed;
-  const valid = allValid ? `all ${d.filed} valid` : `${d.filedValid} of ${d.filed} valid`;
-  const held = d.falseHolds === 0 ? "" : `, holding back ${d.falseHolds} owed claim${d.falseHolds === 1 ? "" : "s"}`;
+  const claims = (n: number) => `${n} claim${n === 1 ? "" : "s"}`;
+  const valid = d.filed === 1 ? (allValid ? "valid" : "not valid") : allValid ? `all ${d.filed} valid` : `${d.filedValid} of ${d.filed} valid`;
+  const held = d.falseHolds === 0 ? "" : `, holding back ${d.falseHolds} owed ${d.falseHolds === 1 ? "claim" : "claims"}`;
+  // With nothing filed there is nothing to call valid, or to say a contract does not deny.
+  const filed =
+    d.filed === 0
+      ? `DockClock would file no claims${held}. `
+      : `DockClock would claim ${usd(claimedOfOwed)} of it (${percent(claimedOfOwed, card.contractPayableUsd)}) in ${claims(d.filed)}, ${valid}${held}` +
+        `${allValid ? ", and nothing a contract denies" : ""}. `;
   return (
     `On ${card.loads} test loads, the contracts owe ${usd(card.contractPayableUsd)} in detention. ` +
-    `DockClock would claim ${usd(claimedOfOwed)} of it (${percent(claimedOfOwed, card.contractPayableUsd)}) in ${d.filed} claims, ${valid}${held}` +
-    `${allValid ? ", and nothing a contract denies" : ""}. ` +
+    filed +
     `The common "bill every stop over 2 hours" rule asks for ${usd(b.claimedUsd)}, and ${usd(b.uncollectibleUsd)} of that ` +
     `(${percent(b.uncollectibleUsd, b.claimedUsd)}) would not be paid: the contract denies it, pays less than was asked, or the carrier can't prove it.`
   );
