@@ -4,10 +4,10 @@ import { acceptsAnyLocation, approvalWords, isRealPhoneRun, provedWords, runLabe
 import { recordedCaptures, useLoad, usePack } from "../model/client.js";
 import { flowNodes, type FlowNode } from "../model/flow.js";
 import type { ConsoleEmail, LoadDetail, TimelineItem } from "../model/model.js";
-import { clock, clockOn, placeName, usd } from "../format.js";
+import { clock, clockOn, placeName } from "../format.js";
 import { AgentFlow } from "../ui/AgentFlow.js";
 import { Page } from "../ui/AppShell.js";
-import { ChannelBadge, SourceBadge, Stamp } from "../ui/badges.js";
+import { ChannelBadge, SourceBadge, Verdict } from "../ui/badges.js";
 import { ConversationView, failoverMarkers } from "../ui/ConversationView.js";
 import { DockClockBand } from "../ui/DockClockBand.js";
 import { Drawer, Json } from "../ui/Drawer.js";
@@ -79,8 +79,8 @@ export function LoadHeader({ load }: { load: LoadDetail }) {
         </div>
       </div>
       <div className="owed">
-        <Stamp verdict={load.verdict?.verdict ?? null} />
-        {load.verdict ? <div className="num">{usd(load.verdict.amountUsd)}</div> : <div className="small" style={{ marginTop: 10 }}>not sealed yet</div>}
+        <Verdict verdict={load.verdict?.verdict ?? null} amountUsd={load.verdict?.amountUsd} large />
+        {!load.verdict && <div className="small" style={{ marginTop: 10 }}>not sealed yet</div>}
         {unfiled && <div className="unfiled">{unfiled}</div>}
       </div>
     </div>

@@ -71,10 +71,31 @@ export function StatusPill({ status }: { status: MessageStatus }) {
   );
 }
 
-export function Stamp({ verdict, large }: { verdict: "BILLABLE" | "NOT_BILLABLE" | "NEEDS_HUMAN" | null; large?: boolean }) {
-  if (!verdict) return <span className="stamp amber">Open</span>;
-  const [text, cls] = verdict === "BILLABLE" ? ["Owed", ""] : verdict === "NOT_BILLABLE" ? ["Not owed", "red"] : ["Review", "amber"];
-  return <span className={`stamp ${cls} ${large ? "lg" : ""}`}>{text}</span>;
+export type VerdictValue = "BILLABLE" | "NOT_BILLABLE" | "NEEDS_HUMAN" | null;
+
+const VERDICT_WORDS: Record<"BILLABLE" | "NOT_BILLABLE" | "NEEDS_HUMAN" | "OPEN", [string, string]> = {
+  BILLABLE: ["Owed", "v-owed"],
+  NOT_BILLABLE: ["Not owed", "v-notowed"],
+  NEEDS_HUMAN: ["Review", "v-review"],
+  OPEN: ["Open", "v-open"],
+};
+
+// Verdict: the contract's answer as a dock-door sign. A sign-black plate with a dock light (green
+// owed, red not owed, an unlit ring for review, a dashed ring while open) and the word. With
+// `amountUsd` an owed verdict carries the money on a safety-yellow panel, the one place yellow
+// means money. The word is always text, so colour never carries the meaning alone.
+export function Verdict({ verdict, amountUsd, large }: { verdict: VerdictValue; amountUsd?: number | null | undefined; large?: boolean }) {
+  const [text, cls] = VERDICT_WORDS[verdict ?? "OPEN"];
+  const money = verdict === "BILLABLE" && typeof amountUsd === "number";
+  return (
+    <span className={`verdict ${cls} ${large ? "lg" : ""}`}>
+      <span className="plate">
+        <i className="light" aria-hidden="true" />
+        {text}
+      </span>
+      {money && <span className="amount">{`$${amountUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</span>}
+    </span>
+  );
 }
 
 // Mark: the console's own pass/fail tick, drawn in the icon stroke instead of a font glyph.

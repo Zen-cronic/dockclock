@@ -3,7 +3,7 @@ import { BOL_TOLERANCE_MINUTES, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes
 import { baseline, clauseSpec, REASON_WORDS, run } from "../engine.js";
 import { clock, duration, usd } from "../format.js";
 import type { LoadDetail } from "../model/model.js";
-import { Mark, ProvenanceBadge, Stamp } from "./badges.js";
+import { Mark, ProvenanceBadge, Verdict } from "./badges.js";
 
 // 24 -> "1 day", 168 -> "7 days", 36 -> "36 h".
 export function hoursWords(h: number): string {
@@ -115,18 +115,16 @@ export function Outcome({ recorded, computed }: { recorded: Result; computed: Re
       <div className="card">
         <ProvenanceBadge kind="replay" label="Recorded" />
         <div style={{ marginTop: 14 }}>
-          <Stamp verdict={recorded.verdict} />
+          <Verdict verdict={recorded.verdict} amountUsd={recorded.amountUsd} large />
         </div>
-        <div className="num">{usd(recorded.amountUsd)}</div>
       </div>
       <div className={`card${computed ? "" : " waiting"}`} aria-live="polite">
         <ProvenanceBadge kind="computed" />
         {computed ? (
           <>
             <div style={{ marginTop: 14 }}>
-              <Stamp verdict={computed.verdict} />
+              <Verdict verdict={computed.verdict} amountUsd={computed.amountUsd} large />
             </div>
-            <div className="num">{usd(computed.amountUsd)}</div>
           </>
         ) : (
           <p className="wait">Flip a switch to see what the contract decides.</p>
@@ -144,9 +142,8 @@ function SealedOnly({ load }: { load: LoadDetail }) {
       <div className="card">
         <ProvenanceBadge kind="recorded" label="Sealed" />
         <div style={{ marginTop: 14 }}>
-          <Stamp verdict={v.verdict} />
+          <Verdict verdict={v.verdict} amountUsd={v.amountUsd} large />
         </div>
-        <div className="num">{usd(v.amountUsd)}</div>
         <p className="small" style={{ marginTop: 10 }}>{v.whatIfNote ?? "What-if is off for this load."}</p>
       </div>
     </div>

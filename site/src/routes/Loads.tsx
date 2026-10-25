@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { hasRecordedDetail, useLoads } from "../model/client.js";
 import { usd } from "../format.js";
 import { Page } from "../ui/AppShell.js";
-import { ChannelBadge, SourceBadge, Stamp } from "../ui/badges.js";
+import { ChannelBadge, SourceBadge, Verdict } from "../ui/badges.js";
 import { EmptyState } from "../ui/EmptyState.js";
 
 const RUN_WORDS: Record<string, string> = { phone: "Real phone", demo: "Judge demo", operator: "Operator tap", integration: "Test run" };
@@ -33,11 +33,11 @@ export function Loads() {
                 const open = l.source !== "fixture" || hasRecordedDetail(l.id);
                 return (
                   <tr key={l.id} className={open ? "" : "summary-only"} onClick={() => open && nav(`/loads/${l.id}`)} tabIndex={open ? 0 : -1} onKeyDown={(e) => open && e.key === "Enter" && nav(`/loads/${l.id}`)} title={open ? undefined : "Summary only in the recorded set"}>
-                    <td className="id">{l.id}</td>
+                    <td className="id">{l.id}{!open && <span className="rowtag">Summary only</span>}</td>
                     <td className="hide-m">{l.facility}</td>
                     <td><ChannelBadge channel={l.channel} />{l.failover ? <span className="small"> ∙ after failover</span> : null}</td>
                     <td className="run small">{l.runLabel ?? RUN_WORDS[l.runKind]}</td>
-                    <td><Stamp verdict={l.verdict} /></td>
+                    <td><Verdict verdict={l.verdict} /></td>
                     <td className="num">{usd(l.amountUsd)}</td>
                   </tr>
                 );

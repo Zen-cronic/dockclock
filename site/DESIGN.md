@@ -6,6 +6,7 @@ Rules:
 - It is an app, not a report. Each screen does one thing.
 - Dense detail (raw records, the pack JSON, email bodies, agent tool calls) sits behind a click, in a drawer or a tab.
 - Messages opens newest first: one chronological list with a date row at each change of day, and a load chip where each load's run of rows starts. "Oldest first" reverses it; "By load" groups rows under each load id in name order (a load on one day names the day in its header; one that spans days dates every row). The choice is `?sort=oldest|load` and combines with the channel and status filters.
+- A load the recorded set has only as a summary is labelled "Summary only" in its row, at full contrast, and does not open; it is never faded.
 - Under 860 px, Loads, Messages and Emails are two-line rows, not squeezed tables; the load tabs scroll with the active tab brought into view and a fade at the cut edge.
 
 ## The story behind the palette
@@ -60,7 +61,6 @@ White on safety yellow fails (1.4) and is never used.
 | Family | Role | Why |
 |---|---|---|
 | **Big Shoulders Display** 600/800 | Headings, KPI numbers, load ids | A condensed grotesque drawn for city signage; it reads like dock-door numbers |
-| **Big Shoulders Stencil Display** 800 | The OWED / NOT OWED stamp only | Stencilled crate and trailer markings |
 | **Overpass** 400/600/700 | All UI text | Descends from Highway Gothic, the US road-sign face; legible and not a default |
 | **Overpass Mono** 400/600 | Times, ids, digests, the pack, service tags | Overpass's own mono |
 | **Doto** 800 | The dock-clock digits only | A dot-matrix face, like a dock-door LED timer; the colon is set in Big Shoulders for legibility |
@@ -73,7 +73,7 @@ White on safety yellow fails (1.4) and is never used.
 - **Shadow:** one soft card shadow.
 - **Motion:**
   - Drawers slide 180 ms.
-  - The stamp, the bubbles and the LIVE dot are the only other motion.
+  - The bubbles and the LIVE dot are the only other motion.
   - Everything stops under `prefers-reduced-motion`.
 
 ## Brand mark
@@ -89,19 +89,19 @@ White on safety yellow fails (1.4) and is never used.
 ## Components (`src/ui/`)
 | Component | File | Notes |
 |---|---|---|
-| LoadHeader | `routes/LoadDetail.tsx` | Place name, load id, channel, a quiet "Real phone" chip only for a real-phone run, then the stamp and amount. An owed load that was never filed says "Not filed: no approval" under the amount, in safety ink (it needs action; it is not a refusal). Under 860 px the stamp and amount share one row |
+| LoadHeader | `routes/LoadDetail.tsx` | Place name, load id, channel, a quiet "Real phone" chip only for a real-phone run, then the verdict sign, which carries the amount when it is owed. An owed load that was never filed says "Not filed: no approval" under the amount, in safety ink (it needs action; it is not a refusal). Under 860 px the sign sits under the load id |
 | AppShell, NavRail, TopBar, Page | `AppShell.tsx` | The sign-black rail (Overview, Messages, Loads, Judges path). Under 860 px the rail becomes a top bar with four equal tabs, all reachable at 390 px with no sideways scroll. The TopBar has the breadcrumb, quiet badges and at most two actions |
 | KpiTile | `KpiTile.tsx` | One label and one number. The top rule carries the meaning: hazard stripe = money, green = good |
 | DockClockBand | `DockClockBand.tsx` | **The signature visual.** A dot-matrix "at the dock" clock, free and billable minutes, and a track with free time as a dashed floor marking and billable time as a hazard stripe, with records pinned at their true times. Plays the replay. The track is scaled to the stay plus a margin; records long after release (a seal hours later, an approval timeout days later) sit in a short "later" stub past a break mark. In and out marks that would collide merge into one label |
-| ProvenanceBadge | `badges.tsx` | LIVE (green, pulsing) · RECORDED (responses recorded from the read API) · REPLAY (ink) · COMPUTED (pink) · TEST (outline). Always present, never a paragraph |
+| ProvenanceBadge | `badges.tsx` | Square-cut 3 px tags like the verdict sign, not pills. LIVE (green, pulsing) · RECORDED (responses recorded from the read API) · REPLAY (ink) · COMPUTED (pink) · TEST (outline). Always present, never a paragraph |
 | ChannelBadge, ChannelIcon | `badges.tsx` | WhatsApp, RCS, Email, SMS, with neutral line icons. SMS appears only when SMS records exist |
 | StatusPill | `badges.tsx` | accepted → sent → delivered → read, then failed / failover / received / not sent |
-| Stamp | `badges.tsx` | Stencil stamp, rotated −2°: Owed (green), Not owed (red), Review (dark yellow) |
+| Verdict | `badges.tsx` | The contract's answer as a dock-door sign: a sign-black plate with a dock light and the word in Big Shoulders Display. Owed has a green light (`#3ccf86`, 9.3:1 on the plate), Not owed a red one (`#ff6b5e`, 6.7:1), Review an unlit ring (`#c9cdd3`, 11.6:1), Open a dashed ring. With `amountUsd` an owed verdict adds a safety-yellow panel with the amount in ink (11.2:1): the money rule. White on the plate is 18.6:1. The word is always text. `large` is the load header and What-if size (44 px tall, 21/30 px type; one size down in the two-up What-if cards under 860 px); the table size is 26 px tall. It replaced a rotated rubber stamp |
 | ConversationView | `ConversationView.tsx` | A neutral phone frame drawn from message records. On WhatsApp, buttons sit under the bubble. On RCS, a rich card with suggestion chips and a "Share location" chip. A failover shows as one chip: "WhatsApp failed → resent on RCS". Dashed bubbles were never sent. It copies neither app's branding |
 | EmailView | `EmailView.tsx` | From, To with its test-mailbox note, Sent, Subject, body, attachments with sha256 on hover |
 | AgentFlow | `AgentFlow.tsx` + `model/flow.ts` | The load's workflow as a vertical node graph built only from records: driver messages, notice, seal, **every agent run including refusals**, approval and claim email. Each node is tagged with its AWS services. An inferred Cedar decision is marked. Steps the API marks `failed` are red (an approval nobody answered: "No answer from dispatch ∙ timed out"); steps marked `skipped` have a dashed node and no time ("No bill-of-lading photo ∙ pins only", "Claim not filed ∙ no approval"). The workflow's reason opens in the drawer. A node on a later day carries its date |
 | EvidencePanel | `EvidencePanel.tsx` | The pack as a canary carbon copy, ruled per row (a hairline under each field, never a background stripe, so wrapped and stacked values stay on their line), the in-browser KMS signature check, three tamper switches with a was → now list, bill-of-lading photos with the agent's reading and the sha256 match, and the raw pack in a drawer |
-| WhatIfPanel | `WhatIfPanel.tsx` | The workflow's own clause engine, re-run with one fact changed. One line says what to do; only the facts this contract can turn on are listed, as plain sentences with a hint. The computed card waits ("Flip a switch…") until a fact changes, so the amount isn't repeated. Under 1100 px the result sits above the switches. The failed rule's reason reads under the stamps. The judges path uses `QuickWhatIf`: three named facts (left early, notice late, filed late), the two stamps and the reason |
+| WhatIfPanel | `WhatIfPanel.tsx` | The workflow's own clause engine, re-run with one fact changed. One line says what to do; only the facts this contract can turn on are listed, as plain sentences with a hint. The computed card waits ("Flip a switch…") until a fact changes, so the amount isn't repeated. Under 1100 px the result sits above the switches. Each side shows its verdict sign, with the amount on the sign when owed. The failed rule's reason reads under the signs. The judges path uses `QuickWhatIf`: three named facts (left early, notice late, filed late), the two signs and the reason |
 | Timeline | `Timeline.tsx` | One title row per record, grouped (driver replayed / workflow). A list that crosses days gets a date row at each change of day. The record opens in a drawer |
 | Drawer, Json | `Drawer.tsx` | A right-hand sheet. Escape closes it, and focus returns to the opener |
 | EmptyState | `EmptyState.tsx` | One line and an optional hint |
@@ -137,7 +137,7 @@ White on safety yellow fails (1.4) and is never used.
 ## Landing (`/`, `src/landing/`)
 The landing page tells one recorded load from dispatch to the filed claim, then points to the phone demo, the judge path and the console. It is its own lazy chunk with its own fonts, so the console never loads them. Its routes live in `src/routes/table.ts`; `test/landing.test.ts` checks that `/judges`, `/judges/:step`, `/messages`, `/loads` and `/loads/:id[/:tab]` still resolve where they always did.
 
-**Type blend.** The landing talks to a person, so its own type leads. Every product surface inside it (phones, mail, dock clock, stamp, amounts, load ids) keeps Door 05 type, so it reads as the same product as the console.
+**Type blend.** The landing talks to a person, so its own type leads. Every product surface inside it (phones, mail, dock clock, verdict sign, amounts, load ids) keeps Door 05 type, so it reads as the same product as the console.
 
 | Family | Role on the landing | Why |
 |---|---|---|
@@ -156,7 +156,7 @@ All three are OFL, self-hosted from `@fontsource` (latin subsets), pinned exact.
 | HeroPlayer | `HeroPlayer.tsx` | The recorded load, one record at a time, on the device that received it: driver's phone, receiver's inbox, dispatcher's phone. A plate drawn as a roll-up door with a hazard bumper. Chapter list with recorded times (desktop), one thin scrubber split into six seekable steps, play/pause and replay, the recorded time of the current frame, a one-line caption and the provenance line. Plays once when 35% in view, pauses out of view |
 | Phone, Mail | `Devices.tsx` | The phone reuses the console's `.phone`/`.bub` classes; a tap shows a press ripple on the button before the reply. The mail view stops at the signature separator (the hashes are in the console), keeps whole paragraphs that fit and marks a cut with […], and names attachments plainly |
 | Storyboard | `HeroPlayer.tsx` | Reduced motion: all six chapters at once, as numbered frames (3 columns, 2 under 1080 px, 1 under 640 px) |
-| WaitScene | `WaitScene.tsx` | A pinned scroll scene on sign black: a flat truck backs onto door 05 while the dot-matrix clock runs from the arrival pin to the release pin (white, then safety yellow once billable), the track fills (free time dashed, billable striped) and the stamp and amount land. Every number comes from the load. Under reduced motion it is drawn once at its last frame and does not pin |
+| WaitScene | `WaitScene.tsx` | A pinned scroll scene on sign black: a flat truck backs onto door 05 while the dot-matrix clock runs from the arrival pin to the release pin (white, then safety yellow once billable), the track fills (free time dashed, billable striped) and the verdict sign with the amount lands, at a larger size. Every number comes from the load. Under reduced motion it is drawn once at its last frame and does not pin |
 | Refusals | `Landing.tsx` | The five refusals as quotes, each answered in one sentence with a mono proof chip of the load's own times and a "See it" link to its judge step |
 | Numbers | `Landing.tsx` | A sentence that fills from grey to ink as it scrolls, and three ATRI figures that count up once (the money figure carries the hazard rule) |
 | Try, Closing, Footer | `Landing.tsx` | The DEMO steps on sign black; the judge path and console CTAs beside the load's sealed evidence pack as a canary card (load, sealed time, digest, KMS signature, Object Lock, a link to break it); a hazard rule over the footer's console links and the fictional-companies line |

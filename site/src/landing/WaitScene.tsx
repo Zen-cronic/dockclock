@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { clock, usd } from "../format.js";
+import { clock } from "../format.js";
+import { Verdict } from "../ui/badges.js";
 import { useMedia } from "./media.js";
 import type { Story } from "./story.js";
 
@@ -61,7 +62,6 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
   const free = (Date.parse(freeEnds) - Date.parse(arrived)) / 1000;
   const freeShare = free / stay;
   const amount = load.verdict?.amountUsd ?? load.summary.amountUsd ?? 0;
-  const owed = load.verdict?.verdict === "BILLABLE";
   const filed = story.chapters.find((c) => c.key === "filed")?.at ?? null;
   const freeMin = Math.round(free / 60);
   const billMin = Math.floor((load.clock.billableMinutes ?? 0));
@@ -121,6 +121,7 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
               <rect x="512" y="244" width="22" height="4" fill="#454b57" />
               <rect x="768" y="224" width="10" height="16" fill="#454b57" />
               {/* tractor: frame, fuel tank, cab, hood, window, door, stack, mirror */}
+              <g transform="translate(24 0)">
               <rect x="292" y="214" width="150" height="10" fill="#454b57" />
               <rect x="402" y="208" width="38" height="8" rx="2" fill="#2a2d33" />
               <rect x="360" y="206" width="42" height="18" rx="9" fill="#8b919c" />
@@ -134,7 +135,8 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
               <rect x="400" y="70" width="7" height="140" rx="3" fill="#8b919c" />
               <rect x="318" y="126" width="4" height="28" fill="#454b57" />
               <rect x="286" y="206" width="12" height="18" rx="2" fill="#2a2d33" />
-              {[332, 470, 506, 700, 736].map((cx) => (
+              </g>
+              {[356, 470, 506, 700, 736].map((cx) => (
                 <g key={cx}>
                   <circle cx={cx} cy="236" r="18" fill="#0b0c0e" />
                   <circle cx={cx} cy="236" r="9" fill="#8b919c" />
@@ -158,8 +160,7 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
           </div>
 
           <div className="lp-verdict" style={{ opacity: stamp, transform: `scale(${1.25 - 0.25 * stamp})` }}>
-            <span className={`stamp lg ${owed ? "" : "red"}`}>{owed ? "Owed" : "Not owed"}</span>
-            <span className="amt">{usd(amount)}</span>
+            <Verdict verdict={load.verdict?.verdict ?? null} amountUsd={amount} large />
             <span className="why">{billMin} billable minutes{filed ? `, claim filed ${clock(filed, tz)}` : ""}</span>
           </div>
         </div>

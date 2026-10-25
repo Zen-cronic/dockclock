@@ -175,10 +175,20 @@ a { color: inherit; }
 .table .num { font: 800 22px / 1 var(--display); }
 
 /* Stamp */
-.stamp { display: inline-block; font: 800 18px / 1 var(--stencil); letter-spacing: 0.08em; padding: 6px 10px 5px; border: 2.5px solid currentColor; border-radius: 4px; color: var(--go); transform: rotate(-2deg); text-transform: uppercase; }
-.stamp.red { color: var(--stop); }
-.stamp.amber { color: var(--safety-ink); }
-.stamp.lg { font-size: 28px; padding: 8px 14px 7px; border-width: 3px; }
+/* Verdict: a dock-door sign. Sign-black plate, a dock light, the word; money on a safety-yellow panel. */
+.verdict { display: inline-flex; align-items: stretch; vertical-align: middle; border-radius: 4px; overflow: hidden; white-space: nowrap; box-shadow: 0 1px 0 rgba(21, 23, 28, 0.12); }
+.verdict .plate { display: inline-flex; align-items: center; gap: 7px; padding: 0 9px 0 8px; min-height: 26px; background: var(--side); color: #fff; font: 800 14px / 1 var(--display); letter-spacing: 0.07em; text-transform: uppercase; }
+.verdict .light { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--light, transparent); box-shadow: inset 0 0 0 1.5px var(--light-ring, var(--light, transparent)); }
+.verdict.v-owed { --light: #3ccf86; }
+.verdict.v-notowed { --light: #ff6b5e; }
+.verdict.v-review { --light: transparent; --light-ring: #c9cdd3; }
+.verdict.v-open .light { background: transparent; box-shadow: none; border: 1.5px dashed var(--nav-dim); }
+.verdict .amount { display: inline-flex; align-items: center; padding: 0 9px; background: var(--safety); color: var(--ink); font: 800 15px / 1 var(--display); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+.verdict.lg { border-radius: 6px; }
+.verdict.lg .plate { min-height: 44px; padding: 0 14px 0 13px; gap: 10px; font-size: 21px; }
+.verdict.lg .light { width: 12px; height: 12px; }
+.verdict.lg .amount { padding: 0 14px; font-size: 30px; }
+.rowtag { display: inline-block; margin-left: 8px; font: 600 10px / 1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); padding: 3px 6px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--rule-2); vertical-align: 1px; }
 
 /* Tabs */
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--rule); margin-bottom: var(--s5); overflow-x: auto; }
@@ -452,7 +462,8 @@ a { color: inherit; }
 .phototile .nophoto { width: 120px; height: 120px; display: grid; place-items: center; background: var(--card-2); color: var(--ink-3); border-radius: 6px; font-size: 12px; }
 .phototile figcaption { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .chat > * { flex-shrink: 0; }
-.table tbody tr.summary-only { cursor: default; opacity: 0.55; }
+.table tbody tr.summary-only { cursor: default; }
+.table tbody tr.summary-only:hover { background: transparent; }
 .skip { position: absolute; left: 12px; top: -48px; z-index: 50; background: var(--safety); color: var(--ink); font-weight: 700; padding: 10px 14px; border-radius: var(--r-sm); text-decoration: none; }
 .skip:focus { top: 12px; }
 main.page:focus { outline: none; }
@@ -708,3 +719,13 @@ a:hover .go { transform: translateX(2px); }
   .table.msgs.flat td.ld { grid-area: ld; min-width: 0; }
   .table.msgs.flat .loadchip { font-size: 11px; padding: 2px 6px; }
 }
+
+/* Verdict signs in the two-up What-if cards on phones: one size down so both fit */
+@media (max-width: 860px) {
+  .compare .verdict.lg .plate { min-height: 36px; font-size: 16px; padding: 0 10px 0 9px; gap: 7px; }
+  .compare .verdict.lg .light { width: 9px; height: 9px; }
+  .compare .verdict.lg .amount { font-size: 21px; padding: 0 9px; }
+}
+
+/* Tags read as dock labels, not pills: the same square-cut 3 px corner as the verdict sign */
+.badge, .pill, .loadhead .runchip { border-radius: 3px; }
