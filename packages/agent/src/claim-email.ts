@@ -15,7 +15,7 @@ export interface SealedPackView {
     arrived: { serverAt: string } | null;
     released: { serverAt: string } | null;
     // On packs whose dock clock stops at the driver's Released tap: the tap. The pin then confirms it.
-    releasedTap?: { serverAt: string } | null;
+    releasedTap?: { serverAt: string; channel?: string } | null;
     notice?: { sentAt: string; deliveredAt: string | null } | null;
   };
   evaluation: { amountUsd: number; detentionMinutes: number; billableMinutes: number };
@@ -81,7 +81,15 @@ export function claimFactsOf(input: ClaimFactsInput): ClaimFacts {
     released: local(releaseTimeOf(pack.events)),
     releasePin: pack.events.releasedTap ? local(pack.events.released?.serverAt) : null,
     // A BILLABLE pack on a fenced facility has both pins inside the fence (the engine holds any other).
-    source: pinSource({ synthetic: input.synthetic, channel: pack.channel === "rcs" ? "rcs" : "whatsapp", anyLocation: acceptsAnyLocation(facility), insideGeofence: true, pins: 2 }),
+    // A version 2 pack's clock stopped at the Released tap, which may have come on another channel.
+    source: pinSource({
+      synthetic: input.synthetic,
+      channel: pack.channel === "rcs" ? "rcs" : "whatsapp",
+      anyLocation: acceptsAnyLocation(facility),
+      insideGeofence: true,
+      pins: 2,
+      releasedTap: pack.events.releasedTap ? { channel: pack.events.releasedTap.channel === "rcs" ? "rcs" : "whatsapp" } : null,
+    }),
     freeTime: `${duration(clause.freeTimeMinutes)} from ${clause.freeTimeAnchor === "arrival" ? "arrival" : "the appointment time"}`,
     rate: `${formatUsd(clause.ratePerHourUsd)} per hour`,
     cap: caps.length ? caps.join(", ") : "None",

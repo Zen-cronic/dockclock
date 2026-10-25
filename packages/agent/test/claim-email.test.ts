@@ -157,6 +157,17 @@ describe("claim email", () => {
     expect(claimFactsOf(input({ synthetic: false })).source).toBe("Location pins inside the facility's geofence, WhatsApp server time");
     expect(claimFactsOf(input({ synthetic: false, pack: { ...signed.pack, channel: "rcs" } })).source).toContain("RCS server time");
   });
+
+  it("names the Released tap and its channel in the source on packs whose clock stopped at the tap", () => {
+    const tapped = (tapChannel: string, packChannel = "whatsapp") => ({ ...signed.pack, channel: packChannel, events: { ...signed.pack.events, releasedTap: { serverAt: "2026-10-18T19:26:12.000Z", channel: tapChannel } } });
+    expect(claimFactsOf(input({ synthetic: false, pack: tapped("whatsapp") })).source).toBe("Location pins inside the facility's geofence and the Released tap, WhatsApp server time");
+    expect(claimFactsOf(input({ synthetic: false, pack: tapped("rcs", "rcs") })).source).toBe("Location pins inside the facility's geofence and the Released tap, RCS server time");
+    // A load that failed over to RCS after arriving on WhatsApp.
+    expect(claimFactsOf(input({ synthetic: false, pack: tapped("rcs") })).source).toBe("Location pins inside the facility's geofence and the Released tap, WhatsApp and RCS server time");
+    expect(claimFactsOf(input({ synthetic: false, clause: clauseById("judge-demo"), facility: facilityById("judge-demo"), pack: tapped("whatsapp") })).source).toBe("Location pins and the Released tap recorded with WhatsApp server time; the demo yard accepts any location");
+    expect(claimFactsOf(input({ pack: tapped("whatsapp") })).source).toBe("Synthetic test pins and Released tap (test load)");
+    expect(claimFactsOf(input({ synthetic: false })).source).not.toContain("tap");
+  });
 });
 
 describe("detention minutes in formal copy", () => {

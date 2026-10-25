@@ -10,14 +10,22 @@ export interface PinSourceInput {
   // The geofence check on the pin(s): null when not checked.
   insideGeofence: boolean | null;
   pins: 1 | 2;
+  // Set when the dock clock stopped at the driver's Released tap: the channel the tap came on.
+  releasedTap?: { channel: "whatsapp" | "rcs" } | null;
 }
+
+const CHANNEL_NAME = { whatsapp: "WhatsApp", rcs: "RCS" } as const;
 
 export function pinSource(input: PinSourceInput): string {
   const noun = input.pins === 1 ? "pin" : "pins";
-  if (input.synthetic) return `Synthetic test ${noun} (test load)${input.anyLocation ? "; the demo yard accepts any location" : ""}`;
-  const clock = `${input.channel === "rcs" ? "RCS" : "WhatsApp"} server time`;
-  if (input.anyLocation) return `Location ${noun} recorded with ${clock}; the demo yard accepts any location`;
-  return input.insideGeofence ? `Location ${noun} inside the facility's geofence, ${clock}` : `Location ${noun} recorded with ${clock}`;
+  const tap = input.releasedTap ?? null;
+  const demoYard = input.anyLocation ? "; the demo yard accepts any location" : "";
+  if (input.synthetic) return `Synthetic test ${noun}${tap ? " and Released tap" : ""} (test load)${demoYard}`;
+  const channels = [...new Set([input.channel, ...(tap ? [tap.channel] : [])])].map((c) => CHANNEL_NAME[c]);
+  const clock = `${channels.join(" and ")} server time`;
+  const andTap = tap ? " and the Released tap" : "";
+  if (input.anyLocation) return `Location ${noun}${andTap} recorded with ${clock}${demoYard}`;
+  return input.insideGeofence ? `Location ${noun} inside the facility's geofence${andTap}, ${clock}` : `Location ${noun}${andTap} recorded with ${clock}`;
 }
 
 // The clause's notice rule in words: null means the clause requires no notice.
