@@ -18,6 +18,7 @@ const PRESS = 560;
 const HOLD_MAIL = 4600;
 const CHAPTER_END = 900;
 const SWAP = 500;
+const LOOP_HOLD = 3200;
 
 function stepsOf(chapters: Chapter[]): Step[] {
   const out: Step[] = [];
@@ -64,26 +65,36 @@ export function HeroPlayer({ story }: { story: Story }) {
   const narrow = useMedia("(max-width: 640px)", false);
   const [pos, setPos] = useState(0);
   const [playing, setPlaying] = useState(true);
-  const [visible, setVisible] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const done = pos === steps.length - 1 && !playing;
+  const [inView, setInView] = useState(false);
+  const [pageShown, setPageShown] = useState(true);
+  const stage = useRef<HTMLDivElement>(null);
+  const last = pos === steps.length - 1;
 
+  // Plays while the stage is on screen and the tab is visible. The first check is synchronous, so
+  // a stage already in the first viewport starts on the first frame, not on a later scroll.
   useEffect(() => {
-    const el = root.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(([e]) => setVisible(!!e && e.intersectionRatio >= 0.35), { threshold: [0, 0.35, 1] });
+    const el = stage.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setInView(r.top < window.innerHeight && r.bottom > 0);
+    if (typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setInView(!!e?.isIntersecting), { threshold: 0 });
     io.observe(el);
     return () => io.disconnect();
   }, []);
-
   useEffect(() => {
-    if (!playing || !visible) return;
-    const t = setTimeout(() => {
-      if (pos < steps.length - 1) setPos(pos + 1);
-      else setPlaying(false);
-    }, steps[pos]!.dur);
+    const on = () => setPageShown(document.visibilityState !== "hidden");
+    on();
+    document.addEventListener("visibilitychange", on);
+    return () => document.removeEventListener("visibilitychange", on);
+  }, []);
+
+  // One step at a time; after the last step it holds, then starts again from the top.
+  useEffect(() => {
+    if (!playing || !inView || !pageShown) return;
+    const t = setTimeout(() => setPos(last ? 0 : pos + 1), steps[pos]!.dur + (last ? LOOP_HOLD : 0));
     return () => clearTimeout(t);
-  }, [playing, visible, pos, steps]);
+  }, [playing, inView, pageShown, pos, last, steps]);
 
   const v = view(steps, pos);
   const ch = chapters[v.chapter]!;
@@ -98,15 +109,10 @@ export function HeroPlayer({ story }: { story: Story }) {
     setPos(firstOf[c]!);
     setPlaying(true);
   };
-  const toggle = () => {
-    if (done) {
-      setPos(0);
-      setPlaying(true);
-    } else setPlaying(!playing);
-  };
+  const toggle = () => setPlaying(!playing);
 
   return (
-    <div className="lp-player" ref={root}>
+    <div className="lp-player">
       <ol className="lp-chapters" aria-label="Steps">
         {chapters.map((c, i) => (
           <li key={c.key}>
@@ -119,10 +125,10 @@ export function HeroPlayer({ story }: { story: Story }) {
         ))}
       </ol>
 
-      <div className="lp-stagewrap">
+      <div className="lp-stagewrap" ref={stage}>
         <div className="lp-plate">
           <span className="lp-who" key={active}>{SCREEN_LABEL[ch.screen.kind === "mail" ? "mail" : ch.screen.party]}</span>
-          <div className="lp-stage">
+          <div className="lp-stage" id="lp-stage" aria-live="off">
             <div className={`lp-dev ${active === "driver" ? "on" : ""}`} aria-hidden={active !== "driver"}>
               <Phone party="driver" messages={driverMsgs} timeZone={tz} pressing={v.pressing} tapped={v.tapped} anyLocation={any} />
             </div>
@@ -141,8 +147,9 @@ export function HeroPlayer({ story }: { story: Story }) {
         </div>
 
         <div className="lp-controls">
-          <button type="button" className="lp-play" onClick={toggle} aria-label={done ? "Replay" : playing ? "Pause" : "Play"}>
-            {done ? <ReplayIcon /> : playing ? <IconPause /> : <IconPlay />}
+          <button type="button" className="lp-play" onClick={toggle} aria-controls="lp-stage">
+            {playing ? <IconPause /> : <IconPlay />}
+            <span>{playing ? "Pause" : "Play"}</span>
           </button>
           <div className="lp-track">
             {chapters.map((c, i) => {
@@ -179,28 +186,27 @@ export function Provenance({ story }: { story: Story }) {
   );
 }
 
-function ReplayIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 12a8 8 0 1 0 2.4-5.7" />
-      <path d="M4 4v4.5h4.5" />
-    </svg>
-  );
-}
 
 // Reduced motion, top of the page: the outcome (the filed claim in the receiver's inbox), still.
-export function StaticHero({ story }: { story: Story }) {
+export function StaticHero({ story, onPlay }: { story: Story; onPlay: () => void }) {
   const filed = story.chapters.find((c) => c.screen.kind === "mail" && c.key === "filed") ?? story.chapters.at(-1)!;
   return (
     <div className="lp-stagewrap">
       <div className="lp-plate">
         <span className="lp-who">{SCREEN_LABEL.mail}</span>
         <div className="lp-stage">
-          <div className="lp-dev on">{filed.screen.kind === "mail" && <Mail email={filed.screen.email} body={filed.screen.body} timeZone={story.load.timeZone} />}</div>
+          <div className="lp-dev on">{filed.screen.kind === "mail" && <Mail email={filed.screen.email} body={filed.screen.body} timeZone={story.load.timeZone} lines={11} />}</div>
         </div>
         <div className="lp-bumper" aria-hidden="true" />
       </div>
-      <p className="lp-caption">{filed.caption} Every step is below.</p>
+      <div className="lp-controls lp-controls-still">
+        <button type="button" className="lp-play" onClick={onPlay}>
+          <IconPlay />
+          <span>Play the recording</span>
+        </button>
+        <span className="lp-now">Motion is reduced; every step is below.</span>
+      </div>
+      <p className="lp-caption">{filed.caption}</p>
     </div>
   );
 }

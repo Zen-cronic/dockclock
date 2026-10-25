@@ -249,6 +249,8 @@ function Footer() {
 
 export function Landing() {
   const reduced = useMedia("(prefers-reduced-motion: reduce)", true);
+  // Under reduced motion the hero is still until the visitor asks to play it.
+  const [chosePlay, setChosePlay] = useState(false);
   const story = useMemo(() => heroStory(), []);
   useEffect(() => {
     const was = document.title;
@@ -273,7 +275,7 @@ export function Landing() {
                 <Go to="/judges" className="lp-btn ghost">Open the judge path</Go>
               </div>
             </div>
-            {story && (reduced ? <StaticHero story={story} /> : <HeroPlayer story={story} />)}
+            {story && (reduced && !chosePlay ? <StaticHero story={story} onPlay={() => setChosePlay(true)} /> : <HeroPlayer story={story} />)}
           </div>
           {story && reduced && <Storyboard story={story} />}
         </section>
