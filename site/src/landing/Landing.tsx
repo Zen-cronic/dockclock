@@ -165,7 +165,7 @@ function Numbers({ reduced }: { reduced: boolean }) {
     <section className="lp-sec lp-numbers" aria-labelledby="num-h">
       <div className="lp-wrap">
         <h2 id="num-h" className="visually-hidden">Why it matters</h2>
-        <FillText reduced={reduced} text="Half of detention invoices never get paid." />
+        <FillText reduced={reduced} text="Nearly half of detention invoices never get paid." />
         <p className="lp-lead lp-num-lead">Carriers are paid on about 55% of the detention invoices they send. Many never send one, because they expect the refusal.</p>
         <dl className="lp-figs">
           <div><dt>of detention invoices get paid</dt><dd><CountUp value={55} format={(n) => `${Math.round(n)}%`} reduced={reduced} /></dd></div>
@@ -191,7 +191,7 @@ function Try() {
           <li><b>Tap Arrived</b> and share your location. In the demo any location counts.</li>
           <li><b>Wait past five minutes.</b> The notice goes out and the chat tells you.</li>
           <li><b>Tap Released,</b> share your location again and photograph the times written on paper.</li>
-          <li><b>Tap Approve claim.</b> The agent files it and sends you the amount and the pack's digest.</li>
+          <li><b>Tap Approve claim.</b> The agent files it and sends you the amount and the evidence pack's fingerprint.</li>
         </ol>
       </div>
     </section>
@@ -205,7 +205,7 @@ function Closing({ story }: { story: Story | null }) {
     <section className="lp-sec lp-close" aria-labelledby="close-h">
       <div className="lp-wrap lp-close-grid">
         <div>
-          <h2 id="close-h" className="lp-h2">No phone? Follow one claim in five steps.</h2>
+          <h2 id="close-h" className="lp-h2">No phone? Follow one claim past the five reasons brokers give for not paying.</h2>
           <p className="lp-lead">The judge path reads the live system. Break the signature yourself, or change one fact and watch the verdict move.</p>
         <div className="lp-cta">
           <Go to="/judges" className="lp-btn primary lg">Open the judge path</Go>

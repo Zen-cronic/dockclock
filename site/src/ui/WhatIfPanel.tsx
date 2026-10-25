@@ -144,7 +144,7 @@ function SealedOnly({ load }: { load: LoadDetail }) {
         <div style={{ marginTop: 14 }}>
           <Verdict verdict={v.verdict} amountUsd={v.amountUsd} large />
         </div>
-        <p className="small" style={{ marginTop: 10 }}>{v.whatIfNote ?? "What-if is off for this load."}</p>
+        <p className="small" style={{ marginTop: 10 }}>{v.whatIfNote ?? "You can't change facts on this load."}</p>
       </div>
     </div>
   );
@@ -155,7 +155,7 @@ export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: str
   const [on, setOn] = useState<Set<string>>(new Set(initial ?? []));
   if (load.verdict?.whatIfAvailable === false) return <SealedOnly load={load} />;
   const base = recordedInput(load);
-  if (!base) return <p className="small">No engine inputs recorded for this load.</p>;
+  if (!base) return <p className="small">This load has no recorded facts to change.</p>;
   // Only the facts this contract can turn on; a rule it doesn't have stays in the list on the right.
   const all = whatIfs(load).filter((w) => w.applies);
   let changed = base;
@@ -214,7 +214,7 @@ export function QuickWhatIf({ load, ids }: { load: LoadDetail; ids: string[] }) 
   if (load.verdict?.whatIfAvailable === false) return <SealedOnly load={load} />;
   const base = recordedInput(load);
   const shown = whatIfs(load).filter((w) => w.applies && ids.includes(w.id));
-  if (!base || shown.length === 0) return <p className="small">No engine inputs recorded for this load.</p>;
+  if (!base || shown.length === 0) return <p className="small">This load has no recorded facts to change.</p>;
   let changed = base;
   for (const w of shown) if (on.has(w.id)) changed = w.apply(changed);
   const computed = run(changed);
