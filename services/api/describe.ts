@@ -179,13 +179,25 @@ export function addressOnly(from: string): string {
   return /<([^>]+)>/.exec(from)?.[1] ?? from;
 }
 
+// When an agent run started: its startedAt, else the time in its key (AGENT#<startedAt>#<task>).
+// Null when neither is a time, so a run is never dated "undefined" or ordered by that string.
+export function agentStartedAt(run: Item): string | null {
+  const valid = (v: string | null) => (v && Number.isFinite(Date.parse(v)) ? v : null);
+  return valid(str(run.startedAt)) ?? valid(String(run.sk ?? "").split("#")[1] ?? null);
+}
+
 // The load's claims-agent runs (AGENT# records), oldest first, as a reviewer reads them. `sealed`
-// adds the amount-and-digest guard on a send_detention_claim call.
+// adds the amount-and-digest guard on a send_detention_claim call. A run with no start time at all
+// cannot be placed on the timeline and is left out.
 export function agentRunsOf(items: Item[], sealed: { cents: number; digest: string } | null): AgentRun[] {
   return items
     .filter((i) => String(i.sk).startsWith("AGENT#"))
-    .sort((a, b) => String(a.startedAt).localeCompare(String(b.startedAt)))
-    .map((r, index) => {
+    .flatMap((r) => {
+      const startedAt = agentStartedAt(r);
+      return startedAt ? [{ r, startedAt }] : [];
+    })
+    .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+    .map(({ r, startedAt }, index) => {
       const calls = (Array.isArray(r.toolCalls) ? r.toolCalls : []).map(obj);
       const toolCalls: AgentToolCall[] = calls.map((c) => {
         const name = String(c.name ?? "").replace(/^.*___/, "");
@@ -204,7 +216,6 @@ export function agentRunsOf(items: Item[], sealed: { cents: number; digest: stri
       });
       const claimCall = calls.find((c) => String(c.name).endsWith("send_detention_claim"));
       const input = obj(claimCall?.input);
-      const startedAt = String(r.startedAt);
       return {
         id: `a${index + 1}`,
         task: r.task === "review" ? "review" : "file_claim",

@@ -226,6 +226,20 @@ describe("console read API", () => {
     expect(JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data.summary.status).toBe("needs_human");
   });
 
+  it("dates an agent run with no startedAt from its key, and never counts or shows an undated run", async () => {
+    const items = partitions["SMOKE-RCS-1"]!;
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: "APPROVAL", approver: "dispatcher-whatsapp", approvedAt: T(18, 0) });
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: "APPROVAL_REQUEST", requestedAt: new Date(Date.now() - 3_600_000).toISOString(), decision: "approve", decidedAt: T(18, 0) });
+    // Refused before the approval, recorded without startedAt: its key still dates it before the approval.
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: `AGENT#${T(17, 45)}#file_claim`, task: "file_claim", toolCalls: [] });
+    // No time anywhere: neither a finished filing run nor a timeline entry.
+    items.push({ pk: "LOAD#SMOKE-RCS-1", sk: "AGENT#garbled#file_claim", task: "file_claim", toolCalls: [] });
+    const view = JSON.parse((await get("/api/loads/SMOKE-RCS-1")).body).data;
+    expect(view.summary.status).toBe("filing");
+    expect(view.agentRuns.map((r: { startedAt: string }) => r.startedAt)).toEqual([T(17, 45)]);
+    expect(JSON.stringify(view)).not.toContain("undefined");
+  });
+
   it("stops the clock of a closed load that arrived and was never released at its close", async () => {
     const meta = partitions["SMOKE-RCS-2"]![0]!;
     Object.assign(meta, { phase: "closed", outcome: "TIMED_OUT_NEEDS_HUMAN" });

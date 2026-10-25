@@ -35,6 +35,7 @@ import type {
 import {
   addressOnly,
   agentRunsOf,
+  agentStartedAt,
   attachmentNote,
   claimBodyNote,
   isSynthetic,
@@ -201,7 +202,11 @@ function statusOf(p: Parts): LoadStatus {
   if (p.approvalItem) {
     // Only a filing run after the approval counts; one refused before it (no approval yet) does not.
     const approvedAt = approvedAtOf(p);
-    const finished = p.agentItems.some((a) => a.task === "file_claim" && (!approvedAt || String(a.startedAt) >= approvedAt));
+    // A run with no start time cannot be placed after the approval, so it does not count.
+    const finished = p.agentItems.some((a) => {
+      const startedAt = agentStartedAt(a);
+      return a.task === "file_claim" && startedAt !== null && (!approvedAt || startedAt >= approvedAt);
+    });
     return finished ? "needs_human" : "filing";
   }
   if (approvalTimedOut(p)) return "needs_human";
