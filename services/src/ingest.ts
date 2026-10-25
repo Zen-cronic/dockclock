@@ -2,6 +2,7 @@ import { TransactionCanceledException } from "@aws-sdk/client-dynamodb";
 import { TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { RcsMessageContent } from "@aws-sdk/client-pinpoint-sms-voice-v2";
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
+import { releaseTimeOf } from "@dockclock/clause-engine";
 import { facilityById, isoToLocalClock, zoneAbbreviation } from "@dockclock/evidence";
 import { decodeRcsEvent, isFromTopic, type RcsEvent, type RcsStatusEvent } from "@dockclock/rcs";
 import {
@@ -166,7 +167,7 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
     }
     case "send_release_flow": {
       // The release time is the Released tap where one was recorded; the Flow pre-fills it as the out time.
-      const releasedAt = load.releasedTap?.serverAt ?? load.released?.serverAt;
+      const releasedAt = releaseTimeOf(load) ?? undefined;
       await deliver(
         "release_flow",
         () =>

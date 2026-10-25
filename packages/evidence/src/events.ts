@@ -1,5 +1,5 @@
 import type { BolReading, LoadEvidence } from "@dockclock/clause-engine";
-import { BOL_TOLERANCE_MINUTES, RELEASE_PIN_WINDOW_MINUTES } from "@dockclock/clause-engine";
+import { BOL_TOLERANCE_MINUTES, clockEndOf, pinConfirmsTap, releasePinGapMinutes, RELEASE_PIN_WINDOW_MINUTES, type ClockEnd } from "@dockclock/clause-engine";
 import { checkGeofence, type Facility, type LonLat } from "./geofence.js";
 
 export type Channel = "whatsapp" | "rcs";
@@ -89,9 +89,8 @@ function minutesApart(a: string, b: string): number {
 }
 
 // What ended the dock clock: the Released tap when one was recorded, else the release pin.
-export function releaseEnd(record: Pick<LoadRecord, "releasedTap" | "released">): { by: "released_tap" | "released_pin"; at: string } | null {
-  if (record.releasedTap) return { by: "released_tap", at: record.releasedTap.serverAt };
-  return record.released ? { by: "released_pin", at: record.released.serverAt } : null;
+export function releaseEnd(record: Pick<LoadRecord, "releasedTap" | "released">): ClockEnd | null {
+  return clockEndOf(record);
 }
 
 // Turns raw channel events into the clause engine's inputs. Location truth comes from the
@@ -138,10 +137,10 @@ export function corroborate(record: LoadRecord): Corroboration {
   }
   const tap = record.releasedTap ?? null;
   if (tap && record.released) {
-    const gap = (Date.parse(record.released.serverAt) - Date.parse(tap.serverAt)) / 60_000;
+    const gap = releasePinGapMinutes(tap.serverAt, record.released.serverAt);
     signals.push({
       name: "released_pin_confirms_tap",
-      ok: Math.abs(gap) <= RELEASE_PIN_WINDOW_MINUTES,
+      ok: pinConfirmsTap(tap.serverAt, record.released.serverAt),
       detail: `pin ${Math.round(Math.abs(gap))} min ${gap < 0 ? "before" : "after"} the Released tap (limit ${RELEASE_PIN_WINDOW_MINUTES}); the clock stopped at the tap`,
     });
   }

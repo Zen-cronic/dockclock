@@ -3,7 +3,7 @@
 // from dispatch onwards: everything that needs the sealed pack is null until the load is sealed.
 // Every string that came from a stored record is scrubbed; handler.ts still runs findLeaks on the
 // whole response before it is sent.
-import { clauseById, detentionStartsAt, RELEASE_PIN_WINDOW_MINUTES, type ClauseSpec } from "@dockclock/clause-engine";
+import { clauseById, detentionStartsAt, pinConfirmsTap, RELEASE_PIN_WINDOW_MINUTES, releaseTimeOf, type ClauseSpec } from "@dockclock/clause-engine";
 import { canonicalJson, checkGeofence, facilityById, isoToLocalClock, zoneAbbreviation, type Facility, type SignedPack } from "@dockclock/evidence";
 import { parseMime, scrub, scrubText, type ParsedEmail } from "@dockclock/sanitize";
 import type { Language } from "../src/messages.js";
@@ -239,7 +239,7 @@ export function summaryOf(items: Item[], now: string = new Date().toISOString())
     amountUsd: typeof p.pack?.amountUsd === "number" ? p.pack.amountUsd : null,
     claimSentAt: str(p.claimItem?.sentAt),
     arrivedAt: str(arrived.serverAt),
-    releasedAt: releasedAtOf(p.meta),
+    releasedAt: releaseTimeOf(p.meta),
     failover: p.events.some((e) => e.type === "failover"),
     photos: Array.isArray(bol.photos) ? bol.photos.length : 0,
   };
@@ -533,12 +533,6 @@ function emailsOf(p: Parts, mime: { notice?: ParsedEmail; claim?: ParsedEmail })
   return out;
 }
 
-// When the dock clock stopped: the driver's Released tap, or on loads recorded before the tap was
-// kept, the release pin.
-function releasedAtOf(meta: Item): string | null {
-  return str(obj(meta.releasedTap).serverAt) ?? str(obj(meta.released).serverAt);
-}
-
 // The workflow's wait for the Released tap ("Await released", infra/lib/messaging-stack.ts).
 const RELEASE_WAIT_MS = 3 * 86_400_000;
 
@@ -556,7 +550,7 @@ function endedAtOf(p: Parts, arrivedAt: string | null, releasedAt: string | null
 
 function clockOf(p: Parts, now: string, signed: SignedPack | null): LiveClock {
   const arrivedAt = str(obj(p.meta.arrived).serverAt);
-  const releasedAt = releasedAtOf(p.meta);
+  const releasedAt = releaseTimeOf(p.meta);
   const tapAt = str(obj(p.meta.releasedTap).serverAt);
   const releasePinAt = tapAt ? str(obj(p.meta.released).serverAt) : null;
   const endedAt = endedAtOf(p, arrivedAt, releasedAt);
@@ -584,7 +578,7 @@ function workflowOf(p: Parts, status: LoadStatus, photos: PhotoInfo[]): Workflow
   const arrivedAt = str(obj(m.arrived).serverAt);
   const tapAt = str(obj(m.releasedTap).serverAt);
   const pinAt = str(obj(m.released).serverAt);
-  const releasedAt = tapAt ?? pinAt;
+  const releasedAt = releaseTimeOf(m);
   const bolAt = str(obj(m.bol).serverAt);
   const reading = obj(m.bolReading);
   const notice = obj(m.notice);
@@ -660,7 +654,7 @@ function releaseStep(
   const inside = p.facility.known && typeof pin.lat === "number" && typeof pin.lon === "number" ? checkGeofence([pin.lon, pin.lat], p.facility).inside : null;
   const where = inside === null ? "" : inside ? ", inside the facility" : ", outside the facility";
   const pinAtWords = `${isoToLocalClock(pinAt, tz)} ${zoneAbbreviation(pinAt, tz)}`;
-  const late = Math.abs(gap) > RELEASE_PIN_WINDOW_MINUTES;
+  const late = !pinConfirmsTap(tapAt, pinAt);
   const confirm = late
     ? `The location pin came at ${pinAtWords}, ${gap} min later (limit ${RELEASE_PIN_WINDOW_MINUTES}), so a person reviews the load.`
     : `Confirmed by the location pin at ${pinAtWords}, ${gap} min later${where}.`;

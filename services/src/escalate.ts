@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { PutCommand } from "@aws-sdk/lib-dynamodb";
-import { clauseById } from "@dockclock/clause-engine";
+import { clauseById, releaseTimeOf } from "@dockclock/clause-engine";
 import { facilityById, isoToLocalDateTime } from "@dockclock/evidence";
 import { buildMime, CARRIER_NAME, loadPageUrl, renderHtml, renderText, type Letter } from "@dockclock/mail";
 import { scrubText } from "@dockclock/sanitize";
@@ -87,7 +87,7 @@ export function escalationEmail(load: LoadItem, reason: string, options: { unrea
       { label: "Facility", value: facility.name },
       { label: "Arrived", value: at(load.arrived?.serverAt) },
       // When the clock stopped: the Released tap, or on older loads the release pin.
-      { label: "Released", value: at(load.releasedTap?.serverAt ?? load.released?.serverAt) },
+      { label: "Released", value: at(releaseTimeOf(load) ?? undefined) },
       // The amount once: in the first line when it names it, otherwise here.
       ...(amount && !topic.summary.includes(amount) ? [{ label: "Contract amount", value: amount, strong: true }] : []),
       ...(confidence ? [{ label: "Evidence", value: capital(EVIDENCE[confidence] ?? confidence) }] : []),

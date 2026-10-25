@@ -4,7 +4,7 @@ import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context } from "aws-lambda";
-import { clauseById } from "@dockclock/clause-engine";
+import { clauseById, releaseTimeOf } from "@dockclock/clause-engine";
 import { facilityById, isoToLocalClock, isoToLocalDateTime, KmsSigner, normalizeClock, registerFacility, sha256Hex, type Facility } from "@dockclock/evidence";
 import { readBol, type BolReading } from "./bol-reader.js";
 import { checkClaim, toCents, type ClaimRequest } from "./claim.js";
@@ -177,7 +177,7 @@ async function readBillOfLading(input: { loadId: string; page?: number }) {
     comparedWithPins: {
       inMinutesApart: minutesBetween(reading.inTime, pinClock(load.arrived?.serverAt)),
       // The out time is compared with the release: the Released tap where one was recorded.
-      outMinutesApart: minutesBetween(reading.outTime, pinClock(load.releasedTap?.serverAt ?? load.released?.serverAt)),
+      outMinutesApart: minutesBetween(reading.outTime, pinClock(releaseTimeOf(load) ?? undefined)),
     },
   };
 }

@@ -2,7 +2,7 @@
 // clause, rendered as the email (plain text and HTML) and as the one-page PDF. The agent supplies
 // only the opening sentence; the amount, times and digest here never come from the model.
 
-import type { ClauseSpec } from "@dockclock/clause-engine";
+import { releaseTimeOf, type ClauseSpec } from "@dockclock/clause-engine";
 import { acceptsAnyLocation, isoToLocalDateTime, type Facility } from "@dockclock/evidence";
 import { buildMime, FICTIONAL_NOTE, loadPageUrl, minutesText, noticeTerms, pinSource, PUBLIC_KEY_URL, renderHtml, renderText, signatureLines, type Letter } from "@dockclock/mail";
 import { formatUsd } from "./claim.js";
@@ -78,7 +78,7 @@ export function claimFactsOf(input: ClaimFactsInput): ClaimFacts {
     facilityName: facility.name,
     arrived: local(pack.events.arrived?.serverAt),
     // The time the clock stopped, as the engine counted it.
-    released: local(pack.events.releasedTap?.serverAt ?? pack.events.released?.serverAt),
+    released: local(releaseTimeOf(pack.events)),
     releasePin: pack.events.releasedTap ? local(pack.events.released?.serverAt) : null,
     // A BILLABLE pack on a fenced facility has both pins inside the fence (the engine holds any other).
     source: pinSource({ synthetic: input.synthetic, channel: pack.channel === "rcs" ? "rcs" : "whatsapp", anyLocation: acceptsAnyLocation(facility), insideGeofence: true, pins: 2 }),

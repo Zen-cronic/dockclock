@@ -1,9 +1,7 @@
+import { pinConfirmsTap } from "./release.js";
 import type { ClauseSpec, Evaluation, LoadEvidence, ReasonCode, RecordKind } from "./types.js";
 
 export const BOL_TOLERANCE_MINUTES = 15;
-// The release location pin confirms the driver's Released tap only if it comes within this many
-// minutes of the tap. The clock stops at the tap either way; a later pin sends the load to a person.
-export const RELEASE_PIN_WINDOW_MINUTES = 10;
 
 const MINUTE = 60_000;
 
@@ -33,7 +31,7 @@ function hasRecord(load: LoadEvidence, accepted: readonly RecordKind[]): boolean
 export function releasePinLate(load: Pick<LoadEvidence, "released" | "releasePinAt">): boolean {
   const { released, releasePinAt } = load;
   if (!released || !releasePinAt) return false;
-  return Math.abs(minutesBetween(released.at, releasePinAt)) > RELEASE_PIN_WINDOW_MINUTES;
+  return !pinConfirmsTap(released.at, releasePinAt);
 }
 
 // Paper against phone: the written in time against the arrival pin, the written out time against

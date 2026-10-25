@@ -1,7 +1,7 @@
 // Plain-language descriptions of stored load records, shared by the judge-desk exporter
 // (scripts/desk) and the console read API, so both say the same thing about the same record.
 import { createHash } from "node:crypto";
-import { evaluate, type ClauseSpec, type Evaluation, type LoadEvidence } from "@dockclock/clause-engine";
+import { evaluate, releaseTimeOf, type ClauseSpec, type Evaluation, type LoadEvidence } from "@dockclock/clause-engine";
 import { localClockToIso, type SignedPack } from "@dockclock/evidence";
 import { scrub, scrubText } from "@dockclock/sanitize";
 import { COPY, type Language } from "../src/messages.js";
@@ -234,7 +234,7 @@ export function engineInputOf(meta: Item, signed: SignedPack, timeZone: string):
   const tapAt = releaseTapOf(signed);
   const releasePin = pinOf(metaReleased, "released_pin_in_geofence");
   const released = releasePin && tapAt ? { ...releasePin, at: tapAt } : releasePin;
-  const releaseAt = tapAt ?? str(metaReleased?.serverAt);
+  const releaseAt = releaseTimeOf({ releasedTap: signed.pack.events.releasedTap, released: metaReleased });
   return {
     appointmentAt: String(meta.appointmentAt),
     arrived: pinOf(metaArrived, "arrived_pin_in_geofence"),

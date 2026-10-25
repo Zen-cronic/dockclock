@@ -1,6 +1,6 @@
 import { CopyObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { clauseById, evaluate } from "@dockclock/clause-engine";
+import { clauseById, evaluate, releaseTimeOf } from "@dockclock/clause-engine";
 import {
   buildPack,
   corroborate,
@@ -36,7 +36,7 @@ function tapEvent(tap: TapRecord | null | undefined, load: LoadItem): TapEvent |
 // When the truck was released: the Released tap where one was recorded, else (older loads) the pin.
 // The Flow pre-fills this as the out time, and the paper's out time is pinned to its date.
 export function releaseTime(load: Pick<LoadItem, "releasedTap" | "released">): string | undefined {
-  return load.releasedTap?.serverAt ?? load.released?.serverAt;
+  return releaseTimeOf(load) ?? undefined;
 }
 
 interface RecordedReading {
