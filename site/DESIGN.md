@@ -1,6 +1,6 @@
 # DockClock Console: design system "Door 05"
 
-The console is where DockClock's messaging is monitored: WhatsApp, RCS and email, per load and across loads. Its `/judges` route follows one claim through the five reasons a broker denies detention, one step each: "You weren't there that long" (Proved), "You never gave notice" (Notice), "You filed too late" (Filed), "The evidence was edited" (Break) and "It isn't owed" (Change). It opens on the priced problem (ATRI 2024, about $204,000 a year for a 40-driver carrier) and ends on "Try it". Each step has one heading, one sentence, one proof card and a "Carried by" row naming the services behind that proof. `/judges/signed` is an old link and lands on Break.
+The site opens on a landing page at `/` (see "Landing" below); the console's Overview is at `/overview`. The console is where DockClock's messaging is monitored: WhatsApp, RCS and email, per load and across loads. Its `/judges` route follows one claim through the five reasons a broker denies detention, one step each: "You weren't there that long" (Proved), "You never gave notice" (Notice), "You filed too late" (Filed), "The evidence was edited" (Break) and "It isn't owed" (Change). It opens on the priced problem (ATRI 2024, about $204,000 a year for a 40-driver carrier) and ends on "Try it". Each step has one heading, one sentence, one proof card and a "Carried by" row naming the services behind that proof. `/judges/signed` is an old link and lands on Break.
 
 Rules:
 - It is an app, not a report. Each screen does one thing.
@@ -133,3 +133,33 @@ White on safety yellow fails (1.4) and is never used.
 ## Copy budget
 - The first viewport of each route stays under about 40 words.
 - Headings are nouns or short verbs: Overview, Messages, Loads, Proved, Signed, Filed. Definitions and explanations live in drawers.
+
+## Landing (`/`, `src/landing/`)
+The landing page tells one recorded load from dispatch to the filed claim, then points to the phone demo, the judge path and the console. It is its own lazy chunk with its own fonts, so the console never loads them. Its routes live in `src/routes/table.ts`; `test/landing.test.ts` checks that `/judges`, `/judges/:step`, `/messages`, `/loads` and `/loads/:id[/:tab]` still resolve where they always did.
+
+**Type blend.** The landing talks to a person, so its own type leads. Every product surface inside it (phones, mail, dock clock, stamp, amounts, load ids) keeps Door 05 type, so it reads as the same product as the console.
+
+| Family | Role on the landing | Why |
+|---|---|---|
+| **Young Serif** 400 | Headlines, the refusal quotes, the storyboard step names | A sturdy serif with soft ball terminals; warm and plain-spoken next to the dock signage faces |
+| **Figtree** 400/600/700 | Body, buttons, nav | A round geometric sans, open at small sizes |
+| **IBM Plex Mono** 500 | Kickers and small uppercase tags, set on a highlight bar | A neutral mono that sits beside Overpass Mono without competing |
+
+All three are OFL, self-hosted from `@fontsource` (latin subsets), pinned exact.
+
+**Tokens** (scoped to `.lp` in `landing.css`): `--serif`, `--sans`, `--tag`; `--door` `#dfe3df` and `--door-rib` `#cdd2cd` (the roll-up door plate and the kicker bar). Colours are Door 05's, with the same meanings: safety yellow is money and billable time (plus the primary button, as in the console).
+
+| Component | File | Notes |
+|---|---|---|
+| Story | `story.ts` | Builds six chapters (Dispatched, Arrived, Notice, Released, Approved, Filed) from the featured WhatsApp load's recorded read-API responses and its two emails, picking records by purpose. No message, time or email is written by hand; changing `FEATURED.whatsapp` changes the hero |
+| HeroPlayer | `HeroPlayer.tsx` | The recorded load, one record at a time, on the device that received it: driver's phone, receiver's inbox, dispatcher's phone. A plate drawn as a roll-up door with a hazard bumper. Chapter list with recorded times (desktop), six seekable segments, play/pause and replay, the recorded time of the current frame, a one-line caption and the provenance line. Plays once when 35% in view, pauses out of view |
+| Phone, Mail | `Devices.tsx` | The phone reuses the console's `.phone`/`.bub` classes; a tap shows a press ripple on the button before the reply. The mail view stops at the signature separator (the hashes are in the console) and names attachments plainly |
+| Storyboard | `HeroPlayer.tsx` | Reduced motion: all six chapters at once, as numbered frames (3 columns, 2 under 1080 px, 1 under 640 px) |
+| WaitScene | `WaitScene.tsx` | A pinned scroll scene on sign black: a flat truck backs onto door 05 while the dot-matrix clock runs from the arrival pin to the release pin (white, then safety yellow once billable), the track fills (free time dashed, billable striped) and the stamp and amount land. Every number comes from the load. Under reduced motion it is drawn once at its last frame and does not pin |
+| Refusals | `Landing.tsx` | The five refusals as quotes, each answered in one sentence with a mono proof chip of the load's own times and a "See it" link to its judge step |
+| Numbers | `Landing.tsx` | A sentence that fills from grey to ink as it scrolls, and three ATRI figures that count up once (the money figure carries the hazard rule) |
+| Try, Closing, Footer | `Landing.tsx` | The DEMO steps on sign black; the judge path and console CTAs; console links and the fictional-companies line |
+
+**Motion:** message beat 1050 ms, button press 560 ms, mail hold 4.6 s, device swap 420 ms opacity and 520 ms lift on `--ease`, bubble rise 300 ms; count-up 1.2 s; the wait scene and the fill sentence follow the scroll. Under `prefers-reduced-motion` nothing autoplays or animates.
+
+**Copy:** the first viewport stays near 40 words. The hero says where its records come from ("Recorded from a real load on a real phone, <date>. WhatsApp server times, EDT. The companies are fictional.").
