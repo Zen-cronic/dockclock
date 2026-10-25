@@ -226,3 +226,24 @@ describe("static hero", () => {
     expect(html.match(/class="bub /g)?.length).toBe(driverShown.size);
   });
 });
+
+// The landing and the console's client read the recorded responses through one lookup.
+describe("recorded responses", () => {
+  it("gives the landing the hero's email bodies through the shared lookup", () => {
+    const s = heroStory()!;
+    for (const key of ["notice", "filed"] as const) {
+      const screen = s.chapters.find((c) => c.key === key)!.screen;
+      expect(screen.kind === "mail" && screen.body, key).toBeTruthy();
+    }
+  });
+
+  it("still finds the lists, the load files and the live captures for the console", async () => {
+    const { hasRecordedDetail, recordedCaptures } = await import("../src/model/client.js");
+    const { fixtureFor, loadFixtureModules } = await import("../src/model/fixtures.js");
+    expect(hasRecordedDetail(HERO_LOAD)).toBe(true);
+    expect(Object.keys(loadFixtureModules).some((k) => k.includes("/live/") || !k.includes("/loads/"))).toBe(false);
+    expect(() => fixtureFor("/api/overview")).toThrow(/no fixture/);
+    const live = Object.keys(import.meta.glob("../fixtures/api/loads/live/*.json")).map((k) => k.split("/").pop()!.split(".")[0]!);
+    if (live[0]) expect(recordedCaptures(live[0]).length).toBeGreaterThan(0);
+  });
+});

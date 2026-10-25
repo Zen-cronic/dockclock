@@ -12,11 +12,15 @@ import { detailFromReplay, feedFromDetails, overviewFromDetails } from "./fromRe
 import type { ConsoleEmail, FeedRow, LoadDetail, LoadSummary, Overview, Source } from "./model.js";
 import { FEATURED } from "../featured.js";
 import { ApiFetchError, failureOf, ONE_SHOT_RETRIES, oneShotDelay, POLL_MS, refetchMs, withFallback, type Sourced } from "./fetching.js";
+import { fixtureFor as recordedFixture, fixturePhotoUrl, loadFixtureModules } from "./fixtures.js";
 
 const replayModules = import.meta.glob<ReplaySnapshot>("../../replay/*.json", { eager: true, import: "default" });
 const replays: ReplaySnapshot[] = Object.values(replayModules).sort((a, b) => (b.clock.arrivedAt ?? "").localeCompare(a.clock.arrivedAt ?? ""));
-const fixtureModules = import.meta.glob<unknown>("../../fixtures/api/**/*.json", { eager: true, import: "default" });
-const fixturePhotos = import.meta.glob<string>("../../fixtures/api/photos/*", { eager: true, query: "?url", import: "default" });
+// Every recorded response: the load files (shared with the landing) and the rest.
+const fixtureModules: Record<string, unknown> = {
+  ...loadFixtureModules,
+  ...import.meta.glob<unknown>(["../../fixtures/api/**/*.json", "!../../fixtures/api/loads/*.json"], { eager: true, import: "default" }),
+};
 
 export const FEATURED_LOAD = FEATURED.whatsapp;
 export const FEATURED_RCS_LOAD = FEATURED.rcs;
@@ -44,21 +48,7 @@ function mode(): Mode {
   return env === "fixtures" || env === "replay" ? env : "live";
 }
 
-// Fixture lookup by API path: tries the likely file layouts under site/fixtures/api/.
-function fixtureFor(path: string): unknown {
-  const [route = "", query = ""] = path.replace(/^\/api\//, "").split("?");
-  const channel = new URLSearchParams(query).get("channel");
-  // site/fixtures/api layout: overview, loads, messages[.channel], loads/<id>[.pack|.emails.<id>]
-  const names = [
-    channel ? `${route}.${channel}` : route,
-    route.replace(/^loads\/([^/]+)\/(.+)$/, (_m, id: string, rest: string) => `loads/${id}.${rest.replace(/\//g, ".")}`),
-  ];
-  for (const [key, value] of Object.entries(fixtureModules)) {
-    const rel = key.replace(/^.*fixtures\/api\//, "").replace(/\.json$/, "");
-    if (names.includes(rel)) return value;
-  }
-  throw new Error(`no fixture for ${path}`);
-}
+const fixtureFor = (path: string): unknown => recordedFixture(path, fixtureModules);
 
 // Whether a load's full record is available from the recorded responses (some loads are listed
 // with a summary only).
@@ -84,12 +74,6 @@ export function recordedCaptures(loadId: string): Capture[] {
     out.push({ status: m[1]!, asOf: r.data.clock.asOf, detail: detailFromApi(r.data, "fixture", fixturePhotoUrl) });
   }
   return out.sort((a, b) => a.asOf.localeCompare(b.asOf));
-}
-
-function fixturePhotoUrl(u: string): string {
-  const name = u.split("/").pop() ?? u;
-  const hit = Object.entries(fixturePhotos).find(([k]) => k.endsWith(`/${name}`));
-  return hit ? hit[1] : u;
 }
 
 async function get<T>(path: string, m: Mode): Promise<Api.ApiResponse<T>> {

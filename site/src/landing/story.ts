@@ -6,21 +6,17 @@ import { detailFromApi } from "../model/fromApi.js";
 import type { ConsoleEmail, ConsoleMessage, LoadDetail } from "../model/model.js";
 import type { ClockEndedBy } from "../copy/provenance.js";
 import { FEATURED } from "../featured.js";
+import { fixtureFor, fixturePhotoUrl } from "../model/fixtures.js";
 
 export const HERO_LOAD = FEATURED.whatsapp;
 
-type Fixture<T> = { data: T };
-const files = import.meta.glob<Fixture<unknown>>("../../fixtures/api/loads/*.json", { eager: true, import: "default" });
-const photoFiles = import.meta.glob<string>("../../fixtures/api/photos/*", { eager: true, query: "?url", import: "default" });
-
-function photoUrl(u: string): string {
-  const name = u.split("/").pop() ?? u;
-  return Object.entries(photoFiles).find(([k]) => k.endsWith(`/${name}`))?.[1] ?? u;
-}
-
-function fixture<T>(name: string): T | null {
-  const hit = Object.entries(files).find(([k]) => k.endsWith(`/loads/${name}.json`));
-  return hit ? (hit[1].data as T) : null;
+// The recorded response's data at an API path, or null when there is no such file.
+function recorded<T>(path: string): T | null {
+  try {
+    return ((fixtureFor(path) as { data?: T }).data ?? null) as T | null;
+  } catch {
+    return null;
+  }
 }
 
 export type Screen =
@@ -111,9 +107,9 @@ export function buildStory(view: Api.LoadView, bodies: Partial<Record<"notice" |
 }
 
 export function heroStory(): Story | null {
-  const view = fixture<Api.LoadView>(HERO_LOAD);
+  const view = recorded<Api.LoadView>(`/api/loads/${HERO_LOAD}`);
   if (!view) return null;
-  const notice = fixture<{ body?: string }>(`${HERO_LOAD}.emails.notice`);
-  const claim = fixture<{ body?: string }>(`${HERO_LOAD}.emails.claim`);
-  return buildStory(view, { ...(notice?.body ? { notice: notice.body } : {}), ...(claim?.body ? { claim: claim.body } : {}) }, photoUrl);
+  const notice = recorded<{ body?: string }>(`/api/loads/${HERO_LOAD}/emails/notice`);
+  const claim = recorded<{ body?: string }>(`/api/loads/${HERO_LOAD}/emails/claim`);
+  return buildStory(view, { ...(notice?.body ? { notice: notice.body } : {}), ...(claim?.body ? { claim: claim.body } : {}) }, fixturePhotoUrl);
 }
