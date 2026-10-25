@@ -6,7 +6,7 @@ import { routeTree, type RouteName } from "../src/routes/table.js";
 import { readFileSync } from "node:fs";
 import type { LoadView } from "../src/api.js";
 import { HERO_LOAD, buildStory, heroStory } from "../src/landing/story.js";
-import { Provenance, Storyboard } from "../src/landing/HeroPlayer.js";
+import { Provenance, StaticHero, Storyboard } from "../src/landing/HeroPlayer.js";
 import { WaitScene } from "../src/landing/WaitScene.js";
 import { stayProofWords } from "../src/copy/provenance.js";
 
@@ -196,5 +196,33 @@ describe("wait scene on other loads", () => {
 
   it("says the rest were owed on the hero load", () => {
     expect(wait(raw(HERO_LOAD).data)).toMatch(/minutes at the door\. 5 were free\. The rest were owed\./);
+  });
+});
+
+// Reduced motion shows one still frame: the filed claim, or the last chapter on its own device.
+describe("static hero", () => {
+  const raw = (name: string) => JSON.parse(readFileSync(new URL(`../fixtures/api/loads/${name}.json`, import.meta.url), "utf8")) as { data: LoadView };
+  const still = (v: LoadView) => {
+    const story = buildStory(v, {})!;
+    return { story, html: renderToStaticMarkup(createElement(StaticHero, { story, onPlay: () => {} })) };
+  };
+
+  it("shows the filed claim in the receiver's inbox", () => {
+    const { html } = still(raw(HERO_LOAD).data);
+    expect(html).toContain("Receiver&#x27;s inbox");
+  });
+
+  it("labels and draws the last chapter's phone when no claim was emailed", () => {
+    const v = structuredClone(raw("SMOKE-DEMO-mvh3xsdv").data);
+    v.emails = v.emails.filter((e) => e.purpose !== "claim");
+    const { story, html } = still(v);
+    const last = story.chapters.at(-1)!;
+    expect(last.screen).toEqual({ kind: "phone", party: "driver" });
+    expect(html).toContain("Driver&#x27;s phone");
+    expect(html).not.toContain("Receiver&#x27;s inbox");
+    // The phone holds the driver's messages up to that chapter's end, not an empty plate.
+    const driverShown = new Set(story.chapters.flatMap((c) => c.beats.flatMap((b) => (b.message?.party === "driver" ? [b.message.id] : []))));
+    expect(driverShown.size).toBeGreaterThan(0);
+    expect(html.match(/class="bub /g)?.length).toBe(driverShown.size);
   });
 });

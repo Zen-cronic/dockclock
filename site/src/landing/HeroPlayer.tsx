@@ -68,6 +68,10 @@ function useMailLines(area: RefObject<HTMLDivElement | null>, narrow: boolean): 
 
 const SCREEN_LABEL = { driver: "Driver's phone", dispatcher: "Dispatcher's phone", mail: "Receiver's inbox" } as const;
 
+function screenLabel(ch: Chapter): string {
+  return SCREEN_LABEL[ch.screen.kind === "mail" ? "mail" : ch.screen.party];
+}
+
 function screenKey(ch: Chapter): string {
   return ch.screen.kind === "mail" ? `mail-${ch.key}` : ch.screen.party;
 }
@@ -144,7 +148,7 @@ export function HeroPlayer({ story }: { story: Story }) {
 
       <div className="lp-stagewrap" ref={stage}>
         <div className="lp-plate">
-          <span className="lp-who" key={active}>{SCREEN_LABEL[ch.screen.kind === "mail" ? "mail" : ch.screen.party]}</span>
+          <span className="lp-who" key={active}>{screenLabel(ch)}</span>
           <div className="lp-stage" id="lp-stage" ref={area}>
             <div className={`lp-dev ${active === "driver" ? "on" : ""}`} aria-hidden={active !== "driver"}>
               <Phone party="driver" messages={driverMsgs} timeZone={tz} pressing={v.pressing} tapped={v.tapped} anyLocation={any} bolPhoto={story.bolPhoto} />
@@ -181,7 +185,7 @@ export function HeroPlayer({ story }: { story: Story }) {
           </div>
         </div>
         <p className="lp-caption" key={ch.key}>
-          <span className="n">{String(v.chapter + 1).padStart(2, "0")} {ch.label} <span className="role">∙ {SCREEN_LABEL[ch.screen.kind === "mail" ? "mail" : ch.screen.party]}</span></span>
+          <span className="n">{String(v.chapter + 1).padStart(2, "0")} {ch.label} <span className="role">∙ {screenLabel(ch)}</span></span>
           {ch.caption}
         </p>
         <Provenance story={story} />
@@ -202,18 +206,32 @@ export function Provenance({ story }: { story: Story }) {
 }
 
 
-// Reduced motion, top of the page: the outcome (the filed claim in the receiver's inbox), still.
+// Reduced motion, top of the page: the outcome, still. That is the filed claim in the receiver's
+// inbox, or on a load with no claim email its last chapter, on the device that chapter shows, as
+// the player would leave it at that chapter's end.
 export function StaticHero({ story, onPlay }: { story: Story; onPlay: () => void }) {
   const filed = story.chapters.find((c) => c.screen.kind === "mail" && c.key === "filed") ?? story.chapters.at(-1)!;
   const narrow = useMedia("(max-width: 640px)", false);
   const area = useRef<HTMLDivElement>(null);
   const lines = useMailLines(area, narrow);
+  const tz = story.load.timeZone;
+  const steps = useMemo(() => stepsOf(story.chapters), [story.chapters]);
+  const index = story.chapters.indexOf(filed);
+  const end = steps.findLastIndex((s) => s.c === index);
+  const v = view(steps, end);
+  const screen = filed.screen;
   return (
     <div className="lp-stagewrap">
       <div className="lp-plate">
-        <span className="lp-who">{SCREEN_LABEL.mail}</span>
+        <span className="lp-who">{screenLabel(filed)}</span>
         <div className="lp-stage" ref={area}>
-          <div className="lp-dev on">{filed.screen.kind === "mail" && <Mail email={filed.screen.email} body={filed.screen.body} timeZone={story.load.timeZone} lines={lines} cols={narrow ? 44 : 62} />}</div>
+          <div className="lp-dev on">
+            {screen.kind === "mail" ? (
+              <Mail email={screen.email} body={screen.body} timeZone={tz} lines={lines} cols={narrow ? 44 : 62} />
+            ) : (
+              <Phone party={screen.party} messages={story.thread[screen.party].filter((m) => v.shown.has(m.id))} timeZone={tz} tapped={v.tapped} {...(screen.party === "driver" ? { anyLocation: acceptsAnyLocation(story.load), bolPhoto: story.bolPhoto } : {})} />
+            )}
+          </div>
         </div>
         <div className="lp-sill">
           <button type="button" className="lp-play" onClick={onPlay}>
