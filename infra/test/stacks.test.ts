@@ -1,11 +1,12 @@
 import { App } from "aws-cdk-lib";
-import { Match, Template } from "aws-cdk-lib/assertions";
+import { Annotations, Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildApp } from "../lib/app.js";
-import { DESK_PLACEHOLDER_CONTEXT, deskSource } from "../lib/desk-stack.js";
+import { CoreStack } from "../lib/core-stack.js";
+import { DESK_PLACEHOLDER_CONTEXT, DeskStack, deskSource } from "../lib/desk-stack.js";
 
 const config = {
   account: "111122223333",
@@ -233,12 +234,26 @@ describe("desk source", () => {
     const dir = root();
     mkdirSync(join(dir, "site", "dist"), { recursive: true });
     writeFileSync(join(dir, "site", "dist", "index.html"), "<!doctype html>");
-    expect(deskSource(dir, false)).toBe(join(dir, "site", "dist"));
+    expect(deskSource(dir, false)).toEqual({ path: join(dir, "site", "dist"), error: null });
   });
 
   it("refuses to deploy the placeholder over the live console unless asked", () => {
     const dir = root();
-    expect(() => deskSource(dir, false)).toThrow(/site\/dist\/index.html is missing.*DOCKCLOCK_DESK_PLACEHOLDER=1/);
-    expect(deskSource(dir, true)).toBe(join(dir, "infra", "desk-placeholder"));
+    expect(deskSource(dir, false).error).toMatch(/site\/dist\/index.html is missing.*DOCKCLOCK_DESK_PLACEHOLDER=1/);
+    expect(deskSource(dir, true)).toEqual({ path: join(dir, "infra", "desk-placeholder"), error: null });
+  });
+
+  // The CDK CLI fails a deploy on error annotations of the stacks it deploys, so a missing site
+  // build stops only the desk: the Messaging and Agent stacks still synthesize and deploy.
+  it("puts a missing site build on the desk stack alone, as an error the CLI stops on", () => {
+    const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
+    const core = new CoreStack(app, "Core", { env: { account: config.account, region: config.region } });
+    const desk = new DeskStack(app, "Desk", { env: { account: config.account, region: config.region }, core, config, root: root() });
+    Annotations.fromStack(desk).hasError("*", Match.stringLikeRegexp("site/dist/index.html is missing"));
+    expect(Annotations.fromStack(core).findError("*", Match.anyValue())).toHaveLength(0);
+    const asked = new App({ context: { "aws:cdk:bundling-stacks": [], [DESK_PLACEHOLDER_CONTEXT]: "1" } });
+    const core2 = new CoreStack(asked, "Core", { env: { account: config.account, region: config.region } });
+    const placeholder = new DeskStack(asked, "Desk", { env: { account: config.account, region: config.region }, core: core2, config, root: root() });
+    expect(Annotations.fromStack(placeholder).findError("*", Match.anyValue())).toHaveLength(0);
   });
 });

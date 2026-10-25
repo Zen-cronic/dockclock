@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CfnOutput, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import { Annotations, CfnOutput, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import { S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import * as s3 from "aws-cdk-lib/aws-s3";
@@ -19,19 +19,32 @@ export const DESK_PLACEHOLDER_ENV = "DOCKCLOCK_DESK_PLACEHOLDER";
 export const DESK_PLACEHOLDER_CONTEXT = "dockclock:deskPlaceholder";
 
 // What the desk serves: the built site (site/dist). The deployment prunes the bucket, so deploying
-// the placeholder by accident would take the live console down; without a build it fails unless
-// the placeholder was asked for.
-export function deskSource(root = repoRoot, placeholder = process.env[DESK_PLACEHOLDER_ENV] === "1"): string {
+// the placeholder by accident would take the live console down. Without a build, and without the
+// placeholder asked for, the result carries an error that the DeskStack records as an annotation:
+// the CDK CLI then refuses to synthesize or deploy the desk, while every other stack still deploys
+// (the CLI checks annotations only on the stacks it was asked for).
+export interface DeskSource {
+  path: string;
+  error: string | null;
+}
+
+export function deskSource(root = repoRoot, placeholder = process.env[DESK_PLACEHOLDER_ENV] === "1"): DeskSource {
   const built = join(root, "site", "dist");
-  if (existsSync(join(built, "index.html"))) return built;
-  if (placeholder) return join(root, "infra", "desk-placeholder");
-  throw new Error(`site/dist/index.html is missing: run npm run build -w @dockclock/site before deploying the desk, or set ${DESK_PLACEHOLDER_ENV}=1 to deploy the placeholder page (it replaces the live console).`);
+  if (existsSync(join(built, "index.html"))) return { path: built, error: null };
+  const page = join(root, "infra", "desk-placeholder");
+  if (placeholder) return { path: page, error: null };
+  return {
+    path: page,
+    error: `site/dist/index.html is missing: run npm run build -w @dockclock/site before deploying the desk, or set ${DESK_PLACEHOLDER_ENV}=1 to deploy the placeholder page (it replaces the live console).`,
+  };
 }
 
 export interface DeskStackProps extends StackProps {
   core: CoreStack;
   config: DockClockConfig;
   source?: string;
+  // The repository root the site build is looked for in (tests point it at a temporary folder).
+  root?: string;
 }
 
 // The console and judge desk: a static app in a private bucket, served only through CloudFront
@@ -85,8 +98,12 @@ export class DeskStack extends Stack {
       // The page rewrite is on the default behaviour only, so /api/* reaches the API untouched.
       additionalBehaviors: { "/api/*": this.api.behavior() },
     });
+    const source = props.source
+      ? { path: props.source, error: null }
+      : deskSource(props.root ?? repoRoot, process.env[DESK_PLACEHOLDER_ENV] === "1" || String(this.node.tryGetContext(DESK_PLACEHOLDER_CONTEXT)) === "1");
+    if (source.error) Annotations.of(this).addError(source.error);
     new BucketDeployment(this, "DeployDesk", {
-      sources: [Source.asset(props.source ?? deskSource(repoRoot, process.env[DESK_PLACEHOLDER_ENV] === "1" || String(this.node.tryGetContext(DESK_PLACEHOLDER_CONTEXT)) === "1"))],
+      sources: [Source.asset(source.path)],
       destinationBucket: site,
       distribution: this.distribution,
       distributionPaths: ["/*"],
