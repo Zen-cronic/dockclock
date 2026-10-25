@@ -61,7 +61,7 @@ describe("landing hero", () => {
   it("renders the storyboard with its provenance and no phone numbers, message ids or coordinates", () => {
     const html = renderToStaticMarkup(createElement(Storyboard, { story: story! }));
     expect(html).toContain("Recorded from a real load on a real phone");
-    expect(html).toContain("The companies are fictional");
+    expect(html).toContain("the companies are fictional");
     expect(html).not.toMatch(/\+\d{7,}|\b\d{3}[\s.-]\d{3}[\s.-]\d{4}\b|\b\d{10,}\b/);
     expect(html).not.toMatch(/wamid/i);
     expect(html).not.toMatch(/-?\d{1,3}\.\d{4,}\s*,\s*-?\d{1,3}\.\d{4,}/);

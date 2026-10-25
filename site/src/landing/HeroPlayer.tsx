@@ -174,7 +174,7 @@ export function Provenance({ story }: { story: Story }) {
   const phone = load.summary.runKind === "phone";
   return (
     <p className="lp-prov">
-      {phone ? "Recorded from a real load on a real phone" : "Recorded from a test load with synthetic driver messages"}, {dateLong(first, load.timeZone)}. {phone ? "WhatsApp server times" : "Recorded times"}, {zoneName(first, load.timeZone)}. The companies are fictional.
+      {phone ? "Recorded from a real load on a real phone" : "Recorded from a test load with synthetic driver messages"}, {dateLong(first, load.timeZone)} ∙ {phone ? "WhatsApp server times" : "recorded times"}, {zoneName(first, load.timeZone)} ∙ the companies are fictional
     </p>
   );
 }

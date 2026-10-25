@@ -2,7 +2,7 @@ import "./fonts.js";
 import "./landing.css";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { clock } from "../format.js";
+import { clock, zoneName } from "../format.js";
 import { IconChevron } from "../ui/icons.js";
 import { HeroPlayer, StaticHero, Storyboard } from "./HeroPlayer.js";
 import { heroStory, type Story } from "./story.js";
@@ -140,8 +140,7 @@ function Refusals({ story }: { story: Story }) {
   return (
     <section className="lp-sec lp-refuse" aria-labelledby="refuse-h">
       <div className="lp-wrap">
-        <p className="lp-kicker">Five ways a claim gets refused</p>
-        <h2 id="refuse-h" className="lp-h2">Each one has an answer on file.</h2>
+        <h2 id="refuse-h" className="lp-h2">Five ways a claim gets refused. Each has an answer on file.</h2>
         <ol className="lp-rows">
           {rows.map((r, i) => (
             <li key={r.step}>
@@ -184,7 +183,6 @@ function Try() {
     <section className="lp-sec lp-try" id="try" aria-labelledby="try-h">
       <div className="lp-wrap lp-try-grid">
         <div>
-          <p className="lp-kicker dark">Ten minutes, one phone</p>
           <h2 id="try-h" className="lp-h2">Try it on your phone.</h2>
           <p className="lp-lead">Send <b className="kbd">DEMO</b> on WhatsApp to the number on our Devpost page. You play the driver and the dispatcher. Most of the ten minutes is the real wait.</p>
           <p className="lp-small">DEMO ES for Spanish, DEMO FR for Québécois French. The notice and claim emails go to our test mailbox, not to you.</p>
@@ -200,16 +198,33 @@ function Try() {
   );
 }
 
-function Closing() {
+function Closing({ story }: { story: Story | null }) {
+  const pack = story?.load.packSummary;
+  const tz = story?.load.timeZone ?? "America/New_York";
   return (
     <section className="lp-sec lp-close" aria-labelledby="close-h">
-      <div className="lp-wrap">
+      <div className="lp-wrap lp-close-grid">
+        <div>
           <h2 id="close-h" className="lp-h2">No phone? Follow one claim in five steps.</h2>
           <p className="lp-lead">The judge path reads the live system. Break the signature yourself, or change one fact and watch the verdict move.</p>
         <div className="lp-cta">
           <Go to="/judges" className="lp-btn primary lg">Open the judge path</Go>
           <Go to="/overview" className="lp-btn ghost lg">Open the console</Go>
         </div>
+        </div>
+        {pack && story && (
+          <figure className="lp-pack">
+            <figcaption>Evidence pack</figcaption>
+            <dl>
+              <dt>Load</dt><dd>{story.load.summary.id}</dd>
+              <dt>Sealed</dt><dd>{clock(pack.sealedAt, tz)} {zoneName(pack.sealedAt, tz)}</dd>
+              <dt>sha256</dt><dd className="hash">{pack.digestSha256.slice(0, 16)}…</dd>
+              <dt>Signature</dt><dd>AWS KMS, ECDSA P-256</dd>
+              <dt>Stored</dt><dd>S3 Object Lock</dd>
+            </dl>
+            <Go to="/judges/break" className="lp-golink">Change a byte and check it</Go>
+          </figure>
+        )}
       </div>
     </section>
   );
@@ -266,7 +281,7 @@ export function Landing() {
         {story && <Refusals story={story} />}
         <Numbers reduced={reduced} />
         <Try />
-        <Closing />
+        <Closing story={story} />
       </main>
       <Footer />
     </div>

@@ -88,7 +88,7 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
             <span className={`digits ${billing ? "bill" : ""}`} aria-hidden="true">{hms(elapsed)}</span>
           </div>
 
-          <svg className="lp-yard" viewBox={narrow ? "390 20 610 280" : "0 0 1000 300"} role="img" aria-label="A truck backed onto dock door 05">
+          <svg className="lp-yard" viewBox={narrow ? "270 30 730 270" : "0 34 1000 266"} role="img" aria-label="A truck backed onto dock door 05">
             {/* dock wall and door 05 */}
             <rect x="770" y="30" width="230" height="218" fill="#2a2d33" />
             <rect x="808" y="42" width="64" height="40" rx="3" fill="#121316" stroke="#ffc400" strokeWidth="4" />
@@ -152,7 +152,7 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
             </div>
             <div className="ticks">
               <span style={{ left: 0 }}>Arrived {clock(arrived, tz)}</span>
-              <span style={{ left: `${freeShare * 100}%` }}>Free time ends {clock(freeEnds, tz)}</span>
+              <span style={{ left: `${freeShare * 100}%` }}>{narrow ? "Free ends" : "Free time ends"} {clock(freeEnds, tz)}</span>
               <span style={{ left: "100%" }}>Released {clock(released, tz)}</span>
             </div>
           </div>
