@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { clock, dateLong, zoneName } from "../format.js";
 import type { ConsoleMessage } from "../model/model.js";
 import { IconPause, IconPlay } from "../ui/icons.js";
@@ -51,6 +51,21 @@ function view(steps: Step[], pos: number) {
   return { shown, tapped, pressing, chapter: steps[pos]!.c };
 }
 
+// How many lines of an email body fit the stage, so a mail view never runs under the sill.
+function useMailLines(area: RefObject<HTMLDivElement | null>, narrow: boolean): number {
+  const [lines, setLines] = useState(narrow ? 10 : 14);
+  useEffect(() => {
+    const el = area.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const fit = () => setLines(Math.max(4, Math.min(16, Math.floor((el.clientHeight - (narrow ? 310 : 232)) / 19))));
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [area, narrow]);
+  return lines;
+}
+
 const SCREEN_LABEL = { driver: "Driver's phone", dispatcher: "Dispatcher's phone", mail: "Receiver's inbox" } as const;
 
 function screenKey(ch: Chapter): string {
@@ -68,6 +83,8 @@ export function HeroPlayer({ story }: { story: Story }) {
   const [inView, setInView] = useState(false);
   const [pageShown, setPageShown] = useState(true);
   const stage = useRef<HTMLDivElement>(null);
+  const area = useRef<HTMLDivElement>(null);
+  const lines = useMailLines(area, narrow);
   const last = pos === steps.length - 1;
 
   // Plays while the stage is on screen and the tab is visible. The first check is synchronous, so
@@ -128,7 +145,7 @@ export function HeroPlayer({ story }: { story: Story }) {
       <div className="lp-stagewrap" ref={stage}>
         <div className="lp-plate">
           <span className="lp-who" key={active}>{SCREEN_LABEL[ch.screen.kind === "mail" ? "mail" : ch.screen.party]}</span>
-          <div className="lp-stage" id="lp-stage" aria-live="off">
+          <div className="lp-stage" id="lp-stage" ref={area}>
             <div className={`lp-dev ${active === "driver" ? "on" : ""}`} aria-hidden={active !== "driver"}>
               <Phone party="driver" messages={driverMsgs} timeZone={tz} pressing={v.pressing} tapped={v.tapped} anyLocation={any} />
             </div>
@@ -138,35 +155,33 @@ export function HeroPlayer({ story }: { story: Story }) {
             {chapters.filter((c) => c.screen.kind === "mail").map((c) =>
               c.screen.kind === "mail" ? (
                 <div key={c.key} className={`lp-dev lp-dev-mail ${active === `mail-${c.key}` ? "on" : ""}`} aria-hidden={active !== `mail-${c.key}`}>
-                  <Mail email={c.screen.email} body={c.screen.body} timeZone={tz} {...(narrow ? { lines: 11, cols: 44 } : {})} />
+                  <Mail email={c.screen.email} body={c.screen.body} timeZone={tz} lines={lines} cols={narrow ? 44 : 62} />
                 </div>
               ) : null,
             )}
           </div>
-          <div className="lp-bumper" aria-hidden="true" />
-        </div>
-
-        <div className="lp-controls">
-          <button type="button" className="lp-play" onClick={toggle} aria-controls="lp-stage">
-            {playing ? <IconPause /> : <IconPlay />}
-            <span>{playing ? "Pause" : "Play"}</span>
-          </button>
-          <div className="lp-track">
-            {chapters.map((c, i) => {
-              const start = firstOf[i]!;
-              const count = (firstOf[i + 1] ?? steps.length) - start;
-              const fill = i < v.chapter ? 1 : i > v.chapter ? 0 : (pos - start + 1) / count;
-              return (
-                <button type="button" key={c.key} className="lp-seg" onClick={() => seek(i)} aria-label={`Step ${i + 1}: ${c.label}`}>
-                  <i style={{ width: `${fill * 100}%`, transitionDuration: i === v.chapter && playing ? `${steps[pos]!.dur}ms` : "0ms" }} />
-                </button>
-              );
-            })}
+          <div className="lp-sill">
+            <button type="button" className="lp-play" onClick={toggle} aria-controls="lp-stage">
+              {playing ? <IconPause /> : <IconPlay />}
+              <span>{playing ? "Pause" : "Play"}</span>
+            </button>
+            <div className="lp-track">
+              {chapters.map((c, i) => {
+                const start = firstOf[i]!;
+                const count = (firstOf[i + 1] ?? steps.length) - start;
+                const fill = i < v.chapter ? 1 : i > v.chapter ? 0 : (pos - start + 1) / count;
+                return (
+                  <button type="button" key={c.key} className="lp-seg" onClick={() => seek(i)} aria-label={`Step ${i + 1}: ${c.label}`}>
+                    <i style={{ width: `${fill * 100}%`, transitionDuration: i === v.chapter && playing ? `${steps[pos]!.dur}ms` : "0ms" }} />
+                  </button>
+                );
+              })}
+            </div>
+            <span className="lp-now">{clock(now, tz)} {zoneName(now, tz)}</span>
           </div>
-          <span className="lp-now">{clock(now, tz)} {zoneName(now, tz)}</span>
         </div>
         <p className="lp-caption" key={ch.key}>
-          <span className="n">{String(v.chapter + 1).padStart(2, "0")} {ch.label}</span>
+          <span className="n">{String(v.chapter + 1).padStart(2, "0")} {ch.label} <span className="role">∙ {SCREEN_LABEL[ch.screen.kind === "mail" ? "mail" : ch.screen.party]}</span></span>
           {ch.caption}
         </p>
         <Provenance story={story} />
@@ -190,21 +205,23 @@ export function Provenance({ story }: { story: Story }) {
 // Reduced motion, top of the page: the outcome (the filed claim in the receiver's inbox), still.
 export function StaticHero({ story, onPlay }: { story: Story; onPlay: () => void }) {
   const filed = story.chapters.find((c) => c.screen.kind === "mail" && c.key === "filed") ?? story.chapters.at(-1)!;
+  const narrow = useMedia("(max-width: 640px)", false);
+  const area = useRef<HTMLDivElement>(null);
+  const lines = useMailLines(area, narrow);
   return (
     <div className="lp-stagewrap">
       <div className="lp-plate">
         <span className="lp-who">{SCREEN_LABEL.mail}</span>
-        <div className="lp-stage">
-          <div className="lp-dev on">{filed.screen.kind === "mail" && <Mail email={filed.screen.email} body={filed.screen.body} timeZone={story.load.timeZone} lines={11} />}</div>
+        <div className="lp-stage" ref={area}>
+          <div className="lp-dev on">{filed.screen.kind === "mail" && <Mail email={filed.screen.email} body={filed.screen.body} timeZone={story.load.timeZone} lines={lines} cols={narrow ? 44 : 62} />}</div>
         </div>
-        <div className="lp-bumper" aria-hidden="true" />
-      </div>
-      <div className="lp-controls lp-controls-still">
-        <button type="button" className="lp-play" onClick={onPlay}>
-          <IconPlay />
-          <span>Play the recording</span>
-        </button>
-        <span className="lp-now">Motion is reduced; every step is below.</span>
+        <div className="lp-sill">
+          <button type="button" className="lp-play" onClick={onPlay}>
+            <IconPlay />
+            <span>Play the recording</span>
+          </button>
+          <span className="lp-now">Motion is reduced. Every step is below.</span>
+        </div>
       </div>
       <p className="lp-caption">{filed.caption}</p>
     </div>
