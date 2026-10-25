@@ -136,7 +136,7 @@ White on safety yellow fails (1.4) and is never used.
 - Headings are nouns or short verbs: Overview, Messages, Loads, Proved, Signed, Filed. Definitions and explanations live in drawers.
 
 ## Landing (`/`, `src/landing/`)
-The landing page tells one recorded load from dispatch to the filed claim, then points to the phone demo, the judge path and the console. It is its own lazy chunk with its own fonts, so the console never loads them. Its routes live in `src/routes/table.ts`; `test/landing.test.ts` checks that `/judges`, `/judges/:step`, `/messages`, `/loads` and `/loads/:id[/:tab]` still resolve where they always did.
+The landing page tells one recorded load from dispatch to the filed claim, then points to the phone demo, the judge path and the console. It is in the first bundle, so it paints without a second round trip; the console's shell and routes, with the data client and its bundled replays, load on the first visit to a console path. Its routes live in `src/routes/table.ts`; `test/landing.test.ts` checks that `/judges`, `/judges/:step`, `/messages`, `/loads` and `/loads/:id[/:tab]` still resolve where they always did.
 
 **Type blend.** The landing talks to a person, so its own type leads. Every product surface inside it (phones, mail, dock clock, verdict sign, amounts, load ids) keeps Door 05 type, so it reads as the same product as the console.
 
