@@ -90,9 +90,9 @@ const VERDICT_WORDS: Record<"BILLABLE" | "NOT_BILLABLE" | "NEEDS_HUMAN" | "OPEN"
   OPEN: ["Open", "v-open"],
 };
 
-// Verdict: the contract's answer as a dock-door sign with a dock light and the word. Owed is the
-// usual case and is outlined; the exceptions (not owed, review) are filled sign black so they
-// stand out in a list. With `amountUsd` an owed verdict carries the money on a safety-yellow panel,
+// Verdict: the contract's answer as a dock-door sign with a dock light and the word. Owed, the
+// usual case, is outlined; not owed is filled sign black so it stands out in a list; review, which
+// waits for a person, has a dashed outline and an unlit ring. With `amountUsd` an owed verdict carries the money on a safety-yellow panel,
 // the one place yellow means money; a large refused sign shows $0.00 on a neutral panel. The word
 // is always text, so colour never carries the meaning alone.
 export function Verdict({ verdict, amountUsd, large }: { verdict: VerdictValue; amountUsd?: number | null | undefined; large?: boolean }) {

@@ -24,6 +24,12 @@ describe("verdict sign", () => {
     expect(html("NEEDS_HUMAN", 11.92)).not.toContain("amount");
   });
 
+  it("gives each verdict its own form: owed outlined, not owed filled, review dashed", () => {
+    expect(html("BILLABLE")).toContain('class="verdict v-owed "');
+    expect(html("NOT_BILLABLE")).toContain('class="verdict v-notowed "');
+    expect(html("NEEDS_HUMAN")).toContain('class="verdict v-review "');
+  });
+
   it("is a sign, not a rubber stamp", () => {
     const out = html("BILLABLE", 17.28, true);
     expect(out).toContain('class="verdict v-owed lg"');

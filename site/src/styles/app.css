@@ -177,7 +177,7 @@ a { color: inherit; }
 /* Stamp */
 /* Verdict: a dock-door sign. Sign-black plate, a dock light, the word; money on a safety-yellow panel. */
 .verdict { display: inline-flex; align-items: stretch; vertical-align: middle; border-radius: 4px; overflow: hidden; white-space: nowrap; }
-.verdict.v-notowed, .verdict.v-review { box-shadow: 0 1px 0 rgba(21, 23, 28, 0.18); }
+.verdict.v-notowed { box-shadow: 0 1px 0 rgba(21, 23, 28, 0.18); }
 .verdict .plate { display: inline-flex; align-items: center; gap: 7px; padding: 0 9px 0 8px; min-height: 26px; background: var(--side); color: #fff; font: 800 14px / 1 var(--display); letter-spacing: 0.07em; text-transform: uppercase; }
 .verdict .light { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--light, transparent); box-shadow: inset 0 0 0 1.5px var(--light-ring, var(--light, transparent)); }
 .verdict.v-owed { --light: var(--go); }
@@ -186,7 +186,8 @@ a { color: inherit; }
 .verdict.v-owed:has(.amount) .plate { border-radius: 0; }
 .verdict.v-open .plate { color: var(--ink-2); box-shadow: inset 0 0 0 1.5px var(--rule-2); }
 .verdict.v-notowed { --light: #ff6b5e; }
-.verdict.v-review { --light: transparent; --light-ring: #c9cdd3; }
+.verdict.v-review { --light: transparent; --light-ring: var(--ink-2); }
+.verdict.v-review .plate { background: var(--card); color: var(--ink); box-shadow: none; outline: 1.5px dashed var(--ink-2); outline-offset: -1.5px; border-radius: inherit; }
 .verdict.v-open .light { background: transparent; box-shadow: none; border: 1.5px dashed var(--ink-3); }
 .verdict .amount { display: inline-flex; align-items: center; padding: 0 9px; background: var(--safety); color: var(--ink); font: 800 15px / 1 var(--display); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
 .verdict .amount.none { background: var(--card-2); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--rule-2); }
