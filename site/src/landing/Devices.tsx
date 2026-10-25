@@ -89,10 +89,25 @@ function Bubble({ m, timeZone, pressing, tapped, anyLocation }: { m: ConsoleMess
   );
 }
 
+// Whole paragraphs only, up to about `max` lines; a cut says so.
+function clip(text: string | null, max: number, cols: number): string | null {
+  if (!text) return text;
+  const paras = text.split(/\n\n/);
+  const out: string[] = [];
+  let n = 0;
+  for (const p of paras) {
+    const h = p.split("\n").reduce((a, l) => a + Math.max(1, Math.ceil(l.length / cols)), 0) + 1;
+    if (out.length > 0 && n + h > max) return `${out.join("\n\n")}\n\n[…]`;
+    out.push(p);
+    n += h;
+  }
+  return out.join("\n\n");
+}
+
 // The claim and notice emails as they reached the receiver's test mailbox. The body stops at the
 // signature separator; the hashes below it are in the console's mail view.
-export function Mail({ email, body, timeZone }: { email: ConsoleEmail; body: string | null; timeZone: string }) {
-  const text = body?.split(/\n--\n/)[0]?.trim() ?? null;
+export function Mail({ email, body, timeZone, lines = 14, cols = 62 }: { email: ConsoleEmail; body: string | null; timeZone: string; lines?: number; cols?: number }) {
+  const text = clip(body?.split(/\n--\n/)[0]?.trim() ?? null, lines, cols);
   const at = email.deliveredAt ?? email.sentAt;
   return (
     <div className="lp-mail">

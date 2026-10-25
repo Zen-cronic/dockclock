@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { clock, usd } from "../format.js";
+import { useMedia } from "./media.js";
 import type { Story } from "./story.js";
 
 // "The wait": a pinned scroll scene. The truck backs onto Door 05 while the dock clock runs from the
@@ -42,6 +43,7 @@ function useScrollProgress(reduced: boolean) {
   return [ref, p] as const;
 }
 
+
 function hms(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, "0")).join(":");
@@ -49,6 +51,7 @@ function hms(seconds: number): string {
 
 export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }) {
   const [ref, p] = useScrollProgress(reduced);
+  const narrow = useMedia("(max-width: 640px)", false);
   const { load } = story;
   const tz = load.timeZone;
   const arrived = load.clock.arrivedAt!;
@@ -85,33 +88,57 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
             <span className={`digits ${billing ? "bill" : ""}`} aria-hidden="true">{hms(elapsed)}</span>
           </div>
 
-          <svg className="lp-yard" viewBox="0 0 1000 300" role="img" aria-label="A truck backed onto dock door 05">
-            <text className="lp-ghost" x={260 - p * 520} y="150">DETENTION</text>
+          <svg className="lp-yard" viewBox={narrow ? "390 20 610 280" : "0 0 1000 300"} role="img" aria-label="A truck backed onto dock door 05">
             {/* dock wall and door 05 */}
-            <rect x="770" y="30" width="230" height="210" fill="#2a2d33" />
-            <rect x="808" y="40" width="64" height="40" rx="3" fill="#121316" stroke="#ffc400" strokeWidth="4" />
-            <text x="840" y="72" textAnchor="middle" className="lp-door-no">05</text>
-            <rect x="790" y="92" width="160" height="148" fill="#eef0ee" />
-            {Array.from({ length: 9 }, (_, i) => <line key={i} x1="790" x2="950" y1={104 + i * 15} y2={104 + i * 15} stroke="#c3c8cf" strokeWidth="2" />)}
-            <rect x="782" y="226" width="12" height="22" fill="#ffc400" />
-            <rect x="946" y="226" width="12" height="22" fill="#ffc400" />
+            <rect x="770" y="30" width="230" height="218" fill="#2a2d33" />
+            <rect x="808" y="42" width="64" height="40" rx="3" fill="#121316" stroke="#ffc400" strokeWidth="4" />
+            <text x="840" y="73" textAnchor="middle" className="lp-door-no">05</text>
+            <rect x="786" y="92" width="168" height="8" fill="#454b57" />
+            <rect x="790" y="100" width="160" height="140" fill="#eef0ee" />
+            {Array.from({ length: 9 }, (_, i) => <line key={i} x1="790" x2="950" y1={112 + i * 14} y2={112 + i * 14} stroke="#c3c8cf" strokeWidth="2" />)}
+            <rect x="780" y="222" width="12" height="26" rx="2" fill="#ffc400" />
+            <rect x="948" y="222" width="12" height="26" rx="2" fill="#ffc400" />
             {/* road */}
             <rect x="0" y="248" width="1000" height="52" fill="#1c1e22" />
             <line x1="0" x2="1000" y1="274" y2="274" stroke="#5e6573" strokeWidth="3" strokeDasharray="26 22" />
-            {/* the truck: cab on the left, trailer reversing onto the door */}
+            {/* the truck: a day cab on the left, a dry van reversing onto the door */}
             <g transform={`translate(${-560 + drive * 568} 0)`}>
-              <rect x="420" y="108" width="356" height="122" rx="3" fill="#ffffff" />
-              {Array.from({ length: 10 }, (_, i) => <line key={i} x1={452 + i * 32} x2={452 + i * 32} y1="114" y2="224" stroke="#e1e4e1" strokeWidth="2" />)}
-              <text x="598" y="176" textAnchor="middle" className="lp-trailer-name">DEMO CARRIER</text>
-              <text x="598" y="196" textAnchor="middle" className="lp-trailer-sub">fictional</text>
-              <rect x="408" y="222" width="372" height="10" fill="#5e6573" />
-              <path d="M300 230 V150 Q300 128 322 124 L372 118 Q388 116 396 130 L414 168 V230 Z" fill="#c3c8cf" />
-              <path d="M330 136 L372 131 Q380 130 384 138 L396 164 H330 Z" fill="#15171c" />
-              <rect x="292" y="212" width="130" height="16" rx="3" fill="#454b57" />
-              {[340, 470, 506, 700, 736].map((cx) => (
+              {/* trailer body, rails, ribs, rear doors */}
+              <rect x="424" y="104" width="352" height="120" fill="#ffffff" />
+              <rect x="424" y="104" width="352" height="7" fill="#c3c8cf" />
+              <rect x="424" y="216" width="352" height="8" fill="#c3c8cf" />
+              {Array.from({ length: 9 }, (_, i) => <line key={i} x1={460 + i * 30} x2={460 + i * 30} y1="111" y2="216" stroke="#e1e4e1" strokeWidth="2" />)}
+              <rect x="736" y="111" width="40" height="105" fill="#f6f7f6" />
+              <line x1="756" x2="756" y1="111" y2="216" stroke="#c3c8cf" strokeWidth="2" />
+              <line x1="746" x2="746" y1="122" y2="206" stroke="#8b919c" strokeWidth="2" />
+              <line x1="766" x2="766" y1="122" y2="206" stroke="#8b919c" strokeWidth="2" />
+              <rect x="430" y="111" width="270" height="78" fill="#ffffff" />
+              <text x="565" y="160" textAnchor="middle" className="lp-trailer-name">DEMO CARRIER</text>
+              <text x="565" y="181" textAnchor="middle" className="lp-trailer-sub">fictional</text>
+              {/* chassis, landing gear, rear bumper */}
+              <rect x="560" y="224" width="200" height="8" fill="#454b57" />
+              <rect x="520" y="224" width="6" height="22" fill="#454b57" />
+              <rect x="512" y="244" width="22" height="4" fill="#454b57" />
+              <rect x="768" y="224" width="10" height="16" fill="#454b57" />
+              {/* tractor: frame, fuel tank, cab, hood, window, door, stack, mirror */}
+              <rect x="292" y="214" width="150" height="10" fill="#454b57" />
+              <rect x="402" y="208" width="38" height="8" rx="2" fill="#2a2d33" />
+              <rect x="360" y="206" width="42" height="18" rx="9" fill="#8b919c" />
+              <path d="M292 214 V176 Q292 168 300 167 L326 165 V122 Q326 112 336 111 L382 108 Q392 108 394 118 V214 Z" fill="#d5d9de" />
+              <path d="M338 122 H384 V156 H338 Z" fill="#15171c" />
+              <line x1="336" x2="336" y1="122" y2="206" stroke="#8b919c" strokeWidth="2" />
+              <line x1="386" x2="386" y1="162" y2="206" stroke="#8b919c" strokeWidth="2" />
+              <rect x="344" y="168" width="14" height="3" rx="1.5" fill="#8b919c" />
+              <rect x="298" y="180" width="26" height="4" fill="#c3c8cf" />
+              <rect x="298" y="188" width="26" height="4" fill="#c3c8cf" />
+              <rect x="400" y="70" width="7" height="140" rx="3" fill="#8b919c" />
+              <rect x="318" y="126" width="4" height="28" fill="#454b57" />
+              <rect x="286" y="206" width="12" height="18" rx="2" fill="#2a2d33" />
+              {[332, 470, 506, 700, 736].map((cx) => (
                 <g key={cx}>
                   <circle cx={cx} cy="236" r="18" fill="#0b0c0e" />
-                  <circle cx={cx} cy="236" r="7" fill="#8b919c" />
+                  <circle cx={cx} cy="236" r="9" fill="#8b919c" />
+                  <circle cx={cx} cy="236" r="3.5" fill="#454b57" />
                 </g>
               ))}
             </g>
@@ -130,7 +157,7 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
             </div>
           </div>
 
-          <div className="lp-verdict" style={{ opacity: stamp, transform: `scale(${1.25 - 0.25 * stamp}) rotate(-2deg)` }}>
+          <div className="lp-verdict" style={{ opacity: stamp, transform: `scale(${1.25 - 0.25 * stamp})` }}>
             <span className={`stamp lg ${owed ? "" : "red"}`}>{owed ? "Owed" : "Not owed"}</span>
             <span className="amt">{usd(amount)}</span>
             <span className="why">{billMin} billable minutes{filed ? `, claim filed ${clock(filed, tz)}` : ""}</span>

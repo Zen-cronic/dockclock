@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { clock } from "../format.js";
 import { IconChevron } from "../ui/icons.js";
-import { HeroPlayer, Storyboard } from "./HeroPlayer.js";
+import { HeroPlayer, StaticHero, Storyboard } from "./HeroPlayer.js";
 import { heroStory, type Story } from "./story.js";
+import { useMedia } from "./media.js";
 import { WaitScene } from "./WaitScene.js";
 
 // The landing page at "/". It tells one recorded load from dispatch to the filed claim, then
@@ -14,17 +15,6 @@ import { WaitScene } from "./WaitScene.js";
 
 export const TITLE = "DockClock: detention pay, claimed with proof";
 
-function useReducedMotion(): boolean {
-  const q = typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
-  const [reduced, setReduced] = useState(q ? q.matches : true);
-  useEffect(() => {
-    if (!q) return;
-    const on = () => setReduced(q.matches);
-    q.addEventListener("change", on);
-    return () => q.removeEventListener("change", on);
-  }, [q]);
-  return reduced;
-}
 
 function useInView<T extends Element>(threshold = 0.4) {
   const ref = useRef<T>(null);
@@ -176,13 +166,14 @@ function Numbers({ reduced }: { reduced: boolean }) {
     <section className="lp-sec lp-numbers" aria-labelledby="num-h">
       <div className="lp-wrap">
         <h2 id="num-h" className="visually-hidden">Why it matters</h2>
-        <FillText reduced={reduced} text="Most detention is never paid. Carriers get paid on about half the detention invoices they send, and many never send one." />
+        <FillText reduced={reduced} text="Half of detention invoices never get paid." />
+        <p className="lp-lead lp-num-lead">Carriers are paid on about 55% of the detention invoices they send. Many never send one, because they expect the refusal.</p>
         <dl className="lp-figs">
           <div><dt>of detention invoices get paid</dt><dd><CountUp value={55} format={(n) => `${Math.round(n)}%`} reduced={reduced} /></dd></div>
-          <div><dt>unpaid detention per driver, per year</dt><dd><CountUp value={5103.95} format={(n) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} reduced={reduced} /></dd></div>
+          <div><dt>unpaid detention per driver, per year</dt><dd><CountUp value={5104} format={money} reduced={reduced} /></dd></div>
           <div><dt>a year for a fleet of 40 trucks</dt><dd className="money"><CountUp value={204000} format={money} reduced={reduced} /></dd></div>
         </dl>
-        <p className="lp-source">ATRI, Costs and Consequences of Truck Driver Detention (2024), survey estimates. 40 drivers × $5,103.95 ≈ $204,000.</p>
+        <p className="lp-source">ATRI, Costs and Consequences of Truck Driver Detention (2024), survey estimates: $5,103.95 per truckload driver a year; 40 drivers × $5,103.95 ≈ $204,000.</p>
       </div>
     </section>
   );
@@ -212,11 +203,9 @@ function Try() {
 function Closing() {
   return (
     <section className="lp-sec lp-close" aria-labelledby="close-h">
-      <div className="lp-wrap lp-close-grid">
-        <div>
+      <div className="lp-wrap">
           <h2 id="close-h" className="lp-h2">No phone? Follow one claim in five steps.</h2>
           <p className="lp-lead">The judge path reads the live system. Break the signature yourself, or change one fact and watch the verdict move.</p>
-        </div>
         <div className="lp-cta">
           <Go to="/judges" className="lp-btn primary lg">Open the judge path</Go>
           <Go to="/overview" className="lp-btn ghost lg">Open the console</Go>
@@ -232,10 +221,10 @@ function Footer() {
       <div className="lp-wrap lp-foot-grid">
         <Brand />
         <nav aria-label="Console">
-          <Link to="/overview">Overview</Link>
+          <Link to="/overview">Console</Link>
           <Link to="/messages">Messages</Link>
           <Link to="/loads">Loads</Link>
-          <Link to="/judges">Judges path</Link>
+          <Link to="/judges">Judge path</Link>
         </nav>
         <p>Demo workspace. Every company on this site is fictional. Built on AWS End User Messaging Social, Step Functions, KMS, SES and Bedrock AgentCore.</p>
       </div>
@@ -244,7 +233,7 @@ function Footer() {
 }
 
 export function Landing() {
-  const reduced = useReducedMotion();
+  const reduced = useMedia("(prefers-reduced-motion: reduce)", true);
   const story = useMemo(() => heroStory(), []);
   useEffect(() => {
     const was = document.title;
@@ -269,7 +258,7 @@ export function Landing() {
                 <Go to="/judges" className="lp-btn ghost">Open the judge path</Go>
               </div>
             </div>
-            {story && !reduced && <HeroPlayer story={story} />}
+            {story && (reduced ? <StaticHero story={story} /> : <HeroPlayer story={story} />)}
           </div>
           {story && reduced && <Storyboard story={story} />}
         </section>

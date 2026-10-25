@@ -5,6 +5,7 @@ import { IconPause, IconPlay } from "../ui/icons.js";
 import { Mail, Phone } from "./Devices.js";
 import { acceptsAnyLocation } from "../copy/provenance.js";
 import type { Chapter, Story } from "./story.js";
+import { useMedia } from "./media.js";
 
 // The hero player: the recorded load, one record at a time, on the device that received it.
 // It plays once when it scrolls into view, holds on the last frame and offers a replay. Each
@@ -60,6 +61,7 @@ export function HeroPlayer({ story }: { story: Story }) {
   const tz = load.timeZone;
   const steps = useMemo(() => stepsOf(chapters), [chapters]);
   const firstOf = useMemo(() => chapters.map((_, c) => steps.findIndex((s) => s.c === c)), [chapters, steps]);
+  const narrow = useMedia("(max-width: 640px)", false);
   const [pos, setPos] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [visible, setVisible] = useState(false);
@@ -130,7 +132,7 @@ export function HeroPlayer({ story }: { story: Story }) {
             {chapters.filter((c) => c.screen.kind === "mail").map((c) =>
               c.screen.kind === "mail" ? (
                 <div key={c.key} className={`lp-dev lp-dev-mail ${active === `mail-${c.key}` ? "on" : ""}`} aria-hidden={active !== `mail-${c.key}`}>
-                  <Mail email={c.screen.email} body={c.screen.body} timeZone={tz} />
+                  <Mail email={c.screen.email} body={c.screen.body} timeZone={tz} {...(narrow ? { lines: 11, cols: 44 } : {})} />
                 </div>
               ) : null,
             )}
@@ -186,6 +188,23 @@ function ReplayIcon() {
   );
 }
 
+// Reduced motion, top of the page: the outcome (the filed claim in the receiver's inbox), still.
+export function StaticHero({ story }: { story: Story }) {
+  const filed = story.chapters.find((c) => c.screen.kind === "mail" && c.key === "filed") ?? story.chapters.at(-1)!;
+  return (
+    <div className="lp-stagewrap">
+      <div className="lp-plate">
+        <span className="lp-who">{SCREEN_LABEL.mail}</span>
+        <div className="lp-stage">
+          <div className="lp-dev on">{filed.screen.kind === "mail" && <Mail email={filed.screen.email} body={filed.screen.body} timeZone={story.load.timeZone} />}</div>
+        </div>
+        <div className="lp-bumper" aria-hidden="true" />
+      </div>
+      <p className="lp-caption">{filed.caption} Every step is below.</p>
+    </div>
+  );
+}
+
 // Reduced motion: every chapter at once, as a numbered storyboard.
 export function Storyboard({ story }: { story: Story }) {
   const tz = story.load.timeZone;
@@ -198,12 +217,14 @@ export function Storyboard({ story }: { story: Story }) {
           const tapped = new Set(c.beats.flatMap((b) => (b.tap ? [`${b.tap.messageId}:${b.tap.title}`] : [])));
           return (
             <li key={c.key} className="lp-frame">
-              <p className="lp-frame-h">
-                <span className="n">{String(i + 1).padStart(2, "0")}</span>
-                <b>{c.label}</b>
-                <span className="t">{clock(c.at, tz)} {zoneName(c.at, tz)}</span>
-              </p>
-              <p className="lp-frame-c">{c.caption}</p>
+              <div className="lp-frame-band">
+                <p className="lp-frame-h">
+                  <span className="n">{String(i + 1).padStart(2, "0")}</span>
+                  <b>{c.label}</b>
+                  <span className="t">{clock(c.at, tz)} {zoneName(c.at, tz)}</span>
+                </p>
+                <p className="lp-frame-c">{c.caption}</p>
+              </div>
               <div className={`lp-frame-dev ${c.screen.kind === "mail" ? "mail" : ""}`}>
                 {c.screen.kind === "mail" ? <Mail email={c.screen.email} body={c.screen.body} timeZone={tz} /> : <Phone party={c.screen.party} messages={msgs} timeZone={tz} tapped={tapped} anyLocation={any} scroll={false} />}
               </div>
