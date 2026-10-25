@@ -804,3 +804,38 @@ a:hover .go { transform: translateX(2px); }
 .tl .dot { width: 9px; height: 9px; }
 .tl .dot:not(.money):not(.agent):not(.ok):not(.refused) { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rule-2); }
 .tl .dot.agent { background: #6d86ee; box-shadow: 0 0 0 1px var(--carbon); }
+
+/* Critique 2026-10-25 (round 5): clearer states */
+/* Switch rows keep the latch in its own column, so a long fact wraps beside it, never under it */
+.switch { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; }
+.switch .hint { margin-left: 0; text-align: right; }
+@media (max-width: 860px) {
+  .switch { grid-template-columns: 44px minmax(0, 1fr); align-items: start; row-gap: 2px; }
+  .switch input { grid-row: 1 / span 2; }
+  .switch .hint { grid-column: 2; margin-left: 0; text-align: left; flex-basis: auto; }
+}
+/* Off is an empty slot with a light lever; only an armed fact is sign black */
+.switch input { background: var(--card); box-shadow: inset 0 0 0 1.5px var(--rule-2); }
+.switch input::after { background: var(--rule-2); box-shadow: none; }
+.switch input::before { box-shadow: none; }
+.switch input:checked { background: var(--side); box-shadow: inset 0 0 0 1.5px var(--side); }
+.switch input:checked::after { background: #fff; }
+
+/* Steps: passed = sign black with a green light, current = safety, still to come = an empty plate */
+.steps a:not(.done):not(.active) .n { background: var(--card-2); color: var(--ink-3); box-shadow: inset -1px 0 0 var(--rule-2); }
+@media (max-width: 860px) {
+  .steps-m .segs i:not(.done):not(.current) { background: var(--card-2); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--rule-2); }
+}
+
+/* Receipts: one cell per state is enough when nothing arrived; a stopped send is one dashed cell */
+.receipt { color: var(--ink-2); }
+.receipt.r-not_sent .cells i { display: none; }
+.receipt.r-not_sent .cells i:first-child { display: block; width: 10px; height: 10px; border: 1.5px dashed var(--ink-3); border-radius: 2px; }
+.receipt.r-not_sent, .receipt.r-received { color: var(--ink-2); }
+.receipt.r-received .cells i { border-radius: 2px; box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+.receipt .cells i { box-shadow: inset 0 0 0 1px var(--ink-3); }
+
+/* Loading: the readout at a readable size */
+.empty .led { font-size: 40px; color: var(--ink); }
+.empty .ledots i { width: 8px; height: 8px; background: var(--ink); }
+.empty.loading { padding: 96px 24px; }
