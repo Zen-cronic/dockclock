@@ -39,6 +39,17 @@ export function provedWords(d: Pick<LoadDetail, "run" | "clock" | "verdict" | "s
   };
 }
 
+// The landing's provenance line: what the recording is, and whose clock its times are. A real
+// phone run (phone or demo, with recorded driver times) carries the channel's server times; any
+// other load says its driver messages were synthetic.
+export function recordingWords(d: Pick<LoadDetail, "run" | "clock" | "verdict" | "summary">): { source: string; times: string } {
+  if (!isRealPhoneRun(d)) return { source: "Recorded from a test load with synthetic driver messages", times: "recorded times" };
+  return {
+    source: d.run.kind === "demo" ? "Recorded from a demo run on a real phone" : "Recorded from a real load on a real phone",
+    times: provedWords(d).short,
+  };
+}
+
 // A workflow step that was skipped or failed, with the reason the workflow recorded.
 export function stoppedStep(d: Pick<LoadDetail, "workflow">, key: string) {
   return d.workflow?.find((w) => w.key === key && (w.state === "failed" || w.state === "skipped")) ?? null;

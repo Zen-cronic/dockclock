@@ -6,7 +6,7 @@ import { routeTree, type RouteName } from "../src/routes/table.js";
 import { readFileSync } from "node:fs";
 import type { LoadView } from "../src/api.js";
 import { HERO_LOAD, buildStory, heroStory } from "../src/landing/story.js";
-import { Storyboard } from "../src/landing/HeroPlayer.js";
+import { Provenance, Storyboard } from "../src/landing/HeroPlayer.js";
 
 const names: RouteName[] = ["landing", "shell", "overview", "messages", "loads", "load", "judges", "fallback"];
 const tree = routeTree(Object.fromEntries(names.map((n) => [n, n])) as Record<RouteName, string>);
@@ -100,6 +100,22 @@ describe("landing hero on another load", () => {
     expect(s.chapters.map((c) => c.key)).toEqual(["dispatched", "arrived", "released", "filed"]);
     const shown = s.chapters.flatMap((c) => c.beats.flatMap((b) => (b.message ? [b.message.id] : [])));
     expect(new Set(shown).size).toBe(shown.length);
+  });
+
+  it("states real-phone provenance from the records, not from the run kind alone", () => {
+    const line = (kind: "phone" | "demo" | "integration", times: "recorded" | "synthetic_input") => {
+      const v = base();
+      v.summary.runKind = kind;
+      v.run.kind = kind;
+      v.clock.driverTimes = times;
+      return renderToStaticMarkup(createElement(Provenance, { story: buildStory(v, {})! }));
+    };
+    // A DEMO run recorded on a real phone carries WhatsApp's server times.
+    expect(line("demo", "recorded")).toMatch(/real phone.*WhatsApp server times/);
+    // A phone run whose driver times were synthetic does not.
+    expect(line("phone", "synthetic_input")).toContain("test load with synthetic driver messages");
+    expect(line("phone", "synthetic_input")).not.toContain("WhatsApp server times");
+    expect(line("integration", "synthetic_input")).not.toMatch(/real phone|WhatsApp server times/);
   });
 
   it("shows the bill-of-lading photo only when it was readable", () => {

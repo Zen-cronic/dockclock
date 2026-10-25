@@ -3,7 +3,7 @@ import { clock, dateLong, zoneName } from "../format.js";
 import type { ConsoleMessage } from "../model/model.js";
 import { IconPause, IconPlay } from "../ui/icons.js";
 import { Mail, Phone } from "./Devices.js";
-import { acceptsAnyLocation } from "../copy/provenance.js";
+import { acceptsAnyLocation, recordingWords } from "../copy/provenance.js";
 import type { Chapter, Story } from "./story.js";
 import { useMedia } from "./media.js";
 
@@ -193,10 +193,10 @@ export function HeroPlayer({ story }: { story: Story }) {
 export function Provenance({ story }: { story: Story }) {
   const { load } = story;
   const first = story.thread.driver[0]?.at ?? load.summary.createdAt;
-  const phone = load.summary.runKind === "phone";
+  const words = recordingWords(load);
   return (
     <p className="lp-prov">
-      {phone ? "Recorded from a real load on a real phone" : "Recorded from a test load with synthetic driver messages"}, {dateLong(first, load.timeZone)} ∙ {phone ? "WhatsApp server times" : "recorded times"}, {zoneName(first, load.timeZone)} ∙ the companies are fictional
+      {words.source}, {dateLong(first, load.timeZone)} ∙ {words.times}, {zoneName(first, load.timeZone)} ∙ the companies are fictional
     </p>
   );
 }
