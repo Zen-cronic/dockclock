@@ -6,7 +6,7 @@ import { IconDoc, IconPin } from "../ui/icons.js";
 // The hero's devices. The phone reuses the console's phone-frame classes (.phone, .screen, .bub),
 // so a message looks the same here as on /loads/<id>. Times are the recorded ones.
 
-export function Phone({ party, messages, timeZone, pressing, tapped, anyLocation, scroll = true }: {
+export function Phone({ party, messages, timeZone, pressing, tapped, anyLocation, bolPhoto = null, scroll = true }: {
   party: "driver" | "dispatcher";
   messages: ConsoleMessage[];
   timeZone: string;
@@ -14,6 +14,7 @@ export function Phone({ party, messages, timeZone, pressing, tapped, anyLocation
   pressing?: string | null;
   tapped?: Set<string>;
   anyLocation?: boolean;
+  bolPhoto?: string | null;
   scroll?: boolean;
 }) {
   const chat = useRef<HTMLDivElement>(null);
@@ -38,7 +39,7 @@ export function Phone({ party, messages, timeZone, pressing, tapped, anyLocation
         <div className="chat" ref={chat}>
           {day && <span className="daychip">{day}</span>}
           {messages.map((m) => (
-            <Bubble key={m.id} m={m} timeZone={timeZone} pressing={pressing} tapped={tapped} anyLocation={anyLocation} />
+            <Bubble key={m.id} m={m} timeZone={timeZone} pressing={pressing} tapped={tapped} anyLocation={anyLocation} bolPhoto={bolPhoto} />
           ))}
         </div>
       </div>
@@ -46,7 +47,7 @@ export function Phone({ party, messages, timeZone, pressing, tapped, anyLocation
   );
 }
 
-function Bubble({ m, timeZone, pressing, tapped, anyLocation }: { m: ConsoleMessage; timeZone: string; pressing?: string | null | undefined; tapped?: Set<string> | undefined; anyLocation?: boolean | undefined }) {
+function Bubble({ m, timeZone, pressing, tapped, anyLocation, bolPhoto }: { m: ConsoleMessage; timeZone: string; pressing?: string | null | undefined; tapped?: Set<string> | undefined; anyLocation?: boolean | undefined; bolPhoto?: string | null | undefined }) {
   const ticks = m.status === "read" || m.status === "delivered" ? " ✓✓" : m.status === "sent" ? " ✓" : "";
   let inner: ReactNode = m.body;
   if (m.kind === "location")
@@ -60,6 +61,7 @@ function Bubble({ m, timeZone, pressing, tapped, anyLocation }: { m: ConsoleMess
     const f = m.flowReply;
     inner = (
       <>
+        {bolPhoto && <img className="lp-bol" src={bolPhoto} alt="The signed bill of lading, photographed in the camera-only form" />}
         Bill of lading form
         <span className="kv">
           <span>In</span><b>{f.inTime ?? "—"}</b>

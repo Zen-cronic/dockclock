@@ -147,7 +147,7 @@ export function HeroPlayer({ story }: { story: Story }) {
           <span className="lp-who" key={active}>{SCREEN_LABEL[ch.screen.kind === "mail" ? "mail" : ch.screen.party]}</span>
           <div className="lp-stage" id="lp-stage" ref={area}>
             <div className={`lp-dev ${active === "driver" ? "on" : ""}`} aria-hidden={active !== "driver"}>
-              <Phone party="driver" messages={driverMsgs} timeZone={tz} pressing={v.pressing} tapped={v.tapped} anyLocation={any} />
+              <Phone party="driver" messages={driverMsgs} timeZone={tz} pressing={v.pressing} tapped={v.tapped} anyLocation={any} bolPhoto={story.bolPhoto} />
             </div>
             <div className={`lp-dev ${active === "dispatcher" ? "on" : ""}`} aria-hidden={active !== "dispatcher"}>
               <Phone party="dispatcher" messages={dispatchMsgs} timeZone={tz} pressing={v.pressing} tapped={v.tapped} />
@@ -165,7 +165,7 @@ export function HeroPlayer({ story }: { story: Story }) {
               {playing ? <IconPause /> : <IconPlay />}
               <span>{playing ? "Pause" : "Play"}</span>
             </button>
-            <div className="lp-track">
+            <div className="lp-track" style={{ gridTemplateColumns: `repeat(${chapters.length}, minmax(0, 1fr))` }}>
               {chapters.map((c, i) => {
                 const start = firstOf[i]!;
                 const count = (firstOf[i + 1] ?? steps.length) - start;
@@ -249,7 +249,7 @@ export function Storyboard({ story }: { story: Story }) {
                 <p className="lp-frame-c">{c.caption}</p>
               </div>
               <div className={`lp-frame-dev ${c.screen.kind === "mail" ? "mail" : ""}`}>
-                {c.screen.kind === "mail" ? <Mail email={c.screen.email} body={c.screen.body} timeZone={tz} /> : <Phone party={c.screen.party} messages={msgs} timeZone={tz} tapped={tapped} anyLocation={any} scroll={false} />}
+                {c.screen.kind === "mail" ? <Mail email={c.screen.email} body={c.screen.body} timeZone={tz} /> : <Phone party={c.screen.party} messages={msgs} timeZone={tz} tapped={tapped} anyLocation={any} bolPhoto={story.bolPhoto} scroll={false} />}
               </div>
             </li>
           );

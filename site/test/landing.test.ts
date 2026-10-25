@@ -3,7 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { matchRoutes, type RouteObject } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { routeTree, type RouteName } from "../src/routes/table.js";
-import { HERO_LOAD, heroStory } from "../src/landing/story.js";
+import { readFileSync } from "node:fs";
+import type { LoadView } from "../src/api.js";
+import { HERO_LOAD, buildStory, heroStory } from "../src/landing/story.js";
 import { Storyboard } from "../src/landing/HeroPlayer.js";
 
 const names: RouteName[] = ["landing", "shell", "overview", "messages", "loads", "load", "judges", "fallback"];
@@ -65,5 +67,46 @@ describe("landing hero", () => {
     expect(html).not.toMatch(/\+\d{7,}|\b\d{3}[\s.-]\d{3}[\s.-]\d{4}\b|\b\d{10,}\b/);
     expect(html).not.toMatch(/wamid/i);
     expect(html).not.toMatch(/-?\d{1,3}\.\d{4,}\s*,\s*-?\d{1,3}\.\d{4,}/);
+  });
+});
+
+// Monday's take replaces the hero load: a load whose Released tap ends the clock and whose photo is
+// readable must build the same story. SMOKE-DEMO-mvh3xsdv stands in (a test load on the demo clause).
+describe("landing hero on another load", () => {
+  const raw = (name: string) => JSON.parse(readFileSync(new URL(`../fixtures/api/loads/${name}.json`, import.meta.url), "utf8")) as { data: LoadView };
+  const base = () => structuredClone(raw("SMOKE-DEMO-mvh3xsdv").data);
+
+  it("builds its chapters from a load with a Released tap (approved by a test command, so no dispatcher phone)", () => {
+    const s = buildStory(base(), {})!;
+    expect(s.chapters.map((c) => c.key)).toEqual(["dispatched", "arrived", "notice", "released", "filed"]);
+    expect(s.chapters.find((c) => c.key === "released")!.at).toBe(s.load.clock.releasedAt);
+  });
+
+  it("dates Released at the tap when the tap ended the clock", () => {
+    const v = base();
+    const tap = v.messages.filter((m) => m.purpose === "tap_released").at(-1)!;
+    v.clock.releasedAt = tap.at;
+    const s = buildStory(v, {})!;
+    const released = s.chapters.find((c) => c.key === "released")!;
+    expect(released.at).toBe(tap.at);
+    expect(released.caption).toMatch(/Released tap stops the clock/);
+  });
+
+  it("leaves out chapters the load does not have", () => {
+    const v = base();
+    v.emails = v.emails.filter((e) => e.purpose !== "notice");
+    v.messages = v.messages.filter((m) => m.party !== "dispatcher");
+    const s = buildStory(v, {})!;
+    expect(s.chapters.map((c) => c.key)).toEqual(["dispatched", "arrived", "released", "filed"]);
+    const shown = s.chapters.flatMap((c) => c.beats.flatMap((b) => (b.message ? [b.message.id] : [])));
+    expect(new Set(shown).size).toBe(shown.length);
+  });
+
+  it("shows the bill-of-lading photo only when it was readable", () => {
+    const v = base();
+    expect(buildStory(v, {})!.bolPhoto).toBeNull();
+    v.photos = [{ ...(raw("LIVE-mvlb0qzq").data.photos[0]!), legible: true, url: "photos/LIVE-mvlb0qzq-1.jpg" }];
+    expect(buildStory(v, {}, (u) => `/x/${u}`)!.bolPhoto).toBe("/x/photos/LIVE-mvlb0qzq-1.jpg");
+    expect(heroStory()!.bolPhoto).toBeNull();
   });
 });
