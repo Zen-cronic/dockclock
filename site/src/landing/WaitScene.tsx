@@ -85,7 +85,11 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
 
           <div className="lp-led" aria-label={`At the dock ${hms(stay)}`}>
             <span className="lbl">At the dock</span>
-            <span className={`digits ${billing ? "bill" : ""}`} aria-hidden="true">{hms(elapsed)}</span>
+            <span className={`digits ${billing ? "bill" : ""}`} aria-hidden="true">
+              {hms(elapsed).split(":").map((part, i) => (
+                <span key={i}>{i > 0 && <span className="colon">:</span>}{part}</span>
+              ))}
+            </span>
           </div>
 
           <svg className="lp-yard" viewBox={narrow ? "270 30 730 270" : "0 34 1000 266"} role="img" aria-label="A truck backed onto dock door 05">

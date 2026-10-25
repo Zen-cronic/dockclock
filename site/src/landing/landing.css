@@ -142,6 +142,7 @@
 .lp-led .lbl { display: block; font: 500 12px var(--tag); letter-spacing: 0.08em; text-transform: uppercase; color: var(--nav-dim); margin-bottom: 6px; }
 .lp-led .digits { font: 800 clamp(48px, 7vw, 96px) / 0.9 var(--led); color: #fff; font-variant-numeric: tabular-nums; }
 .lp-led .digits.bill { color: var(--safety); }
+.lp-led .digits .colon { font-family: var(--display); font-weight: 800; margin: 0 0.04em; position: relative; top: -0.06em; }
 .lp-yard { grid-area: yard; width: 100%; height: auto; margin-top: 16px; overflow: visible; }
 .lp-door-no { font: 800 30px var(--display); fill: #fff; }
 .lp-trailer-name { font: 800 30px var(--display); letter-spacing: 0.08em; fill: var(--ink); }
