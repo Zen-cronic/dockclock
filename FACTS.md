@@ -12,8 +12,8 @@ Status key:
 ## The number
 | Claim | Evidence | Status |
 |---|---|---|
-| On 24 test loads the contracts owe $1,245.00; DockClock would claim $1,245.00 (100%) with 9 claims, all valid, 0 owed claims held back | `npm run scorecard` (`packages/clause-engine/src/scorecard.ts`); fixtures `fixtures/loads.json`, sha256 `d45ae579e3be6ba4a649754f0cefeee8d7f97f4f7e45a9852a224aff1c66c403`; the CLI exits non-zero on any mismatch; CI runs it | tested |
-| The 2-hour rule asks for $2,554.18; $1,314.18 (51%) is denied, more than the clause pays, or unprovable | Same run: `baseline.claimedUsd`, `baseline.uncollectibleUsd` (deniable $800.01 + more than the clause pays $226.67 + unprovable $287.50) | tested |
+| On 24 test loads, the contracts owe $1,245.00; DockClock would claim $1,245.00 (100%) in 9 claims, all valid, holding back no owed claim and claiming nothing a contract denies | `npm run scorecard` (`packages/clause-engine/src/scorecard.ts`); fixtures `fixtures/loads.json`, sha256 `d45ae579e3be6ba4a649754f0cefeee8d7f97f4f7e45a9852a224aff1c66c403`; the CLI exits non-zero on any mismatch; CI runs it | tested |
+| The 2-hour rule asks for $2,554.18; $1,314.18 (51%) would not be paid: the contract denies it, pays less than was asked, or the carrier can't prove it | Same run: `baseline.claimedUsd`, `baseline.uncollectibleUsd` (deniable $800.01 + more than the clause pays $226.67 + unprovable $287.50) | tested |
 | The truth column is hand-labelled by us, so this is a consistency check, not field data | `packages/clause-engine/src/fixtures.ts` | stated limit |
 
 ## The problem
@@ -29,6 +29,7 @@ Status key:
 | Claim | Evidence | Status |
 |---|---|---|
 | Dispatch template, Arrived → location request → pin, Released → pin, camera-only BOL Flow, photo stored and hashed, KMS-signed pack under Object Lock | Live load `LIVE-mve0rrez` (2026-10-18). The pack signature verifies with the KMS public key, and the photo's sha256 matches the pack | live (phone) |
+| The whole loop from a real phone: Arrived, both pins, the camera-only Flow, the notice delivered before free time ended, sealed BILLABLE $17.28, the dispatcher's real Approve tap, and the agent's claim email 11.7 s after the tap. The photo could not be read and was marked not legible, and the Flow times were the pre-filled ones, so they do not count as independent proof | Load `LIVE-mvlb0qzq` (2026-10-23, the judge-demo yard, which accepts any location): approval tapped 14:56:55 EDT, claim sent 14:57:07 EDT and delivered to our test mailbox; the read API's recorded responses in `site/fixtures/api/loads/LIVE-mvlb0qzq.json` | live (phone) |
 | Templates approved in en_US, es_MX and fr_CA | `list-whatsapp-message-templates` read 2026-10-18 18:20 EDT: all 9 DockClock templates (3 names × 3 languages) APPROVED. Only en_US has been sent live | live (integration) |
 | Duplicate, out-of-order and stale taps are refused | `services/test/lifecycle.test.ts`; `npm run smoke:lifecycle` on the deployed stack | tested + live (integration) |
 | A failed send is replayed, not lost | `services/test/ingest.test.ts` ("replays a send that failed…") | tested |
@@ -93,6 +94,7 @@ Status key:
 | Claim | Status |
 |---|---|
 | Dispute replies | planned |
+| Judges can't try RCS on their own phones: our RCS agent is a Google testing agent that reaches only registered testers, so the console shows RCS from recorded runs | stated limit |
 | Live phone runs of the photo retake and the judge path | planned |
 | A judge-desk replay of a load driven from a real phone (needed for recorded outbound message text) | planned |
 | Demo video | planned |

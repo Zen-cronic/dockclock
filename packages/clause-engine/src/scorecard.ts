@@ -106,17 +106,19 @@ function percent(part: number, whole: number): string {
 }
 
 // README line one. Leads with money owed, not with how many claims were filed, and never says
-// "all" unless it is true.
+// "all" or "nothing a contract denies", or leaves out a held-back owed claim, unless the numbers say so.
 export function headline(card: Scorecard): string {
   const d = card.dockclock;
   const b = card.baseline;
   const claimedOfOwed = d.claimedUsd - Math.max(0, d.claimedUsd - (card.contractPayableUsd - d.unclaimedPayableUsd));
-  const valid = d.filedValid === d.filed ? `all ${d.filed} valid` : `${d.filedValid} of ${d.filed} valid`;
+  const allValid = d.filedValid === d.filed;
+  const valid = allValid ? `all ${d.filed} valid` : `${d.filedValid} of ${d.filed} valid`;
+  const held = d.falseHolds === 0 ? "" : `, holding back ${d.falseHolds} owed claim${d.falseHolds === 1 ? "" : "s"}`;
   return (
-    `On ${card.loads} test loads the contracts owe ${usd(card.contractPayableUsd)} in detention. ` +
-    `DockClock would claim ${usd(claimedOfOwed)} of it (${percent(claimedOfOwed, card.contractPayableUsd)}) and nothing a contract denies: ` +
-    `${d.filed} claims, ${valid}, ${d.falseHolds} owed claims held back. ` +
+    `On ${card.loads} test loads, the contracts owe ${usd(card.contractPayableUsd)} in detention. ` +
+    `DockClock would claim ${usd(claimedOfOwed)} of it (${percent(claimedOfOwed, card.contractPayableUsd)}) in ${d.filed} claims, ${valid}${held}` +
+    `${allValid ? ", and nothing a contract denies" : ""}. ` +
     `The common "bill every stop over 2 hours" rule asks for ${usd(b.claimedUsd)}, and ${usd(b.uncollectibleUsd)} of that ` +
-    `(${percent(b.uncollectibleUsd, b.claimedUsd)}) is denied by the contract, more than the clause pays, or unprovable.`
+    `(${percent(b.uncollectibleUsd, b.claimedUsd)}) would not be paid: the contract denies it, pays less than was asked, or the carrier can't prove it.`
   );
 }
