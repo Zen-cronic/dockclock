@@ -200,6 +200,24 @@ describe("release: the Released tap ends the clock, the pin confirms it", () => 
     }
   });
 
+  // Readable pins, a signed paper and every other time readable is billable; any one time the rules
+  // read that does not parse holds it, so a claim is never filed on paper or an appointment nobody
+  // could check. "undefined" is what a missing appointment becomes as a string.
+  it.each([
+    ["the paper's out time", { bol: { signed: true, checkIn: "2026-10-23T18:00:00.000Z", checkOut: "not a time" } }],
+    ["the paper's in time", { bol: { signed: true, checkIn: "garbage", checkOut: "2026-10-23T18:15:00.000Z" } }],
+    ["the appointment", { appointmentAt: "undefined" }],
+    ["the notice", { noticeSentAt: "not a time" }],
+    ["the time of the decision", { evaluatedAt: "" }],
+  ])("sends a load to a person when %s does not parse", (_label, change) => {
+    const signed = { ...tapped(15, 18), bol: { signed: true, checkIn: at(0), checkOut: at(15) } };
+    for (const accepted of [["signed_bol_times"], clause.acceptedRecords] as const) {
+      const strict = { ...clause, acceptedRecords: [...accepted] };
+      expect(evaluate(signed, strict).verdict).toBe("BILLABLE");
+      expect(evaluate({ ...signed, ...change }, strict)).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["TIMESTAMP_UNREADABLE"], amountUsd: 0 });
+    }
+  });
+
   it("sends a load to a person when the tap's or the arrival's time does not parse", () => {
     const base = tapped(15, 18);
     expect(evaluate({ ...base, released: { ...base.released!, at: "not a time" } }, clause)).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["TIMESTAMP_UNREADABLE"] });

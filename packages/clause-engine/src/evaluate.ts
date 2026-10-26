@@ -19,7 +19,7 @@ function roundCents(usd: number): number {
 
 function hasRecord(load: LoadEvidence, accepted: readonly RecordKind[]): boolean {
   const bol = load.bol;
-  const signedBol = Boolean(bol?.signed && bol.checkIn && bol.checkOut);
+  const signedBol = Boolean(bol?.signed && timeReadable(bol.checkIn) && timeReadable(bol.checkOut));
   return accepted.some((kind) => {
     if (kind === "signed_bol_times") return signedBol;
     if (kind === "status_214") return load.status214;
@@ -34,11 +34,13 @@ export function releasePinLate(load: Pick<LoadEvidence, "released" | "releasePin
   return releasePinCheck(released.at, releasePinAt) === "late";
 }
 
-// True when a time the verdict needs does not parse: the arrival pin, the release (the tap, or the
-// pin on older loads) or the pin that confirms the tap. Fail safe: such a load goes to a person,
-// never to a claim, and is never read as inside or outside a window.
-export function timestampUnreadable(load: Pick<LoadEvidence, "arrived" | "released" | "releasePinAt">): boolean {
-  const times = [load.arrived?.at, load.released?.at, load.releasePinAt];
+// True when a time the verdict reads does not parse: the arrival pin, the release (the tap, or the
+// pin on older loads), the pin that confirms the tap, the paper's written in and out times, the
+// appointment, the notice and the time of the decision. Fail safe: such a load goes to a person,
+// never to a claim, and is never read as inside or outside a window. A time that was never recorded
+// (null) is not unreadable; the rules that need it decide on its absence.
+export function timestampUnreadable(load: Pick<LoadEvidence, "arrived" | "released" | "releasePinAt" | "appointmentAt" | "bol" | "noticeSentAt" | "evaluatedAt">): boolean {
+  const times = [load.arrived?.at, load.released?.at, load.releasePinAt, load.bol?.checkIn, load.bol?.checkOut, load.appointmentAt, load.noticeSentAt, load.evaluatedAt];
   return times.some((at) => at !== undefined && at !== null && !timeReadable(at));
 }
 
