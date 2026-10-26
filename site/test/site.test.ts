@@ -436,3 +436,41 @@ describe("run labels", () => {
     expect(runLabel({ run: { ...d.run, kind: "integration" } })).toBe("Test run");
   });
 });
+
+// A stored time that does not parse is shown as unreadable: formatting it would throw a RangeError,
+// and the error boundary would replace the whole console.
+describe("a load with a time that does not parse", async () => {
+  const { createElement } = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { DockClockBand, UNREADABLE_BAND_NOTE } = await import("../src/ui/DockClockBand.js");
+  const { SignedFields } = await import("../src/routes/Judges.js");
+  const { LoadHeader } = await import("../src/routes/LoadDetail.js");
+  const { clock, clockSeconds, dateLong, dayLabel, UNREADABLE, zoneName } = await import("../src/format.js");
+  const body = JSON.parse(readFileSync(new URL("SMOKE-DEMO-mvh3xsdv.json", fxDir), "utf8")) as { data: LoadView };
+
+  it("formats it as unreadable instead of throwing", () => {
+    for (const bad of ["not a time", "garbage", ""]) {
+      expect(clock(bad, "America/New_York")).toBe(UNREADABLE);
+      expect(clockSeconds(bad, "America/New_York")).toBe(UNREADABLE);
+      expect(zoneName(bad, "America/New_York")).toBe("America/New_York");
+      expect(() => dateLong(bad, "America/New_York")).not.toThrow();
+      expect(() => dayLabel(bad, "America/New_York")).not.toThrow();
+    }
+  });
+
+  it("draws the dock clock, the signed fields and the header with the time left off", () => {
+    const v = structuredClone(body.data);
+    Object.assign(v.clock, { arrivedAt: "garbage", releasedAt: "not a time", releasePinAt: "not a time" });
+    v.timeline[0]!.at = "garbage";
+    const d = detailFromApi(v, "fixture");
+    for (const el of [createElement(DockClockBand, { load: d }), createElement(DockClockBand, { load: d, cursor: "garbage", compact: true }), createElement(SignedFields, { load: d }), createElement(LoadHeader, { load: d })]) {
+      const html = renderToStaticMarkup(el);
+      expect(html).not.toMatch(/NaN|Invalid/);
+    }
+    expect(renderToStaticMarkup(createElement(DockClockBand, { load: d }))).toContain("The Released tap&#x27;s time could not be read");
+    // Only the arrival unreadable: the release line has nothing to say, the band note does.
+    const arrival = structuredClone(body.data);
+    Object.assign(arrival.clock, { arrivedAt: "garbage" });
+    expect(renderToStaticMarkup(createElement(DockClockBand, { load: detailFromApi(arrival, "fixture") }))).toContain(UNREADABLE_BAND_NOTE);
+  });
+});

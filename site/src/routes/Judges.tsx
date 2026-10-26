@@ -74,7 +74,7 @@ function SignatureCard({ load, broken }: { load: LoadDetail; broken?: boolean })
 }
 
 // The fields the signature covers, on the canary copy: what a judge is checking.
-function SignedFields({ load }: { load: LoadDetail }) {
+export function SignedFields({ load }: { load: LoadDetail }) {
   const c = load.clock;
   return (
     <div className="printout signedslip">

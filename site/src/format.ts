@@ -1,20 +1,36 @@
-// Every time on the page is shown in the facility's time zone, with the zone named.
+// Every time on the page is shown in the facility's time zone, with the zone named. A stored time
+// that does not parse is shown as UNREADABLE (the engine sends such a load to a person); formatting
+// it would throw a RangeError and take the whole page down.
+
+export const UNREADABLE = "--:--";
+
+// The instant, or null when the stored time does not parse.
+export function instant(iso: string | null | undefined): Date | null {
+  if (typeof iso !== "string") return null;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? new Date(ms) : null;
+}
 
 export function clock(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+  const at = instant(iso);
+  return at ? new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }).format(at) : UNREADABLE;
 }
 
 export function clockSeconds(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date(iso));
+  const at = instant(iso);
+  return at ? new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", second: "2-digit" }).format(at) : UNREADABLE;
 }
 
 export function zoneName(iso: string, timeZone: string): string {
-  const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "short" }).formatToParts(new Date(iso)).find((p) => p.type === "timeZoneName");
+  const at = instant(iso);
+  if (!at) return timeZone;
+  const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "short" }).formatToParts(at).find((p) => p.type === "timeZoneName");
   return part?.value ?? timeZone;
 }
 
 export function dateLong(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", { timeZone, month: "long", day: "numeric", year: "numeric" }).format(new Date(iso));
+  const at = instant(iso);
+  return at ? new Intl.DateTimeFormat("en-US", { timeZone, month: "long", day: "numeric", year: "numeric" }).format(at) : "an unreadable date";
 }
 
 export function usd(n: number): string {
@@ -51,7 +67,8 @@ export function escapeHtml(s: string): string {
 
 // "Oct 23" in the facility's zone.
 export function dayShort(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" }).format(new Date(iso));
+  const at = instant(iso);
+  return at ? new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" }).format(at) : UNREADABLE;
 }
 
 // The time alone when it falls on the same local day as `ref`, else "Oct 23, 3:31 AM".
