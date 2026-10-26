@@ -197,6 +197,20 @@ describe("wait scene on other loads", () => {
     expect(html).not.toContain("Free time ends");
   });
 
+  it("heads a stay inside free time by the verdict: a person decides, or no outcome before sealing", () => {
+    const v = structuredClone(raw(HERO_LOAD).data);
+    v.clock.releasedAt = new Date(Date.parse(v.clock.arrivedAt!) + 3 * 60_000).toISOString();
+    v.verdict!.verdict = "NEEDS_HUMAN";
+    const held = wait(v);
+    expect(held).toContain("3 minutes at the door, inside 5 minutes of free time. A person decides whether anything is owed.");
+    expect(held).not.toContain("Nothing was owed");
+    const unsealed = structuredClone(v);
+    unsealed.verdict = null;
+    const html = wait(unsealed);
+    expect(html).toContain("3 minutes at the door, inside 5 minutes of free time.</h2>");
+    expect(html).not.toMatch(/Nothing was owed|were owed|A person decides/);
+  });
+
   it("says the contract owed nothing past free time on a load it does not pay", () => {
     const html = wait(raw("SMOKE-RCS-mvh338l2").data);
     expect(html).toContain("The contract owed nothing for the rest.");

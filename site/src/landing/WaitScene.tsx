@@ -48,10 +48,20 @@ function useScrollProgress(reduced: boolean) {
 
 
 // The heading's last sentence: what the time past free time came to, by the recorded verdict.
+// The heading's last sentence follows the recorded verdict, never the clock alone. A load not yet
+// sealed (no verdict) gets no outcome sentence.
 function restWords(verdict: string | null | undefined): string {
   if (verdict === "BILLABLE") return "The rest were owed.";
   if (verdict === "NOT_BILLABLE") return "The contract owed nothing for the rest.";
-  return "A person decides the rest.";
+  if (verdict === "NEEDS_HUMAN") return "A person decides the rest.";
+  return "";
+}
+
+// Released inside free time nothing can be owed, so a billable verdict there is not repeated.
+export function insideFreeWords(verdict: string | null | undefined): string {
+  if (verdict === "NOT_BILLABLE") return "Nothing was owed.";
+  if (verdict === "NEEDS_HUMAN") return "A person decides whether anything is owed.";
+  return "";
 }
 
 function hms(seconds: number): string {
@@ -86,7 +96,8 @@ export function WaitScene({ story, reduced }: { story: Story; reduced: boolean }
 
   if (!(stay > 0) || !Number.isFinite(free)) return null;
   const stayMin = Math.round(stay / 60);
-  const heading = insideFree ? `${stayMin} minutes at the door, inside ${freeMin} minutes of free time. Nothing was owed.` : `${stayMin} minutes at the door. ${freeMin} were free. ${restWords(load.verdict?.verdict)}`;
+  const verdict = load.verdict?.verdict;
+  const heading = (insideFree ? `${stayMin} minutes at the door, inside ${freeMin} minutes of free time. ${insideFreeWords(verdict)}` : `${stayMin} minutes at the door. ${freeMin} were free. ${restWords(verdict)}`).trim();
 
   return (
     <section className={`lp-wait ${reduced ? "still" : ""}`} ref={ref} aria-labelledby="wait-h" id="wait">
