@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clockEndOf, pinConfirmsTap, pinMissedWindow, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, releasePinGapWords, releaseTimeOf } from "../src/index.js";
+import { clockEndOf, RELEASE_PIN_WINDOW_MINUTES, releasePinCheck, releasePinGapMinutes, releasePinGapWords, releaseTimeOf, timeReadable } from "../src/index.js";
 
 const TAP = "2026-10-23T18:32:59.000Z";
 const PIN = "2026-10-23T18:40:00.000Z";
@@ -23,12 +23,10 @@ describe("the release time", () => {
   it("confirms the tap only with a pin inside the window, before or after", () => {
     expect(releasePinGapMinutes(TAP, PIN)).toBeCloseTo(7.02, 2);
     const at = (minutes: number) => new Date(Date.parse(TAP) + minutes * 60_000).toISOString();
-    expect(pinConfirmsTap(TAP, at(RELEASE_PIN_WINDOW_MINUTES))).toBe(true);
-    expect(pinConfirmsTap(TAP, at(-RELEASE_PIN_WINDOW_MINUTES))).toBe(true);
-    expect(pinConfirmsTap(TAP, at(RELEASE_PIN_WINDOW_MINUTES + 0.5))).toBe(false);
-    expect(pinMissedWindow(TAP, at(RELEASE_PIN_WINDOW_MINUTES + 0.5))).toBe(true);
-    expect(pinMissedWindow(TAP, at(-RELEASE_PIN_WINDOW_MINUTES - 0.5))).toBe(true);
-    expect(pinMissedWindow(TAP, at(RELEASE_PIN_WINDOW_MINUTES))).toBe(false);
+    expect(releasePinCheck(TAP, at(RELEASE_PIN_WINDOW_MINUTES))).toBe("confirmed");
+    expect(releasePinCheck(TAP, at(-RELEASE_PIN_WINDOW_MINUTES))).toBe("confirmed");
+    expect(releasePinCheck(TAP, at(RELEASE_PIN_WINDOW_MINUTES + 0.5))).toBe("late");
+    expect(releasePinCheck(TAP, at(-RELEASE_PIN_WINDOW_MINUTES - 0.5))).toBe("late");
   });
 
   it("words the gap by its side of the tap and never rounds a missed window onto the limit", () => {
@@ -42,8 +40,14 @@ describe("the release time", () => {
     expect(releasePinGapWords(TAP, at(9 * 60 + 40))).toBe("10 min after");
   });
 
-  it("never calls a pin late on a time that does not parse", () => {
-    expect(pinMissedWindow(TAP, "not a time")).toBe(false);
-    expect(pinMissedWindow("", PIN)).toBe(false);
+  it("calls a time that does not parse unreadable: neither confirmed nor late", () => {
+    for (const [tap, pin] of [[TAP, "not a time"], ["", PIN], [TAP, ""], ["garbage", "garbage"]] as const) {
+      expect(releasePinCheck(tap, pin), `${tap} / ${pin}`).toBe("unreadable");
+    }
+    expect(timeReadable(TAP)).toBe(true);
+    expect(timeReadable("not a time")).toBe(false);
+    expect(timeReadable(undefined)).toBe(false);
+    // The words never print NaN.
+    expect(releasePinGapWords(TAP, "not a time")).not.toMatch(/NaN/);
   });
 });

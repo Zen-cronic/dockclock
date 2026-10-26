@@ -266,6 +266,17 @@ describe("the Released tap ends the clock; the pin confirms it", () => {
     expect(corroborate(load).confidence).toBe("low");
   });
 
+  it("records a pin time that does not parse as unconfirmed, with no NaN, and the engine holds the load", () => {
+    const load = tapped("not a time", { bol: { ...record().bol!, checkOut: "not a time either" } });
+    const result = evaluate(toLoadEvidence(load, "2026-10-13T18:00:00.000Z"), clauseById("lakeshore-foods"));
+    expect(result).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["TIMESTAMP_UNREADABLE"] });
+    const corroboration = corroborate(load);
+    expect(corroboration.signals.find((s) => s.name === "released_pin_confirms_tap")).toMatchObject({ ok: false, detail: expect.stringContaining("could not be read") });
+    expect(corroboration.signals.find((s) => s.name === "bol_out_matches_released_tap")).toMatchObject({ ok: false, detail: expect.stringMatching(/^a time could not be read/) });
+    expect(corroboration.confidence).toBe("low");
+    expect(JSON.stringify(corroboration)).not.toMatch(/NaN/);
+  });
+
   it("compares the paper's out time with the tap", () => {
     // Paper 17:22Z: 2 minutes after the tap, 7 before the pin. Both inside 15; the signal names the tap.
     const signals = corroborate(tapped("2026-10-13T17:29:00.000Z")).signals;

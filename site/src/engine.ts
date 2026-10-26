@@ -16,6 +16,7 @@ export const REASON_WORDS: Record<ReasonCode, string> = {
   SHIPPER_CONFIRMATION_REQUIRED: "the contract needs the shipper's confirmation",
   CAP_APPLIED: "the contract's cap applies",
   RELEASE_PIN_LATE: `the release location was not shared within ${RELEASE_PIN_WINDOW_MINUTES} minutes of tapping Released`,
+  TIMESTAMP_UNREADABLE: "an arrival or release time could not be read",
 };
 
 export function recordedEvidence(snap: ReplaySnapshot): LoadEvidence {

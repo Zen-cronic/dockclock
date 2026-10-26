@@ -179,6 +179,7 @@ export type ReasonCode =
   | "CLAIM_WINDOW_EXPIRED"
   | "SHIPPER_CONFIRMATION_REQUIRED"
   | "RELEASE_PIN_LATE"
+  | "TIMESTAMP_UNREADABLE"
   | "CAP_APPLIED";
 
 export interface VerdictInfo {

@@ -191,10 +191,22 @@ describe("release: the Released tap ends the clock, the pin confirms it", () => 
     expect(result).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["RELEASE_PIN_LATE"], amountUsd: 0 });
   });
 
-  it("does not hold a load for a release pin time that does not parse", () => {
-    const result = evaluate({ ...tapped(15, 18), releasePinAt: "not a time" }, clause);
-    expect(result.reasons).not.toContain("RELEASE_PIN_LATE");
-    expect(result.verdict).toBe("BILLABLE");
+  // Fail safe: a time the verdict needs that does not parse sends the load to a person, never to a
+  // claim, and is never called late or inside a window.
+  it("sends a load to a person when the release pin's time does not parse", () => {
+    for (const bad of ["not a time", ""]) {
+      const result = evaluate({ ...tapped(15, 18), releasePinAt: bad }, clause);
+      expect(result, bad).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["TIMESTAMP_UNREADABLE"], amountUsd: 0 });
+    }
+  });
+
+  it("sends a load to a person when the tap's or the arrival's time does not parse", () => {
+    const base = tapped(15, 18);
+    expect(evaluate({ ...base, released: { ...base.released!, at: "not a time" } }, clause)).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["TIMESTAMP_UNREADABLE"] });
+    expect(evaluate({ ...base, arrived: { ...base.arrived!, at: "not a time" } }, clause)).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["TIMESTAMP_UNREADABLE"], amountUsd: 0 });
+    const pinOnly: Partial<typeof base> = { ...base, released: { ...base.released!, at: "garbage" } };
+    delete pinOnly.releasePinAt;
+    expect(evaluate(pinOnly as typeof base, clause).verdict).toBe("NEEDS_HUMAN");
   });
 
   it("keeps the geofence check on the confirming pin", () => {

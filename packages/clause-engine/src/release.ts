@@ -42,25 +42,32 @@ export function releasePinGapMinutes(tapAt: string, pinAt: string): number {
   return (Date.parse(pinAt) - Date.parse(tapAt)) / 60_000;
 }
 
-// True when the release pin came close enough to the Released tap to confirm it.
-export function pinConfirmsTap(tapAt: string, pinAt: string): boolean {
-  return Math.abs(releasePinGapMinutes(tapAt, pinAt)) <= RELEASE_PIN_WINDOW_MINUTES;
+// Whether a stored time can be used at all: a string Date.parse reads.
+export function timeReadable(at: unknown): at is string {
+  return typeof at === "string" && Number.isFinite(Date.parse(at));
+}
+
+// How the release pin stands against the Released tap: "confirmed" within the window (either
+// side), "late" outside it, "unreadable" when either time does not parse. An unreadable time is
+// never read as confirmed or as late: the engine sends the load to a person (TIMESTAMP_UNREADABLE).
+// The engine, the evidence pack's signals, the console API and the site all decide here, so they
+// cannot disagree.
+export type ReleasePinCheck = "confirmed" | "late" | "unreadable";
+
+export function releasePinCheck(tapAt: string, pinAt: string): ReleasePinCheck {
+  if (!timeReadable(tapAt) || !timeReadable(pinAt)) return "unreadable";
+  return Math.abs(releasePinGapMinutes(tapAt, pinAt)) <= RELEASE_PIN_WINDOW_MINUTES ? "confirmed" : "late";
 }
 
 // How far the release pin was from the Released tap, in whole minutes, and on which side: "12 min
 // after", "15 min before". A pin outside the window never rounds down to the limit: 10.4 minutes
-// reads "10.4 min", so the words cannot show a failed pin as within it.
+// reads "10.4 min", so the words cannot show a failed pin as within it. Only for readable times
+// (releasePinCheck is not "unreadable"); otherwise it says the gap is unknown, never "NaN".
 export function releasePinGapWords(tapAt: string, pinAt: string): string {
   const gap = releasePinGapMinutes(tapAt, pinAt);
+  if (!Number.isFinite(gap)) return "an unknown time from";
   const size = Math.abs(gap);
   const rounded = Math.round(size);
   const shown = size > RELEASE_PIN_WINDOW_MINUTES && rounded <= RELEASE_PIN_WINDOW_MINUTES ? Math.ceil(size * 10) / 10 : rounded;
   return `${shown} min ${gap < 0 ? "before" : "after"}`;
-}
-
-// True when the release pin came too long after (or before) the Released tap: RELEASE_PIN_LATE.
-// Only a gap that can be measured is late, so a time that does not parse never sends the load to a
-// person. The engine, the console API and the site all decide "late" here, so they cannot disagree.
-export function pinMissedWindow(tapAt: string, pinAt: string): boolean {
-  return Math.abs(releasePinGapMinutes(tapAt, pinAt)) > RELEASE_PIN_WINDOW_MINUTES;
 }

@@ -1,5 +1,5 @@
 import type { BolReading, LoadEvidence } from "@dockclock/clause-engine";
-import { BOL_TOLERANCE_MINUTES, clockEndOf, pinConfirmsTap, releasePinGapWords, RELEASE_PIN_WINDOW_MINUTES, type ClockEnd } from "@dockclock/clause-engine";
+import { BOL_TOLERANCE_MINUTES, clockEndOf, releasePinCheck, releasePinGapWords, RELEASE_PIN_WINDOW_MINUTES, type ClockEnd } from "@dockclock/clause-engine";
 import { checkGeofence, type Facility, type LonLat } from "./geofence.js";
 
 export type Channel = "whatsapp" | "rcs";
@@ -88,6 +88,11 @@ function minutesApart(a: string, b: string): number {
   return Math.abs(Date.parse(a) - Date.parse(b)) / 60_000;
 }
 
+// A gap that cannot be measured (a time that does not parse) fails its check and says so.
+function gapWords(gap: number): string {
+  return Number.isFinite(gap) ? `${Math.round(gap)} min apart` : "a time could not be read";
+}
+
 // What ended the dock clock: the Released tap when one was recorded, else the release pin.
 export function releaseEnd(record: Pick<LoadRecord, "releasedTap" | "released">): ClockEnd | null {
   return clockEndOf(record);
@@ -137,10 +142,16 @@ export function corroborate(record: LoadRecord): Corroboration {
   }
   const tap = record.releasedTap ?? null;
   if (tap && record.released) {
+    // The same check the engine makes: a time that does not parse confirms nothing, and the engine
+    // sends the load to a person (TIMESTAMP_UNREADABLE).
+    const check = releasePinCheck(tap.serverAt, record.released.serverAt);
     signals.push({
       name: "released_pin_confirms_tap",
-      ok: pinConfirmsTap(tap.serverAt, record.released.serverAt),
-      detail: `pin ${releasePinGapWords(tap.serverAt, record.released.serverAt)} the Released tap (limit ${RELEASE_PIN_WINDOW_MINUTES}); the clock stopped at the tap`,
+      ok: check === "confirmed",
+      detail:
+        check === "unreadable"
+          ? `the pin's or the Released tap's time could not be read (limit ${RELEASE_PIN_WINDOW_MINUTES}); a person reviews the load`
+          : `pin ${releasePinGapWords(tap.serverAt, record.released.serverAt)} the Released tap (limit ${RELEASE_PIN_WINDOW_MINUTES}); the clock stopped at the tap`,
     });
   }
   // The paper's out time is compared with whatever ended the clock: the tap, or on older loads the pin.
@@ -174,7 +185,7 @@ export function corroborate(record: LoadRecord): Corroboration {
       if (written === null || event === null) continue;
       const gap = minutesApart(written, event.serverAt);
       const note = edited ? "entered by the driver from the paperwork" : `pre-filled from the ${name.endsWith("_tap") ? "Released tap" : "pin"} and left unchanged, so not independent`;
-      signals.push({ name, ok: gap <= BOL_TOLERANCE_MINUTES, independent: edited, detail: `${Math.round(gap)} min apart (tolerance ${BOL_TOLERANCE_MINUTES}); ${note}` });
+      signals.push({ name, ok: gap <= BOL_TOLERANCE_MINUTES, independent: edited, detail: `${gapWords(gap)} (tolerance ${BOL_TOLERANCE_MINUTES}); ${note}` });
     }
   }
   const photo = bol?.photoReading;
@@ -188,7 +199,7 @@ export function corroborate(record: LoadRecord): Corroboration {
       for (const [name, written, event] of readPairs) {
         if (written === null || event === null) continue;
         const gap = minutesApart(written, event.serverAt);
-        signals.push({ name, ok: gap <= BOL_TOLERANCE_MINUTES, independent: true, detail: `${Math.round(gap)} min apart; written on the paper by the receiver` });
+        signals.push({ name, ok: gap <= BOL_TOLERANCE_MINUTES, independent: true, detail: `${gapWords(gap)}; written on the paper by the receiver` });
       }
       if (bol.channel === "whatsapp") {
         signals.push({ name: "bol_photo_signature_matches", ok: photo.receiverSigned === bol.signed, detail: photo.receiverSigned ? "signature visible on the photo" : "no signature visible on the photo" });

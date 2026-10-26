@@ -1,7 +1,7 @@
 // Copy follows provenance. Every claim the console makes about how a load was proved or approved
 // comes from these functions, which read the records instead of assuming the happy path. The site
 // tests render a test load through them and fail on "WhatsApp server times" or "tapped".
-import { pinMissedWindow, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, releasePinGapWords } from "@dockclock/clause-engine";
+import { RELEASE_PIN_WINDOW_MINUTES, releasePinCheck, releasePinGapMinutes, releasePinGapWords, timeReadable } from "@dockclock/clause-engine";
 import { clock } from "../format.js";
 import { RUN_LABELS } from "../snapshot.js";
 import type { LoadDetail } from "../model/model.js";
@@ -114,14 +114,15 @@ export function photoBadge(isFixture: boolean, realPhone: boolean): string {
 }
 
 // The release in one line. With a Released tap the clock stopped at the tap and the pin confirms
-// it, unless the pin came outside the window (RELEASE_PIN_LATE: a person reviews the load); an
-// older load's release is the pin alone. A closed load never released says so.
+// it, unless the pin came outside the window (RELEASE_PIN_LATE) or a time could not be read
+// (TIMESTAMP_UNREADABLE): then a person reviews the load. An older load's release is the pin
+// alone. A closed load never released says so.
 export function releaseLine(c: Pick<LoadDetail["clock"], "releasedAt" | "releasePinAt" | "endedAt">, timeZone: string): string | null {
   if (c.releasedAt && c.releasePinAt) {
-    const stopped = `Clock stopped at the Released tap ${clock(c.releasedAt, timeZone)}`;
-    // A pin time that does not parse is not late (the engine does not hold the load for it).
-    if (!Number.isFinite(Date.parse(c.releasePinAt))) return stopped;
-    if (!pinMissedWindow(c.releasedAt, c.releasePinAt)) return `${stopped}; pin confirmed ${clock(c.releasePinAt, timeZone)}`;
+    const stopped = timeReadable(c.releasedAt) ? `Clock stopped at the Released tap ${clock(c.releasedAt, timeZone)}` : "The Released tap's time could not be read";
+    const check = releasePinCheck(c.releasedAt, c.releasePinAt);
+    if (check === "unreadable") return `${stopped}${timeReadable(c.releasePinAt) ? "" : "; the pin's time could not be read"}, so a person reviews the load`;
+    if (check === "confirmed") return `${stopped}; pin confirmed ${clock(c.releasePinAt, timeZone)}`;
     const early = releasePinGapMinutes(c.releasedAt, c.releasePinAt) < 0;
     const gap = releasePinGapWords(c.releasedAt, c.releasePinAt);
     return `${stopped}; pin ${early ? "early" : "late"} at ${clock(c.releasePinAt, timeZone)} (${gap} the tap, limit ${RELEASE_PIN_WINDOW_MINUTES}), so a person reviews the load`;

@@ -1,4 +1,4 @@
-import { pinMissedWindow } from "./release.js";
+import { releasePinCheck, timeReadable } from "./release.js";
 import type { ClauseSpec, Evaluation, LoadEvidence, ReasonCode, RecordKind } from "./types.js";
 
 export const BOL_TOLERANCE_MINUTES = 15;
@@ -30,8 +30,16 @@ function hasRecord(load: LoadEvidence, accepted: readonly RecordKind[]): boolean
 // True when the release pin came too long after (or before) the Released tap to confirm it.
 export function releasePinLate(load: Pick<LoadEvidence, "released" | "releasePinAt">): boolean {
   const { released, releasePinAt } = load;
-  if (!released || !releasePinAt) return false;
-  return pinMissedWindow(released.at, releasePinAt);
+  if (!released || releasePinAt === undefined || releasePinAt === null) return false;
+  return releasePinCheck(released.at, releasePinAt) === "late";
+}
+
+// True when a time the verdict needs does not parse: the arrival pin, the release (the tap, or the
+// pin on older loads) or the pin that confirms the tap. Fail safe: such a load goes to a person,
+// never to a claim, and is never read as inside or outside a window.
+export function timestampUnreadable(load: Pick<LoadEvidence, "arrived" | "released" | "releasePinAt">): boolean {
+  const times = [load.arrived?.at, load.released?.at, load.releasePinAt];
+  return times.some((at) => at !== undefined && at !== null && !timeReadable(at));
 }
 
 // Paper against phone: the written in time against the arrival pin, the written out time against
@@ -76,7 +84,8 @@ export function evaluate(load: LoadEvidence, clause: ClauseSpec): Evaluation {
 
   const integrity: ReasonCode[] = [];
   if (!arrived.insideGeofence || !released.insideGeofence) integrity.push("PIN_OUTSIDE_GEOFENCE");
-  if (releasePinLate(load)) integrity.push("RELEASE_PIN_LATE");
+  if (timestampUnreadable(load)) integrity.push("TIMESTAMP_UNREADABLE");
+  else if (releasePinLate(load)) integrity.push("RELEASE_PIN_LATE");
   if (bolConflicts(load)) integrity.push("BOL_TIMESTAMP_CONFLICT");
   if (integrity.length > 0) return held(load, "NEEDS_HUMAN", integrity);
 

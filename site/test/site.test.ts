@@ -264,8 +264,11 @@ describe("release tap and pin", async () => {
     expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "2026-10-23T19:05:00.000Z" }, tz)).toMatch(/pin confirmed 3:05 PM$/);
   });
 
-  it("does not call a pin late on a time that does not parse, as the engine does not", () => {
-    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "not a time" }, "America/New_York")).toBe("Clock stopped at the Released tap 2:55 PM");
+  it("says a person reviews a load whose pin time does not parse, as the engine does", () => {
+    const tz = "America/New_York";
+    expect(releaseLine({ releasedAt: "2026-10-23T18:55:00.000Z", releasePinAt: "not a time" }, tz)).toBe("Clock stopped at the Released tap 2:55 PM; the pin's time could not be read, so a person reviews the load");
+    expect(releaseLine({ releasedAt: "not a time", releasePinAt: "2026-10-23T18:57:00.000Z" }, tz)).toBe("The Released tap's time could not be read, so a person reviews the load");
+    expect(REASON_WORDS.TIMESTAMP_UNREADABLE).toBe("an arrival or release time could not be read");
   });
 
   it("moves the release pin with an early Released tap, so the what-if turns on free time", async () => {

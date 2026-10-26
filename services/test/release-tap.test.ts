@@ -148,9 +148,11 @@ describe("console views of the Released tap", () => {
     expect(justOver.detail).toContain("10.5 min after the tap (limit 10)");
   });
 
-  it("does not fail the release step on a pin time that does not parse", async () => {
+  it("fails the release step on a pin time that does not parse, as the engine holds the load", async () => {
     const v = await view(T(17, 20), "not a time");
-    expect(v.workflow.find((s) => s.key === "released")).toMatchObject({ state: "done", detail: "Clock stopped at 13:20 EDT. The location pin's time could not be read." });
+    const step = v.workflow.find((s) => s.key === "released")!;
+    expect(step).toMatchObject({ state: "failed", detail: "Clock stopped at 13:20 EDT. The location pin's time could not be read. A person reviews the load." });
+    expect(JSON.stringify(v.workflow)).not.toMatch(/NaN|Invalid/);
   });
 
   it("keeps the old release step for a load without a tap", async () => {
