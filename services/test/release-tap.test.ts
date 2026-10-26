@@ -155,6 +155,26 @@ describe("console views of the Released tap", () => {
     expect(JSON.stringify(v.workflow)).not.toMatch(/NaN|Invalid/);
   });
 
+  // A stored time that does not parse is shown as unreadable, never a 500 for the whole load.
+  it("builds the view of a load whose arrival, tap or pin time does not parse", async () => {
+    const items = (m: Item) => [m, { pk: m.pk, sk: "EVENT#garbage#w1", type: "location", serverAt: "garbage", detail: {} }];
+    for (const phase of ["at_dock", "awaiting_bol", "closed"]) {
+      const m = { ...meta("not a time", "not a time"), arrived: { serverAt: "garbage", messageId: "w-arr" }, phase, outcome: "TIMED_OUT_NEEDS_HUMAN" };
+      const v = buildLoadView({ items: items(m), receipts: {}, signedPack: null, emails: {}, photoTypes: {}, spkiSha256: "spki", now: T(17, 25) });
+      expect(v.clock, phase).toMatchObject({ arrivedAt: "garbage", freeTimeEndsAt: null, clockStartAt: null, detentionMinutes: 0 });
+      expect(v.workflow.find((s) => s.key === "released"), phase).toMatchObject({ state: "failed" });
+      expect(JSON.stringify(v), phase).not.toMatch(/NaN|Invalid/);
+    }
+    // A sealed load whose tap does not parse: the engine held it, and the paper's out time has no
+    // date to be pinned to.
+    const signed = await sealed(record("not a time", T(17, 23)));
+    expect(signed.pack.evaluation).toMatchObject({ verdict: "NEEDS_HUMAN", reasons: ["TIMESTAMP_UNREADABLE"] });
+    const m = meta("not a time", T(17, 23));
+    const v = buildLoadView({ items: [m], receipts: {}, signedPack: signed, emails: {}, photoTypes: {}, spkiSha256: "spki", now: T(18, 30) });
+    expect(v.verdict?.engineInput.bol?.checkOut).toBeNull();
+    expect(v.verdict?.verdict).toBe("NEEDS_HUMAN");
+  });
+
   it("keeps the old release step for a load without a tap", async () => {
     const v = await view(null, T(17, 20));
     expect(v.clock.releasedAt).toBe(T(17, 20));

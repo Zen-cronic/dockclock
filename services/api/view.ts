@@ -546,7 +546,7 @@ const RELEASE_WAIT_MS = 3 * 86_400_000;
 function endedAtOf(p: Parts, arrivedAt: string | null, releasedAt: string | null): string | null {
   if (!arrivedAt || releasedAt || phaseOf(p.meta) !== "closed") return null;
   const closedAt = str(p.meta.closedAt);
-  const waitEnd = p.meta.outcome === "TIMED_OUT_NEEDS_HUMAN" ? new Date(Date.parse(arrivedAt) + RELEASE_WAIT_MS).toISOString() : null;
+  const waitEnd = p.meta.outcome === "TIMED_OUT_NEEDS_HUMAN" && timeReadable(arrivedAt) ? new Date(Date.parse(arrivedAt) + RELEASE_WAIT_MS).toISOString() : null;
   const lastRecord = latest(...p.events.map((e) => str(e.serverAt)), ...p.sends.map((s) => str(s.sentAt)), arrivedAt);
   const end = closedAt ?? waitEnd ?? lastRecord ?? arrivedAt;
   return end < p.now ? end : p.now;
@@ -559,8 +559,11 @@ function clockOf(p: Parts, now: string, signed: SignedPack | null): LiveClock {
   const releasePinAt = tapAt ? str(obj(p.meta.released).serverAt) : null;
   const endedAt = endedAtOf(p, arrivedAt, releasedAt);
   const appointmentAt = String(p.meta.appointmentAt);
-  const freeTimeEndsAt = arrivedAt ? detentionStartsAt(p.clause, appointmentAt, arrivedAt) : null;
-  const clockStartAt = arrivedAt ? (p.clause.freeTimeAnchor === "appointment" && Date.parse(arrivedAt) < Date.parse(appointmentAt) ? appointmentAt : arrivedAt) : null;
+  // An arrival time that does not parse starts no clock: free time and detention are left unknown
+  // (the engine holds such a load), never thrown on.
+  const startable = arrivedAt !== null && timeReadable(arrivedAt);
+  const freeTimeEndsAt = startable ? detentionStartsAt(p.clause, appointmentAt, arrivedAt) : null;
+  const clockStartAt = startable ? (p.clause.freeTimeAnchor === "appointment" && Date.parse(arrivedAt) < Date.parse(appointmentAt) ? appointmentAt : arrivedAt) : null;
   const evaluation = signed?.pack.evaluation;
   let detention = 0;
   let billable = 0;
@@ -569,7 +572,7 @@ function clockOf(p: Parts, now: string, signed: SignedPack | null): LiveClock {
     billable = evaluation.billableMinutes;
   } else if (freeTimeEndsAt) {
     const end = Date.parse(releasedAt ?? endedAt ?? now);
-    detention = Math.max(0, (end - Date.parse(freeTimeEndsAt)) / 60_000);
+    detention = Number.isFinite(end) ? Math.max(0, (end - Date.parse(freeTimeEndsAt)) / 60_000) : 0;
     billable = p.clause.capHoursPerDay ? Math.min(detention, p.clause.capHoursPerDay * 60) : detention;
   }
   return { asOf: now, arrivedAt, releasedAt, releasePinAt, endedAt, clockStartAt: evaluation?.clockStartAt ?? clockStartAt, freeTimeEndsAt, detentionMinutes: detention, billableMinutes: billable, amountUsd: evaluation?.amountUsd ?? null, driverTimes: p.driverProvenance };
@@ -740,7 +743,7 @@ export function buildLoadView(sources: LoadSources): LoadView {
     });
   }
   const notice = obj(p.meta.notice);
-  const freeEnds = summary.arrivedAt ? detentionStartsAt(p.clause, String(p.meta.appointmentAt), summary.arrivedAt) : null;
+  const freeEnds = summary.arrivedAt && timeReadable(summary.arrivedAt) ? detentionStartsAt(p.clause, String(p.meta.appointmentAt), summary.arrivedAt) : null;
   if (str(notice.sentAt)) {
     const when = freeEnds ? (Date.parse(String(notice.sentAt)) < Date.parse(freeEnds) ? " before free time ended" : " after free time ended") : "";
     add({ at: String(notice.sentAt), title: `Detention notice emailed${when}`, services: ["EventBridge Scheduler", "Lambda", "SES"], channel: "email", tone: "money", emailId: "notice", provenance: "recorded" });

@@ -28,6 +28,11 @@ export function normalizeClock(value: string | null): string | null {
   return parsed ? `${String(parsed.hour).padStart(2, "0")}:${String(parsed.minute).padStart(2, "0")}` : null;
 }
 
+// Shown for a stored time that does not parse, so a page or a message never throws on one record.
+export const UNREADABLE_CLOCK = "--:--";
+
+const readable = (iso: string) => Number.isFinite(Date.parse(iso));
+
 function zoneParts(instant: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -48,9 +53,11 @@ function offsetMs(instant: Date, timeZone: string): number {
   return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - instant.getTime();
 }
 
+// Null when the clock does not parse, or when the pin it is pinned to does not (there is then no
+// date to give it; the engine holds the load on that pin).
 export function localClockToIso(clock: string | null, nearIso: string, timeZone: string): string | null {
   const parsed = parseClock(clock);
-  if (!parsed) return null;
+  if (!parsed || !readable(nearIso)) return null;
   const near = new Date(nearIso);
   const day = zoneParts(near, timeZone);
   const candidates = [-1, 0, 1].map((shift) => {
@@ -64,8 +71,9 @@ export function localClockToIso(clock: string | null, nearIso: string, timeZone:
 }
 
 // The zone's short name at that instant (EDT, CST), so a clock time shown to someone who may be
-// elsewhere says which zone it is in.
+// elsewhere says which zone it is in. The zone's own name for a time that does not parse.
 export function zoneAbbreviation(iso: string, timeZone: string): string {
+  if (!readable(iso)) return timeZone;
   const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "short" }).formatToParts(new Date(iso)).find((p) => p.type === "timeZoneName");
   return part?.value ?? timeZone;
 }
@@ -73,12 +81,14 @@ export function zoneAbbreviation(iso: string, timeZone: string): string {
 // A complete local date and time with its zone ("2026-10-18 20:59 EDT"), so nobody has to pair a
 // local clock time with a UTC date (which differ after 20:00 Eastern).
 export function isoToLocalDateTime(iso: string, timeZone: string): string {
+  if (!readable(iso)) return `${UNREADABLE_CLOCK} (time not readable)`;
   const p = zoneParts(new Date(iso), timeZone);
   const two = (n: number) => String(n).padStart(2, "0");
   return `${p.year}-${two(p.month)}-${two(p.day)} ${two(p.hour)}:${two(p.minute)} ${zoneAbbreviation(iso, timeZone)}`;
 }
 
 export function isoToLocalClock(iso: string, timeZone: string): string {
+  if (!readable(iso)) return UNREADABLE_CLOCK;
   const p = zoneParts(new Date(iso), timeZone);
   return `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
 }

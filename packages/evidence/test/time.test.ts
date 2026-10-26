@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isoToLocalClock, localClockToIso, normalizeClock, parseClock } from "../src/index.js";
+import { isoToLocalClock, isoToLocalDateTime, localClockToIso, normalizeClock, parseClock, UNREADABLE_CLOCK, zoneAbbreviation } from "../src/index.js";
 
 describe("paperwork times", () => {
   it("parses 24-hour and 12-hour clock spellings drivers actually type", () => {
@@ -27,5 +27,15 @@ describe("paperwork times", () => {
   it("handles the EST side of daylight saving", () => {
     expect(localClockToIso("09:00", "2026-12-01T14:05:00.000Z", "America/New_York")).toBe("2026-12-01T14:00:00.000Z");
     expect(isoToLocalClock("2026-12-01T14:00:00.000Z", "America/New_York")).toBe("09:00");
+  });
+
+  it("never throws on a stored time that does not parse", () => {
+    for (const bad of ["not a time", "garbage", "", "undefined"]) {
+      expect(isoToLocalClock(bad, "America/New_York"), bad).toBe(UNREADABLE_CLOCK);
+      expect(zoneAbbreviation(bad, "America/New_York"), bad).toBe("America/New_York");
+      expect(isoToLocalDateTime(bad, "America/New_York"), bad).toMatch(/^--:-- \(time not readable\)$/);
+      // No date to pin the paper's time to.
+      expect(localClockToIso("13:52", bad, "America/New_York"), bad).toBeNull();
+    }
   });
 });
