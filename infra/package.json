@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "synth": "cdk synth --quiet",
-    "deploy": "node --env-file-if-exists=../.env --conditions=source --import tsx bin/deploy.ts"
+    "deploy": "node --conditions=source --import tsx bin/deploy.ts"
   },
   "devDependencies": {
     "aws-cdk": "^2.1145.0",

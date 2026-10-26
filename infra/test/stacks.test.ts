@@ -1,7 +1,7 @@
 import { App } from "aws-cdk-lib";
 import { Annotations, Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildApp } from "../lib/app.js";
@@ -322,5 +322,10 @@ describe("npm run deploy", () => {
     expect(mergeOutputs(previous, undefined)).toEqual(previous);
     expect(deployPlan(built, ["--outputs-file", "x.json"]).outputsFile).toBe(true);
     expect(deployPlan(built, []).outputsFile).toBe(false);
+  });
+
+  it("leaves ../.env out of the CDK CLI's environment", () => {
+    const pkg = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8")) as { scripts: Record<string, string> };
+    expect(pkg.scripts.deploy).not.toMatch(/env-file/);
   });
 });
