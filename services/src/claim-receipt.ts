@@ -23,17 +23,19 @@ import { keys } from "./keys.js";
 // Each recipient is reserved on the CLAIM record before anything is sent, so a retried outcome step
 // (its text failed after the PDF went) never sends the PDF twice. How far the send got decides
 // what happens to the reservation and to the conversation's record of it:
-// - A final answer before the send call keeps the reservation and records one not-sent row: a gate
-//   (replies off, a test number, STOP), no PDF stored, a closed window, a test load, and settings or
-//   addresses no retry can fix (SendNotStarted with permanent set: RCS not configured, a driver
-//   RCS cannot reach, a phone number that does not parse, no DISPATCHER_PHONE). A retry finds the
-//   recipient handled.
+// - A final answer keeps the reservation and records one not-sent row: a gate (replies off, a test
+//   number, STOP), no PDF stored, a closed window, a test load, settings or addresses no retry can
+//   fix (SendNotStarted with permanent set: RCS not configured, a driver RCS cannot reach, a phone
+//   number that does not parse, no DISPATCHER_PHONE), and a WhatsApp send the provider refused
+//   outright (sender.ts refusedOutright: an access-denied or validation answer on the first try;
+//   nothing went). A retry finds the recipient handled.
 // - A passing failure before the send call (the PDF cannot be read from S3, the upload to WhatsApp
 //   fails, a table read throws) records a not-sent row and releases the reservation, so a retry can
 //   still send. The released reservation remembers that row, and the retry deletes it, so the
 //   conversation keeps one row per recipient: the latest attempt's.
-// - Once the send call has started the message may have gone (a timeout after delivery): the
-//   reservation stays and nothing is recorded as not sent (SEND_UNCONFIRMED), on either channel.
+// - Once the send call has started, any other failure may have sent the message (a timeout after
+//   delivery, a throttle or 5xx after a retried attempt): the reservation stays and nothing is
+//   recorded as not sent (SEND_UNCONFIRMED), on either channel.
 // - After the provider accepted it (a receipt row failed to write) it was sent.
 
 export const RECEIPT_PURPOSE = "claim_receipt";
@@ -286,8 +288,8 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
         results.push({ audience, channel, sent: false, skipped: SEND_UNCONFIRMED });
         return;
       }
-      // Nothing went. A setting or address no retry can fix keeps the reservation (one row, and a
-      // retry finds the recipient handled); anything else gives it back for a retry.
+      // Nothing went. A setting or address no retry can fix, or a refusal, keeps the reservation
+      // (one row, and a retry finds the recipient handled); anything else gives it back for a retry.
       const stopped = error instanceof SendNotStarted ? error : null;
       const permanent = stopped?.permanent === true;
       log("claim_receipt_failed", { loadId: load.loadId, audience, error: name, permanent });

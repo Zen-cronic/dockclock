@@ -262,6 +262,29 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     expect(records()).toEqual([]);
   });
 
+  // Nothing went when WhatsApp refused the send outright on its first try: one not-sent row, and the
+  // reservation stays, since the same send would be refused again. Anything that may have gone is
+  // unconfirmed: a timeout, a throttle, a 5xx, or a refusal after the SDK retried an earlier attempt.
+  it.each([
+    ["AccessDeniedByMetaException", 403, 1, NOT_SENT.sendRefused],
+    ["ValidationException", 400, 1, NOT_SENT.sendRefused],
+    ["InvalidParametersException", 400, undefined, NOT_SENT.sendRefused],
+    ["ThrottledRequestException", 429, 3, SEND_UNCONFIRMED],
+    ["InternalServiceException", 500, 3, SEND_UNCONFIRMED],
+    ["ValidationException", 400, 2, SEND_UNCONFIRMED],
+    ["TimeoutError", undefined, 1, SEND_UNCONFIRMED],
+  ])("sorts a WhatsApp document send that threw %s (HTTP %s, attempt %s) as %s", async (name, status, attempts, skipped) => {
+    messaging.on(SendWhatsAppMessageCommand).rejects(Object.assign(fail(name), { $metadata: { httpStatusCode: status, attempts } }));
+    const refused = skipped === NOT_SENT.sendRefused;
+    expect((await sendClaimReceipts(load)).map((r) => [r.audience, r.sent, r.skipped])).toEqual([["dispatcher", false, skipped], ["driver", false, skipped]]);
+    expect(records().map((r) => [r.audience, r.notSentReason])).toEqual(refused ? [["dispatcher", NOT_SENT.sendRefused], ["driver", NOT_SENT.sendRefused]] : []);
+    expect([...reserved].sort()).toEqual(["receiptDispatcherAt", "receiptDriverAt"]);
+    // A retry sends nothing and adds no row: refused or maybe sent, the recipient is handled.
+    messaging.on(SendWhatsAppMessageCommand).resolves({ messageId: "out-z" });
+    expect((await sendClaimReceipts(load)).map((r) => r.skipped)).toEqual([ALREADY_HANDLED, ALREADY_HANDLED]);
+    expect(records()).toHaveLength(refused ? 2 : 0);
+  });
+
   it("treats a send reply without a message id as unconfirmed too", async () => {
     messaging.on(SendWhatsAppMessageCommand).resolves({});
     expect((await sendClaimReceipts(load)).map((r) => r.skipped)).toEqual([SEND_UNCONFIRMED, SEND_UNCONFIRMED]);

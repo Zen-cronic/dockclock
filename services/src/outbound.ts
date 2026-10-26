@@ -138,6 +138,7 @@ export const NOT_SENT = {
   noPdf: "Not sent: the claim PDF was not stored, so there was no file to send.",
   uploadFailed: "Not sent: the claim PDF could not be uploaded to WhatsApp.",
   pdfUnreadable: "Not sent: the stored claim PDF could not be read.",
+  sendRefused: "Not sent: WhatsApp did not accept the message.",
   windowClosed: "Not sent: the driver has not written in the last 24 hours, and WhatsApp then allows only approved templates.",
   testLoad: "Not sent: a test load. Dispatch is only messaged when the test asks for it.",
   failed: "Not sent: the send stopped on an error.",

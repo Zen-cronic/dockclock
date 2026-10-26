@@ -25,9 +25,10 @@ export interface Target {
   driverKey: string;
 }
 
-// A send that stopped before the provider call, so nothing went out. `reason` is the plain words the
-// load's conversation shows (NOT_SENT). `permanent`: the same send would stop the same way on every
-// retry (a deployment setting or an address that cannot be reached), so retrying cannot help.
+// A send that sent nothing: it stopped before the provider call, or the provider refused it outright
+// (sendDocument). `reason` is the plain words the load's conversation shows (NOT_SENT). `permanent`:
+// the same send would stop the same way on every retry (a deployment setting, an address that cannot
+// be reached, a refusal), so retrying cannot help.
 export class SendNotStarted extends Error {
   override name = "SendNotStarted";
   constructor(
@@ -163,10 +164,22 @@ export async function isDemoEnrolled(driverKey: string): Promise<boolean> {
 }
 
 // How far a send got: "gates" until the provider call starts, "sending" while it may have gone
-// out, "accepted" once the provider returned a message id. A caller that must know which side of
-// the send call an error came from passes one in and reads it after a throw.
+// out, "refused" when the provider answered that it did not take the message (nothing went),
+// "accepted" once the provider returned a message id. A caller that must know which side of the
+// send call an error came from passes one in and reads it after a throw.
 export interface SendProgress {
-  stage: "gates" | "sending" | "accepted";
+  stage: "gates" | "sending" | "refused" | "accepted";
+}
+
+// The provider answered on the first attempt with a client error other than a timeout or a throttle
+// (AccessDeniedByMetaException, ValidationException, InvalidParametersException): the message did
+// not go, and the same call would be refused again. A call the SDK retried may have gone on an
+// earlier attempt, and a timeout, a throttle, a 5xx or a network error says nothing about it.
+export function refusedOutright(error: unknown): boolean {
+  const meta = (error as { $metadata?: { httpStatusCode?: number; attempts?: number } } | null)?.$metadata;
+  const status = meta?.httpStatusCode;
+  if (typeof status !== "number" || status < 400 || status >= 500 || status === 408 || status === 429) return false;
+  return (meta?.attempts ?? 1) <= 1;
 }
 
 // audience: who the message is for, by role (default the driver); recorded with the send.
@@ -287,9 +300,11 @@ export async function uploadMedia(bucket: string, key: string, purpose: string, 
 // blocked recipient never causes an upload; then PostWhatsAppMessageMedia reads the object from S3
 // (with this function's own S3 permission) and returns a media id; then SendWhatsAppMessage sends
 // the document. A recipient the gates stopped is recorded as not sent and gets null. A failed
-// upload throws SendNotStarted (nothing went; the caller records it). Once the send call starts the
-// document may have gone, so a throw or a reply without a message id there is rethrown with
-// options.progress at "sending", and nothing is recorded as not sent.
+// upload throws SendNotStarted (nothing went; the caller records it). A send the provider refused
+// outright (refusedOutright) throws a permanent SendNotStarted with options.progress at "refused":
+// nothing went, and a retry would be refused the same way. Any other throw from the send call, or a
+// reply without a message id, may have sent the document, so it is rethrown with options.progress
+// at "sending", and nothing is recorded as not sent.
 export async function sendDocument(target: Target, file: DocumentFile, purpose: string, loadId: string, options: SendOptions = {}): Promise<string | null> {
   const audience = options.audience ?? "driver";
   const shown = { kind: "document" as const, text: file.caption, document: { filename: file.filename, sha256: file.sha256 } };
@@ -312,8 +327,11 @@ export async function sendDocument(target: Target, file: DocumentFile, purpose: 
     );
     messageId = out.messageId ?? null;
   } catch (error) {
-    log("send_failed", { purpose, loadId, channel: "whatsapp", error: (error as Error).name });
-    throw error;
+    const refused = refusedOutright(error);
+    log("send_failed", { purpose, loadId, channel: "whatsapp", error: (error as Error).name, refused });
+    if (!refused) throw error;
+    mark(options, "refused");
+    throw new SendNotStarted(`WhatsApp refused the document (${(error as Error).name})`, NOT_SENT.sendRefused, true);
   }
   if (!messageId) throw new Error("the send call returned no message id");
   mark(options, "accepted");
