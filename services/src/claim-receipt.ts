@@ -32,8 +32,9 @@ import { keys } from "./keys.js";
 // - A passing failure before the send call (the PDF cannot be read from S3 for a recipient the gates
 //   let through, the upload to WhatsApp fails, a table read throws) records a not-sent row and
 //   releases the reservation, so a retry can still send. The released reservation remembers that
-//   row, and the retry deletes it, so the conversation keeps one row per recipient: the latest
-//   attempt's.
+//   row. The retry deletes it only once it has recorded its own outcome (sent, or not sent), so the
+//   conversation keeps one row per recipient: the latest recorded attempt's. A retry that ends
+//   unconfirmed, or stops part way, leaves the earlier row in place.
 // - Once the send call has started, any other failure may have sent the message (a timeout after
 //   delivery, a throttle or 5xx after a retried attempt): the reservation stays and nothing is
 //   recorded as not sent (SEND_UNCONFIRMED), on either channel.
@@ -141,11 +142,11 @@ const RESERVATION: Record<Audience, string> = { dispatcher: "receiptDispatcherAt
 // The sort key of the not-sent row a released reservation left behind, for the retry to delete.
 const LEFT_ROW: Record<Audience, string> = { dispatcher: "receiptDispatcherNotSentSk", driver: "receiptDriverNotSentSk" };
 
-// Takes this recipient's one claim receipt, writing `at`. False when an earlier run already took it.
-// A not-sent row left by an earlier run that released the reservation is deleted (best effort):
-// this run records its own outcome.
-async function reserve(loadId: string, audience: Audience, at: string): Promise<boolean> {
-  let left: unknown;
+// Takes this recipient's one claim receipt, writing `at`. Null when an earlier run already took it.
+// Otherwise gives the key of the not-sent row an earlier run left when it released the reservation:
+// that row stays until this run records its own outcome (dropLeftRow), so a run that ends
+// unconfirmed or stops part way leaves the conversation with the earlier attempt's row.
+async function reserve(loadId: string, audience: Audience, at: string): Promise<{ left: string | null } | null> {
   try {
     const out = await ddb.send(
       new UpdateCommand({
@@ -159,24 +160,28 @@ async function reserve(loadId: string, audience: Audience, at: string): Promise<
         ReturnValues: "UPDATED_OLD",
       }),
     );
-    left = out?.Attributes?.[LEFT_ROW[audience]];
+    const left: unknown = out?.Attributes?.[LEFT_ROW[audience]];
+    return { left: typeof left === "string" && left.startsWith("SEND#") ? left : null };
   } catch (error) {
-    if ((error as Error).name === "ConditionalCheckFailedException") return false;
+    if ((error as Error).name === "ConditionalCheckFailedException") return null;
     throw error;
   }
-  if (typeof left === "string" && left.startsWith("SEND#")) {
-    try {
-      await ddb.send(new DeleteCommand({ TableName: env.table(), Key: { pk: keys.load(loadId).pk, sk: left } }));
-    } catch (error) {
-      log("claim_receipt_row_delete_failed", { loadId, audience, error: (error as Error).name });
-    }
+}
+
+// Deletes the not-sent row an earlier run left, once this run has recorded its own outcome (best
+// effort), so the conversation keeps one row per recipient: the latest attempt's.
+async function dropLeftRow(loadId: string, audience: Audience, left: string | null): Promise<void> {
+  if (!left) return;
+  try {
+    await ddb.send(new DeleteCommand({ TableName: env.table(), Key: { pk: keys.load(loadId).pk, sk: left } }));
+  } catch (error) {
+    log("claim_receipt_row_delete_failed", { loadId, audience, error: (error as Error).name });
   }
-  return true;
 }
 
 // Gives back a reservation this run took, when nothing was sent, so a retry can send, and notes the
-// not-sent row this run left (deleted by the retry). Only the value this run wrote is removed. Best
-// effort: a release that fails leaves the recipient handled.
+// not-sent row left on the load (deleted by the retry once it records its own). Only the value this
+// run wrote is removed. Best effort: a release that fails leaves the recipient handled.
 async function release(loadId: string, audience: Audience, at: string, row: { sk: string } | null): Promise<void> {
   try {
     await ddb.send(
@@ -271,23 +276,34 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
     const progress: SendProgress = { stage: "gates" };
     const at = new Date().toISOString();
     let reserved = false;
+    let left: string | null = null;
     try {
-      if (!(await reserve(load.loadId, audience, at))) {
+      const taken = await reserve(load.loadId, audience, at);
+      if (!taken) {
         log("claim_receipt_skipped", { loadId: load.loadId, audience, reason: ALREADY_HANDLED });
         results.push({ audience, channel, sent: false, skipped: ALREADY_HANDLED });
         return;
       }
       reserved = true;
+      left = taken.left;
       const result = await run(progress);
-      if (result) results.push(result);
+      // Every answer has recorded its own row (sent, or not sent with the reason; best effort); a
+      // skipped RCS link (null) recorded none, so an earlier row stays.
+      if (result) {
+        results.push(result);
+        await dropLeftRow(load.loadId, audience, left);
+      }
     } catch (error) {
       const name = (error as Error).name;
       if (progress.stage === "accepted") {
         log("claim_receipt_record_failed", { loadId: load.loadId, audience, error: name });
         results.push({ audience, channel, sent: true });
+        // It went, so an earlier attempt's not-sent row is no longer true.
+        await dropLeftRow(load.loadId, audience, left);
         return;
       }
       if (progress.stage === "sending") {
+        // Nothing is recorded for a send that may have gone, so an earlier attempt's row stays.
         log("claim_receipt_unconfirmed", { loadId: load.loadId, audience, error: name });
         results.push({ audience, channel, sent: false, skipped: SEND_UNCONFIRMED });
         return;
@@ -299,7 +315,10 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
       log("claim_receipt_failed", { loadId: load.loadId, audience, error: name, permanent });
       const shown: SentMessage = rcs ? { kind: "text", text: RECEIPT_TEXT[language].caption(load.loadId, amount) } : documentShown(audience === "dispatcher" ? "en_US" : language);
       const row = await recordBlocked(load.loadId, RECEIPT_PURPOSE, channel, shown, audience, stopped?.reason ?? NOT_SENT.failed);
-      if (reserved && !permanent) await release(load.loadId, audience, at, row);
+      // This run's row replaces an earlier one; when it could not be written the earlier one stays,
+      // and a released reservation remembers whichever is on the load.
+      if (row) await dropLeftRow(load.loadId, audience, left);
+      if (reserved && !permanent) await release(load.loadId, audience, at, row ?? (left ? { sk: left } : null));
       results.push({ audience, channel, sent: false, skipped: stopped?.reason ?? name });
     }
   };

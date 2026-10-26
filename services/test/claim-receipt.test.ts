@@ -241,6 +241,30 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     for (const take of takes) expect(take.ReturnValues).toBe("UPDATED_OLD");
   });
 
+  // The conversation keeps the latest recorded attempt's row: a retry replaces the earlier row only
+  // when it records its own, and one that ends unconfirmed leaves it in place.
+  it("keeps an earlier not-sent row until a retry records its own outcome", async () => {
+    const dispatcherRows = () => kept().filter((r) => r.audience === "dispatcher").map((r) => r.notSentReason ?? "sent");
+    // The upload fails for the first recipient of each run (the dispatcher).
+    let uploads = 0;
+    messaging.on(PostWhatsAppMessageMediaCommand).callsFake(() => {
+      if (uploads++ === 0) throw fail("ThrottlingException");
+      return { mediaId: "media-9" };
+    });
+    await sendClaimReceipts(load);
+    expect(dispatcherRows()).toEqual([NOT_SENT.uploadFailed]);
+    // A second passing failure: its own row replaces the first.
+    uploads = 0;
+    expect((await sendClaimReceipts(load))[0]).toMatchObject({ audience: "dispatcher", skipped: NOT_SENT.uploadFailed });
+    expect(dispatcherRows()).toEqual([NOT_SENT.uploadFailed]);
+    expect(records().filter((r) => r.audience === "dispatcher")).toHaveLength(2);
+    // A retry whose send may have gone records nothing, so the earlier row stays.
+    messaging.on(SendWhatsAppMessageCommand).rejects(fail("TimeoutError"));
+    expect((await sendClaimReceipts(load))[0]).toMatchObject({ audience: "dispatcher", skipped: SEND_UNCONFIRMED });
+    expect(dispatcherRows()).toEqual([NOT_SENT.uploadFailed]);
+    expect(reserved.has("receiptDispatcherAt")).toBe(true);
+  });
+
   it("gives the reservation back when the stored PDF cannot be read, and a retry sends it", async () => {
     // Read once up front and again for the dispatcher: both fail. The driver's read succeeds.
     s3.on(GetObjectCommand).rejectsOnce(fail("SlowDown")).rejectsOnce(fail("SlowDown")).resolves({ Body: { transformToByteArray: async () => PDF } } as never);
