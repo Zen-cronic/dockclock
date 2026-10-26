@@ -1,10 +1,351 @@
 {
  "schema": "dockclock.api/1",
- "generatedAt": "2026-10-23T19:38:07.288Z",
+ "generatedAt": "2026-10-26T20:42:01.499Z",
  "workspace": "demo",
  "pollMs": null,
  "data": {
   "loads": [
+   {
+    "loadId": "SMOKE-mvpq1e0g",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-26T20:40:52.924Z",
+    "lastActivityAt": "2026-10-26T20:41:17.280Z",
+    "facility": {
+     "id": "lakeshore-columbus",
+     "name": "Lakeshore DC, Columbus OH",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Lakeshore Foods (fictional shipper)",
+     "role": "shipper"
+    },
+    "channel": "whatsapp",
+    "channels": [
+     "whatsapp"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "not_billable",
+    "live": false,
+    "verdict": "NOT_BILLABLE",
+    "amountUsd": 0,
+    "claimSentAt": null,
+    "arrivedAt": "2026-10-26T16:33:51.000Z",
+    "releasedAt": "2026-10-26T20:10:51.000Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "SMOKE-mvppm12x",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-26T20:28:56.313Z",
+    "lastActivityAt": "2026-10-26T20:29:20.918Z",
+    "facility": {
+     "id": "lakeshore-columbus",
+     "name": "Lakeshore DC, Columbus OH",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Lakeshore Foods (fictional shipper)",
+     "role": "shipper"
+    },
+    "channel": "whatsapp",
+    "channels": [
+     "whatsapp"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "not_billable",
+    "live": false,
+    "verdict": "NOT_BILLABLE",
+    "amountUsd": 0,
+    "claimSentAt": null,
+    "arrivedAt": "2026-10-26T16:21:55.000Z",
+    "releasedAt": "2026-10-26T19:58:55.000Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "LIVE-mvpoqheg",
+    "runKind": "phone",
+    "runLabel": "Real phone",
+    "createdAt": "2026-10-26T20:04:24.512Z",
+    "lastActivityAt": "2026-10-26T20:22:37.984Z",
+    "facility": {
+     "id": "judge-demo",
+     "name": "Judge demo yard (any location counts)",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper"
+    },
+    "channel": "whatsapp",
+    "channels": [
+     "whatsapp"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "claim_filed",
+    "live": false,
+    "verdict": "BILLABLE",
+    "amountUsd": 9.88,
+    "claimSentAt": "2026-10-26T20:22:33.949Z",
+    "arrivedAt": "2026-10-26T20:05:35.000Z",
+    "releasedAt": "2026-10-26T20:20:28.000Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "SMOKE-mvoplw9o",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-26T03:41:04.258Z",
+    "lastActivityAt": "2026-10-26T03:41:29.550Z",
+    "facility": {
+     "id": "lakeshore-columbus",
+     "name": "Lakeshore DC, Columbus OH",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Lakeshore Foods (fictional shipper)",
+     "role": "shipper"
+    },
+    "channel": "whatsapp",
+    "channels": [
+     "whatsapp"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "not_billable",
+    "live": false,
+    "verdict": "NOT_BILLABLE",
+    "amountUsd": 0,
+    "claimSentAt": null,
+    "arrivedAt": "2026-10-25T23:34:02.000Z",
+    "releasedAt": "2026-10-26T03:11:02.000Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "SMOKE-DEMO-mvoie7sy",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-26T00:19:08.260Z",
+    "lastActivityAt": "2026-10-26T00:27:14.266Z",
+    "facility": {
+     "id": "judge-demo",
+     "name": "Judge demo yard (any location counts)",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper"
+    },
+    "channel": "whatsapp",
+    "channels": [
+     "whatsapp"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "claim_filed",
+    "live": false,
+    "verdict": "BILLABLE",
+    "amountUsd": 1,
+    "claimSentAt": "2026-10-26T00:25:54.063Z",
+    "arrivedAt": "2026-10-26T00:19:15.000Z",
+    "releasedAt": "2026-10-26T00:25:15.000Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "SMOKE-mvoi2gr7",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-26T00:10:00.337Z",
+    "lastActivityAt": "2026-10-26T00:10:24.908Z",
+    "facility": {
+     "id": "lakeshore-columbus",
+     "name": "Lakeshore DC, Columbus OH",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Lakeshore Foods (fictional shipper)",
+     "role": "shipper"
+    },
+    "channel": "whatsapp",
+    "channels": [
+     "whatsapp"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "not_billable",
+    "live": false,
+    "verdict": "NOT_BILLABLE",
+    "amountUsd": 0,
+    "claimSentAt": null,
+    "arrivedAt": "2026-10-25T20:02:58.000Z",
+    "releasedAt": "2026-10-25T23:39:58.000Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "SMOKE-mvocmr8y",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-25T21:37:48.998Z",
+    "lastActivityAt": "2026-10-25T21:38:13.651Z",
+    "facility": {
+     "id": "lakeshore-columbus",
+     "name": "Lakeshore DC, Columbus OH",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Lakeshore Foods (fictional shipper)",
+     "role": "shipper"
+    },
+    "channel": "whatsapp",
+    "channels": [
+     "whatsapp"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "not_billable",
+    "live": false,
+    "verdict": "NOT_BILLABLE",
+    "amountUsd": 0,
+    "claimSentAt": null,
+    "arrivedAt": "2026-10-25T17:30:47.000Z",
+    "releasedAt": "2026-10-25T21:07:47.000Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "SMOKE-mvoa8vsk",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-25T20:31:02.609Z",
+    "lastActivityAt": "2026-10-25T20:31:27.288Z",
+    "facility": {
+     "id": "lakeshore-columbus",
+     "name": "Lakeshore DC, Columbus OH",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Lakeshore Foods (fictional shipper)",
+     "role": "shipper"
+    },
+    "channel": "whatsapp",
+    "channels": [
+     "whatsapp"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "not_billable",
+    "live": false,
+    "verdict": "NOT_BILLABLE",
+    "amountUsd": 0,
+    "claimSentAt": null,
+    "arrivedAt": "2026-10-25T16:24:01.000Z",
+    "releasedAt": "2026-10-25T20:01:01.000Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "SMOKE-DEMO-mvlfip98",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-23T20:35:20.160Z",
+    "lastActivityAt": "2026-10-23T20:44:07.587Z",
+    "facility": {
+     "id": "judge-demo",
+     "name": "Judge demo yard (any location counts)",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper"
+    },
+    "channel": "rcs",
+    "channels": [
+     "rcs"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "claim_filed",
+    "live": false,
+    "verdict": "BILLABLE",
+    "amountUsd": 3,
+    "claimSentAt": "2026-10-23T20:44:07.587Z",
+    "arrivedAt": "2026-10-23T20:35:27.603Z",
+    "releasedAt": "2026-10-23T20:43:27.703Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "SMOKE-DEMO-mvlempdp",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-23T20:10:26.446Z",
+    "lastActivityAt": "2026-10-23T20:19:14.439Z",
+    "facility": {
+     "id": "judge-demo",
+     "name": "Judge demo yard (any location counts)",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Demo Receiving Co. (fictional)",
+     "role": "shipper"
+    },
+    "channel": "rcs",
+    "channels": [
+     "rcs"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "claim_filed",
+    "live": false,
+    "verdict": "BILLABLE",
+    "amountUsd": 3,
+    "claimSentAt": "2026-10-23T20:19:14.439Z",
+    "arrivedAt": "2026-10-23T20:10:33.836Z",
+    "releasedAt": "2026-10-23T20:18:33.935Z",
+    "failover": false,
+    "photos": 1
+   },
+   {
+    "loadId": "SMOKE-mvlelov7",
+    "runKind": "integration",
+    "runLabel": "Test run",
+    "createdAt": "2026-10-23T20:09:39.986Z",
+    "lastActivityAt": "2026-10-23T20:10:06.595Z",
+    "facility": {
+     "id": "lakeshore-columbus",
+     "name": "Lakeshore DC, Columbus OH",
+     "timeZone": "America/New_York"
+    },
+    "counterparty": {
+     "name": "Lakeshore Foods (fictional shipper)",
+     "role": "shipper"
+    },
+    "channel": "whatsapp",
+    "channels": [
+     "whatsapp"
+    ],
+    "language": "en_US",
+    "phase": "sealed",
+    "status": "not_billable",
+    "live": false,
+    "verdict": "NOT_BILLABLE",
+    "amountUsd": 0,
+    "claimSentAt": null,
+    "arrivedAt": "2026-10-23T16:02:38.000Z",
+    "releasedAt": "2026-10-23T19:39:38.000Z",
+    "failover": false,
+    "photos": 1
+   },
    {
     "loadId": "SMOKE-RCS-mvldfuyu",
     "runKind": "integration",

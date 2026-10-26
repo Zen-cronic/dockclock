@@ -1,0 +1,38 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-26T20:42:02.703Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "id": "claim",
+  "purpose": "claim",
+  "sentAt": "2026-10-26T20:22:33.949Z",
+  "status": "delivered",
+  "deliveredAt": "2026-10-26T20:22:34.673Z",
+  "from": "claims@claims.kaungzinhein.com",
+  "to": {
+   "name": "Demo Receiving Co. (fictional)",
+   "role": "shipper",
+   "note": "Delivered to our test mailbox, not to a real company."
+  },
+  "subject": "Detention claim: Load LIVE-mvpoqheg at Judge demo yard (any location counts), $9.88",
+  "attachments": [
+   {
+    "name": "detention-claim-LIVE-mvpoqheg.pdf",
+    "contentType": "application/pdf",
+    "sha256": "6a5cb2d278dc125aa044627b96923ecdcc4b76c9962a3dea39a0e7f947ad2e39",
+    "note": "The one-page claim summary, as sent."
+   },
+   {
+    "name": "LIVE-mvpoqheg-703a485b5e6b.json",
+    "contentType": "application/json",
+    "sha256": "42ccaf56524038e2550b8a731e1a5e11a2112ac099aa6080dcdf8dd8ee72efda",
+    "note": "The signed evidence pack, exactly as sealed."
+   }
+  ],
+  "bodyStored": true,
+  "provenance": "recorded",
+  "body": "Dear Demo Receiving Co. (fictional),\n\nWe are claiming detention for load LIVE-mvpoqheg at Judge demo yard (any location counts) under the rate confirmation in the amount of $9.88.\n\nClaim number: DC-LIVE-mvpoqheg\nLoad: LIVE-mvpoqheg\nFacility: Judge demo yard (any location counts)\nArrived: 2026-10-26 16:05 EDT\nReleased: 2026-10-26 16:20 EDT\nDetention: 9 minutes 53 seconds after 5 minutes of free time, at $60.00 per hour\nAmount due: $9.88\n\nPlease arrange payment of $9.88 under the rate confirmation. The claim summary (PDF) and the signed evidence pack (JSON) are attached.\n\nDockClock Claims, on behalf of Demo Carrier (fictional)\nclaims@claims.kaungzinhein.com\nReply to this email to reach the carrier's dispatch desk.\n\nVerify this claim: https://d3djuoqhg6b8o2.cloudfront.net/loads/LIVE-mvpoqheg\nPublic key: https://d3djuoqhg6b8o2.cloudfront.net/keys/public-key.pem\nEvidence pack LIVE-mvpoqheg-703a485b5e6b, sha256 d26f3addf23903ba…\nThe carrier, the counterparty and the facility are fictional.",
+  "bodyNote": "The sent email's bytes, kept with the load's packs. Its plain-text part is shown."
+ }
+}

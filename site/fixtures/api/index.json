@@ -1,11 +1,11 @@
 {
  "about": "Responses of the DockClock read API (site/src/api.ts) for recorded demo-workspace loads, written by npm run api:fixtures.",
- "generatedAt": "2026-10-23T19:38:18.799Z",
+ "generatedAt": "2026-10-26T20:42:03.013Z",
  "files": [
   {
-   "file": "overview.json",
-   "route": "/api/overview",
-   "status": 200
+   "file": "error-404.json",
+   "route": "/api/loads/LIVE-not-in-demo",
+   "status": 404
   },
   {
    "file": "loads.json",
@@ -13,28 +13,43 @@
    "status": 200
   },
   {
-   "file": "messages.json",
-   "route": "/api/messages?limit=100",
+   "file": "loads/LIVE-mvlb0qzq.emails.claim.json",
+   "route": "/api/loads/LIVE-mvlb0qzq/emails/claim",
    "status": 200
   },
   {
-   "file": "messages.rcs.json",
-   "route": "/api/messages?channel=rcs&limit=50",
+   "file": "loads/LIVE-mvlb0qzq.emails.notice.json",
+   "route": "/api/loads/LIVE-mvlb0qzq/emails/notice",
    "status": 200
   },
   {
-   "file": "loads/SMOKE-DEMO-mvh3xsdq.json",
-   "route": "/api/loads/SMOKE-DEMO-mvh3xsdq",
+   "file": "loads/LIVE-mvlb0qzq.json",
+   "route": "/api/loads/LIVE-mvlb0qzq",
    "status": 200
   },
   {
-   "file": "loads/SMOKE-DEMO-mvh3xsdq.pack.json",
-   "route": "/api/loads/SMOKE-DEMO-mvh3xsdq/pack",
+   "file": "loads/LIVE-mvlb0qzq.pack.json",
+   "route": "/api/loads/LIVE-mvlb0qzq/pack",
    "status": 200
   },
   {
-   "file": "loads/SMOKE-DEMO-mvh3xsdq.emails.notice.json",
-   "route": "/api/loads/SMOKE-DEMO-mvh3xsdq/emails/notice",
+   "file": "loads/LIVE-mvpoqheg.emails.claim.json",
+   "route": "/api/loads/LIVE-mvpoqheg/emails/claim",
+   "status": 200
+  },
+  {
+   "file": "loads/LIVE-mvpoqheg.emails.notice.json",
+   "route": "/api/loads/LIVE-mvpoqheg/emails/notice",
+   "status": 200
+  },
+  {
+   "file": "loads/LIVE-mvpoqheg.json",
+   "route": "/api/loads/LIVE-mvpoqheg",
+   "status": 200
+  },
+  {
+   "file": "loads/LIVE-mvpoqheg.pack.json",
+   "route": "/api/loads/LIVE-mvpoqheg/pack",
    "status": 200
   },
   {
@@ -48,23 +63,18 @@
    "status": 200
   },
   {
-   "file": "photos/SMOKE-DEMO-mvh3xsdq-1.jpg",
-   "route": "/api/loads/SMOKE-DEMO-mvh3xsdq/photos/1",
+   "file": "loads/SMOKE-DEMO-mvh3xsdq.emails.notice.json",
+   "route": "/api/loads/SMOKE-DEMO-mvh3xsdq/emails/notice",
    "status": 200
   },
   {
-   "file": "loads/SMOKE-DEMO-mvh3xsdv.json",
-   "route": "/api/loads/SMOKE-DEMO-mvh3xsdv",
+   "file": "loads/SMOKE-DEMO-mvh3xsdq.json",
+   "route": "/api/loads/SMOKE-DEMO-mvh3xsdq",
    "status": 200
   },
   {
-   "file": "loads/SMOKE-DEMO-mvh3xsdv.pack.json",
-   "route": "/api/loads/SMOKE-DEMO-mvh3xsdv/pack",
-   "status": 200
-  },
-  {
-   "file": "loads/SMOKE-DEMO-mvh3xsdv.emails.notice.json",
-   "route": "/api/loads/SMOKE-DEMO-mvh3xsdv/emails/notice",
+   "file": "loads/SMOKE-DEMO-mvh3xsdq.pack.json",
+   "route": "/api/loads/SMOKE-DEMO-mvh3xsdq/pack",
    "status": 200
   },
   {
@@ -83,9 +93,34 @@
    "status": 200
   },
   {
+   "file": "loads/SMOKE-DEMO-mvh3xsdv.emails.notice.json",
+   "route": "/api/loads/SMOKE-DEMO-mvh3xsdv/emails/notice",
+   "status": 200
+  },
+  {
+   "file": "loads/SMOKE-DEMO-mvh3xsdv.json",
+   "route": "/api/loads/SMOKE-DEMO-mvh3xsdv",
+   "status": 200
+  },
+  {
+   "file": "loads/SMOKE-DEMO-mvh3xsdv.pack.json",
+   "route": "/api/loads/SMOKE-DEMO-mvh3xsdv/pack",
+   "status": 200
+  },
+  {
    "file": "loads/SMOKE-DEMO-mvh3xsdv.photos.1.error.json",
    "route": "/api/loads/SMOKE-DEMO-mvh3xsdv/photos/1",
    "status": 404
+  },
+  {
+   "file": "loads/SMOKE-mvh1bmmu.emails.claim.json",
+   "route": "/api/loads/SMOKE-mvh1bmmu/emails/claim",
+   "status": 200
+  },
+  {
+   "file": "loads/SMOKE-mvh1bmmu.emails.notice.json",
+   "route": "/api/loads/SMOKE-mvh1bmmu/emails/notice",
+   "status": 200
   },
   {
    "file": "loads/SMOKE-mvh1bmmu.json",
@@ -98,34 +133,9 @@
    "status": 200
   },
   {
-   "file": "loads/SMOKE-mvh1bmmu.emails.notice.json",
-   "route": "/api/loads/SMOKE-mvh1bmmu/emails/notice",
-   "status": 200
-  },
-  {
-   "file": "loads/SMOKE-mvh1bmmu.emails.claim.json",
-   "route": "/api/loads/SMOKE-mvh1bmmu/emails/claim",
-   "status": 200
-  },
-  {
    "file": "loads/SMOKE-mvh1bmmu.photos.1.error.json",
    "route": "/api/loads/SMOKE-mvh1bmmu/photos/1",
    "status": 404
-  },
-  {
-   "file": "loads/SMOKE-mvh34j51.json",
-   "route": "/api/loads/SMOKE-mvh34j51",
-   "status": 200
-  },
-  {
-   "file": "loads/SMOKE-mvh34j51.pack.json",
-   "route": "/api/loads/SMOKE-mvh34j51/pack",
-   "status": 200
-  },
-  {
-   "file": "loads/SMOKE-mvh34j51.emails.notice.json",
-   "route": "/api/loads/SMOKE-mvh34j51/emails/notice",
-   "status": 200
   },
   {
    "file": "loads/SMOKE-mvh34j51.emails.escalation-1.json",
@@ -138,19 +148,24 @@
    "status": 200
   },
   {
+   "file": "loads/SMOKE-mvh34j51.emails.notice.json",
+   "route": "/api/loads/SMOKE-mvh34j51/emails/notice",
+   "status": 200
+  },
+  {
+   "file": "loads/SMOKE-mvh34j51.json",
+   "route": "/api/loads/SMOKE-mvh34j51",
+   "status": 200
+  },
+  {
+   "file": "loads/SMOKE-mvh34j51.pack.json",
+   "route": "/api/loads/SMOKE-mvh34j51/pack",
+   "status": 200
+  },
+  {
    "file": "loads/SMOKE-mvh34j51.photos.1.error.json",
    "route": "/api/loads/SMOKE-mvh34j51/photos/1",
    "status": 404
-  },
-  {
-   "file": "loads/SMOKE-RCS-mvh32fui.json",
-   "route": "/api/loads/SMOKE-RCS-mvh32fui",
-   "status": 200
-  },
-  {
-   "file": "loads/SMOKE-RCS-mvh32fui.pack.json",
-   "route": "/api/loads/SMOKE-RCS-mvh32fui/pack",
-   "status": 200
   },
   {
    "file": "loads/SMOKE-RCS-mvh32fui.emails.claim.json",
@@ -163,8 +178,13 @@
    "status": 200
   },
   {
-   "file": "photos/SMOKE-RCS-mvh32fui-1.jpg",
-   "route": "/api/loads/SMOKE-RCS-mvh32fui/photos/1",
+   "file": "loads/SMOKE-RCS-mvh32fui.json",
+   "route": "/api/loads/SMOKE-RCS-mvh32fui",
+   "status": 200
+  },
+  {
+   "file": "loads/SMOKE-RCS-mvh32fui.pack.json",
+   "route": "/api/loads/SMOKE-RCS-mvh32fui/pack",
    "status": 200
   },
   {
@@ -178,8 +198,8 @@
    "status": 200
   },
   {
-   "file": "photos/SMOKE-RCS-mvh338l2-1.jpg",
-   "route": "/api/loads/SMOKE-RCS-mvh338l2/photos/1",
+   "file": "loads/SMOKE-RCS-mvh3695l.emails.escalation-1.json",
+   "route": "/api/loads/SMOKE-RCS-mvh3695l/emails/escalation-1",
    "status": 200
   },
   {
@@ -190,16 +210,6 @@
   {
    "file": "loads/SMOKE-RCS-mvh3695l.pack.json",
    "route": "/api/loads/SMOKE-RCS-mvh3695l/pack",
-   "status": 200
-  },
-  {
-   "file": "loads/SMOKE-RCS-mvh3695l.emails.escalation-1.json",
-   "route": "/api/loads/SMOKE-RCS-mvh3695l/emails/escalation-1",
-   "status": 200
-  },
-  {
-   "file": "photos/SMOKE-RCS-mvh3695l-1.jpg",
-   "route": "/api/loads/SMOKE-RCS-mvh3695l/photos/1",
    "status": 200
   },
   {
@@ -218,23 +228,18 @@
    "status": 415
   },
   {
-   "file": "loads/LIVE-mvlb0qzq.json",
-   "route": "/api/loads/LIVE-mvlb0qzq",
+   "file": "messages.json",
+   "route": "/api/messages?limit=100",
    "status": 200
   },
   {
-   "file": "loads/LIVE-mvlb0qzq.pack.json",
-   "route": "/api/loads/LIVE-mvlb0qzq/pack",
+   "file": "messages.rcs.json",
+   "route": "/api/messages?channel=rcs&limit=50",
    "status": 200
   },
   {
-   "file": "loads/LIVE-mvlb0qzq.emails.notice.json",
-   "route": "/api/loads/LIVE-mvlb0qzq/emails/notice",
-   "status": 200
-  },
-  {
-   "file": "loads/LIVE-mvlb0qzq.emails.claim.json",
-   "route": "/api/loads/LIVE-mvlb0qzq/emails/claim",
+   "file": "overview.json",
+   "route": "/api/overview",
    "status": 200
   },
   {
@@ -243,9 +248,29 @@
    "status": 200
   },
   {
-   "file": "error-404.json",
-   "route": "/api/loads/LIVE-not-in-demo",
-   "status": 404
+   "file": "photos/LIVE-mvpoqheg-1.jpg",
+   "route": "/api/loads/LIVE-mvpoqheg/photos/1",
+   "status": 200
+  },
+  {
+   "file": "photos/SMOKE-DEMO-mvh3xsdq-1.jpg",
+   "route": "/api/loads/SMOKE-DEMO-mvh3xsdq/photos/1",
+   "status": 200
+  },
+  {
+   "file": "photos/SMOKE-RCS-mvh32fui-1.jpg",
+   "route": "/api/loads/SMOKE-RCS-mvh32fui/photos/1",
+   "status": 200
+  },
+  {
+   "file": "photos/SMOKE-RCS-mvh338l2-1.jpg",
+   "route": "/api/loads/SMOKE-RCS-mvh338l2/photos/1",
+   "status": 200
+  },
+  {
+   "file": "photos/SMOKE-RCS-mvh3695l-1.jpg",
+   "route": "/api/loads/SMOKE-RCS-mvh3695l/photos/1",
+   "status": 200
   }
  ]
 }

@@ -81,8 +81,8 @@ describe("landing hero", () => {
   });
 });
 
-// Monday's take replaces the hero load: a load whose Released tap ends the clock and whose photo is
-// readable must build the same story. SMOKE-DEMO-mvh3xsdv stands in (a test load on the demo clause).
+// Any load whose Released tap ends the clock must build the same story as the hero.
+// SMOKE-DEMO-mvh3xsdv is a test load on the demo clause.
 describe("landing hero on another load", () => {
   const raw = (name: string) => JSON.parse(readFileSync(new URL(`../fixtures/api/loads/${name}.json`, import.meta.url), "utf8")) as { data: LoadView };
   const base = () => structuredClone(raw("SMOKE-DEMO-mvh3xsdv").data);
@@ -134,7 +134,8 @@ describe("landing hero on another load", () => {
     expect(buildStory(v, {})!.bolPhoto).toBeNull();
     v.photos = [{ ...(raw("LIVE-mvlb0qzq").data.photos[0]!), legible: true, url: "photos/LIVE-mvlb0qzq-1.jpg" }];
     expect(buildStory(v, {}, (u) => `/x/${u}`)!.bolPhoto).toBe("/x/photos/LIVE-mvlb0qzq-1.jpg");
-    expect(heroStory()!.bolPhoto).toBeNull();
+    // The hero's photo was read, so the landing shows it.
+    expect(heroStory()!.bolPhoto).toMatch(new RegExp(`photos/${HERO_LOAD}-1\\.jpg$`));
   });
 });
 
@@ -146,7 +147,9 @@ describe("landing claims follow the load", () => {
   it("keeps the hero's own wording for the hero load", () => {
     const s = heroStory()!;
     expect(wait(raw(HERO_LOAD).data)).toContain("Demo contract: 5 minutes free, $60 an hour. The clock runs on WhatsApp&#x27;s own timestamps.");
-    expect(stayProofWords(s.load, s.endedBy)).toBe("Two location pins, each with WhatsApp's server time.");
+    expect(s.endedBy).toBe("released_tap");
+    expect(stayProofWords(s.load, s.endedBy)).toBe("The arrival pin and the Released tap, each with WhatsApp's server time.");
+    expect(s.chapters.find((c) => c.key === "released")!.caption).toBe("The Released tap stops the clock and a second pin confirms it.");
   });
 
   it("says a test load's times were replayed, and names the Released tap when it ended the clock", () => {

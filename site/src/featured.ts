@@ -2,6 +2,6 @@
 //   whatsapp: the /judges default and the Overview's featured dock clock
 //   rcs:      the /judges "Driver on RCS" lane
 export const FEATURED = {
-  whatsapp: "LIVE-mvlb0qzq",
+  whatsapp: "LIVE-mvpoqheg",
   rcs: "SMOKE-DEMO-mvh3xsdq",
 } as const;

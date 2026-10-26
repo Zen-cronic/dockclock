@@ -1,0 +1,25 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-26T20:42:02.565Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "id": "notice",
+  "purpose": "notice",
+  "sentAt": "2026-10-26T20:06:43.448Z",
+  "status": "delivered",
+  "deliveredAt": "2026-10-26T20:06:44.354Z",
+  "from": "claims@claims.kaungzinhein.com",
+  "to": {
+   "name": "Demo Receiving Co. (fictional)",
+   "role": "shipper",
+   "note": "Delivered to our test mailbox, not to a real company."
+  },
+  "subject": "Detention notice: Load LIVE-mvpoqheg at Judge demo yard (any location counts), free time ends 16:10 EDT",
+  "attachments": [],
+  "bodyStored": true,
+  "provenance": "recorded",
+  "body": "Dear Demo Receiving Co. (fictional),\n\nThis is notice that load LIVE-mvpoqheg is still at the dock at Judge demo yard (any location counts). When free time ends, detention accrues under your terms.\n\nLoad: LIVE-mvpoqheg\nFacility: Judge demo yard (any location counts)\nChecked in: 2026-10-26 16:05 EDT\nSource: Location pin recorded with WhatsApp server time; the demo yard accepts any location\nFree time ends: 2026-10-26 16:10 EDT\nDetention rate: $60.00 per hour\n\nPlease release the truck, or tell us why the clock should not run.\n\nDockClock Claims, on behalf of Demo Carrier (fictional)\nclaims@claims.kaungzinhein.com\nReply to this email to reach the carrier's dispatch desk.\n\nView this load: https://d3djuoqhg6b8o2.cloudfront.net/loads/LIVE-mvpoqheg\nAny claim will include the signed evidence pack.\nThe carrier, the counterparty and the facility are fictional.",
+  "bodyNote": "The sent email's bytes, kept with the load's packs."
+ }
+}

@@ -1,0 +1,149 @@
+{
+ "schema": "dockclock.api/1",
+ "generatedAt": "2026-10-26T20:42:02.457Z",
+ "workspace": "demo",
+ "pollMs": null,
+ "data": {
+  "packId": "LIVE-mvpoqheg-703a485b5e6b",
+  "digestSha256": "d26f3addf23903ba25b097c09ebd520e9659ab93e2bce7c471e90344a7131698",
+  "algorithm": "ECDSA_SHA_256",
+  "signatureBase64": "MEUCIFhZe4mjYcheOzLqkxRKjgDy1AyGVVBXRre5O3woxjrNAiEA4zzL+tuitWVlgnfsm+lga9lGGFwH4J/j4IXglYLR/20=",
+  "publicKeyPath": "keys/public-key.pem",
+  "spkiSha256": "bb3323c27553898e9b35cf1262fd434a429c56f70472d4f54e401c11d93f130c",
+  "sealedAt": "2026-10-26T20:21:58.021Z",
+  "storage": "S3 Object Lock (governance mode, 30 days)",
+  "pack": {
+   "version": 2,
+   "packId": "LIVE-mvpoqheg-703a485b5e6b",
+   "loadId": "LIVE-mvpoqheg",
+   "clauseId": "judge-demo",
+   "channel": "whatsapp",
+   "facility": {
+    "id": "judge-demo",
+    "name": "Judge demo yard (any location counts)"
+   },
+   "appointmentAt": "2026-10-26T20:15:00.000Z",
+   "events": {
+    "arrived": {
+     "serverAt": "2026-10-26T20:05:35.000Z",
+     "messageId": "msg-sha256:a5aaec23996de07d"
+    },
+    "releasedTap": {
+     "serverAt": "2026-10-26T20:20:28.000Z",
+     "channel": "whatsapp",
+     "messageId": "msg-sha256:0f1ba8550acb760c"
+    },
+    "released": {
+     "serverAt": "2026-10-26T20:20:42.000Z",
+     "messageId": "msg-sha256:e6b62be97037e1cb",
+     "insideGeofence": true
+    },
+    "bol": {
+     "serverAt": "2026-10-26T20:21:47.000Z",
+     "messageId": "msg-sha256:9b77145b7d501b5f",
+     "pageSha256s": [
+      "f2fde3837e1606a61989d8ec295e0fbd571029d00d35f4f86a723d9f12bfc97d"
+     ],
+     "cameraOnly": true,
+     "timesEdited": {
+      "in": false,
+      "out": false
+     }
+    },
+    "notice": {
+     "sentAt": "2026-10-26T20:06:43.448Z",
+     "deliveredAt": "2026-10-26T20:06:44.354Z",
+     "messageId": "msg-sha256:4dc33a672b092001"
+    }
+   },
+   "clockEnd": {
+    "by": "released_tap",
+    "at": "2026-10-26T20:20:28.000Z"
+   },
+   "corroboration": {
+    "confidence": "high",
+    "signals": [
+     {
+      "name": "arrived_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "released_pin_in_geofence",
+      "ok": true,
+      "detail": "inside facility polygon"
+     },
+     {
+      "name": "released_pin_confirms_tap",
+      "ok": true,
+      "detail": "pin 0 min after the Released tap (limit 10); the clock stopped at the tap"
+     },
+     {
+      "name": "bol_camera_only",
+      "ok": true,
+      "detail": "captured in camera-only Flow"
+     },
+     {
+      "name": "bol_media_hashed",
+      "ok": true,
+      "detail": "1 of 1 pages stored and hashed"
+     },
+     {
+      "name": "bol_confirmed_by_driver",
+      "ok": true,
+      "detail": "driver confirmed or corrected extracted times"
+     },
+     {
+      "name": "bol_in_matches_arrived_pin",
+      "ok": true,
+      "independent": false,
+      "detail": "1 min apart (tolerance 15); pre-filled from the pin and left unchanged, so not independent"
+     },
+     {
+      "name": "bol_out_matches_released_tap",
+      "ok": true,
+      "independent": false,
+      "detail": "0 min apart (tolerance 15); pre-filled from the Released tap and left unchanged, so not independent"
+     },
+     {
+      "name": "bol_photo_legible",
+      "ok": true,
+      "detail": "photo read by the vision model"
+     },
+     {
+      "name": "bol_photo_in_matches_arrived_pin",
+      "ok": true,
+      "independent": true,
+      "detail": "1 min apart; written on the paper by the receiver"
+     },
+     {
+      "name": "bol_photo_out_matches_released_tap",
+      "ok": true,
+      "independent": true,
+      "detail": "10 min apart; written on the paper by the receiver"
+     },
+     {
+      "name": "bol_photo_signature_matches",
+      "ok": true,
+      "detail": "signature visible on the photo"
+     },
+     {
+      "name": "notice_delivered",
+      "ok": true,
+      "detail": "2026-10-26T20:06:44.354Z"
+     }
+    ]
+   },
+   "evaluation": {
+    "loadId": "LIVE-mvpoqheg",
+    "clockStartAt": "2026-10-26T20:05:35.000Z",
+    "detentionMinutes": 9.883333333333333,
+    "verdict": "BILLABLE",
+    "reasons": [],
+    "billableMinutes": 9.883333333333333,
+    "amountUsd": 9.88
+   },
+   "sealedAt": "2026-10-26T20:21:58.021Z"
+  }
+ }
+}
