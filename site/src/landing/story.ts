@@ -94,7 +94,7 @@ export function buildStory(view: Api.LoadView, bodies: Partial<Record<"notice" |
   ];
   if (notice) chapters.push({ key: "notice", label: "Notice", at: notice.sentAt, caption: "The receiver gets notice before free time ends.", screen: { kind: "mail", email: notice, body: bodies.notice ?? null }, beats: [{}] });
   if (releasedAt && ch4.length > 0)
-    chapters.push({ key: "released", label: "Released", at: releasedAt, caption: endedBy === "released_tap" ? "The Released tap stops the clock. A pin and the signed bill of lading back it up." : "A second pin stops the clock. The bill of lading comes from the camera.", screen: { kind: "phone", party: "driver" }, beats: beatsFor(ch4, msgs) });
+    chapters.push({ key: "released", label: "Released", at: releasedAt, caption: endedBy === "released_tap" ? "The Released tap stops the clock and a second pin confirms it." : "A second pin stops the clock. The bill of lading comes from the camera.", screen: { kind: "phone", party: "driver" }, beats: beatsFor(ch4, msgs) });
   if (approvalAsk) {
     const beats: Beat[] = [{ message: approvalAsk }];
     if (load.approval?.decision === "approve") beats.push({ tap: { messageId: approvalAsk.id, title: approvalAsk.buttons?.[0]?.title ?? "Approve claim" } });
