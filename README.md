@@ -86,7 +86,7 @@ Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md).
 - `SMOKE-` loads replay made-up driver messages through the deployed system. Everything after the phone (the workflow, the agent, SES, KMS) is real.
 
 ### Shown working on AWS
-- **The whole loop from a real phone.** Arrived, both pins, the camera-only form, the notice email, a BILLABLE verdict of $17.28, the dispatcher's real Approve tap, and the agent's claim email 11.7 seconds after the tap (load `LIVE-mvlb0qzq`, on the demo yard, which accepts any location). Its photo could not be read, and DockClock said so: it marked it "not legible" instead of guessing.
+- **The whole loop from a real phone.** Load `LIVE-mvpoqheg` (2026-10-26, on the demo yard, which accepts any location) stayed 14 min 53 s at the dock. The notice email was delivered about 4 minutes before free time ended. The Released tap stopped the clock, and a second pin 14 seconds later confirmed it. The agent read the times off the photo of a fictional bill of lading (out 4:30 PM, 10 minutes after the tap, inside the 15-minute tolerance). The contract owed $9.88. The dispatcher tapped Approve on a real phone, and the agent's claim email went out 11.5 seconds later with the PDF summary, which also came back on WhatsApp. An earlier run on 10-23 (load `LIVE-mvlb0qzq`, $17.28) had a photo that could not be read, and DockClock marked it "not legible" instead of guessing.
 - **The driver's side on a real phone:** dispatch, Arrived, location pin, Released, second pin, camera-only form, photo stored and hashed, pack signed (load `LIVE-mve0rrez`).
 - **The money loop runs by itself after sealing.** The dispatcher got the approval message on a real phone and tapped **Approve claim**. The agent filed the claim by SES with the signed pack 14 seconds later, and the workflow checked the claim record before it reported success (load `SMOKE-mve8yfv3`; its driver messages were made up).
 - **The detention notice.** EventBridge Scheduler fired before free time ended, SES emailed the broker or shipper, the delivery was recorded, and the sealed pack carries the notice, so clauses that require notice can pay (load `SMOKE-mveb2qnf`: SES reported delivery to our test mailbox 0.7 s after sending).
@@ -96,7 +96,6 @@ Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md).
 - **The details that make it safe to run:** duplicate, out-of-order and stale taps are refused; STOP and START work; "Talk to dispatch" answers the driver and emails dispatch; a tampered pack fails verification. About 390 automated tests, plus about 80 for the console.
 
 ### Built and tested, not yet run live
-- The one-page PDF claim summary, in the email and sent back over WhatsApp.
 - The request for a clearer photo when the first one is unreadable.
 - The judges' DEMO path on WhatsApp, run from a judge's phone.
 
