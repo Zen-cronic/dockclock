@@ -1,12 +1,12 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { sha256Hex } from "@dockclock/evidence";
 import { loadPageUrl } from "@dockclock/mail";
 import { driverKey } from "./identity.js";
 import type { Language } from "./messages.js";
 import { NOT_SENT, type Audience, type SentMessage } from "./outbound.js";
 import { rcsText } from "./rcs.js";
-import { recordBlocked, sendDocument, sendRcs, uploadMedia, type SendProgress, type Target } from "./sender.js";
+import { recordBlocked, SendNotStarted, sendDocument, sendRcs, uploadMedia, type SendProgress, type Target } from "./sender.js";
 import { ddb, type LoadItem } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
@@ -17,11 +17,24 @@ import { keys } from "./keys.js";
 // carrier load's driver too while their own window is still open. An RCS driver gets a short text
 // with the amount and a link to the load's console page instead of a file. Every send passes the
 // gates in sender.ts. Nothing here may fail the load: each recipient is tried on its own, and a
-// failure is logged. Each recipient is reserved on the CLAIM record before anything is sent, so a
-// retried outcome step (its text failed after the PDF went) never sends the PDF twice. A failure
-// before the send call releases the reservation, so a retry can still send; once the send call has
-// started the message may have gone, so the reservation stays. The file is uploaded to WhatsApp
-// once and its media id reused for every recipient.
+// failure is logged. The file is uploaded to WhatsApp once and its media id reused for every
+// recipient.
+//
+// Each recipient is reserved on the CLAIM record before anything is sent, so a retried outcome step
+// (its text failed after the PDF went) never sends the PDF twice. How far the send got decides
+// what happens to the reservation and to the conversation's record of it:
+// - A final answer before the send call keeps the reservation and records one not-sent row: a gate
+//   (replies off, a test number, STOP), no PDF stored, a closed window, a test load, and settings or
+//   addresses no retry can fix (SendNotStarted with permanent set: RCS not configured, a driver
+//   RCS cannot reach, a phone number that does not parse, no DISPATCHER_PHONE). A retry finds the
+//   recipient handled.
+// - A passing failure before the send call (the PDF cannot be read from S3, the upload to WhatsApp
+//   fails, a table read throws) records a not-sent row and releases the reservation, so a retry can
+//   still send. The released reservation remembers that row, and the retry deletes it, so the
+//   conversation keeps one row per recipient: the latest attempt's.
+// - Once the send call has started the message may have gone (a timeout after delivery): the
+//   reservation stays and nothing is recorded as not sent (SEND_UNCONFIRMED), on either channel.
+// - After the provider accepted it (a receipt row failed to write) it was sent.
 
 export const RECEIPT_PURPOSE = "claim_receipt";
 
@@ -99,8 +112,16 @@ export function windowOpen(lastAt: string | null, now = Date.now()): boolean {
   return Number.isFinite(at) && now - at < WINDOW_MS - WINDOW_MARGIN_MS;
 }
 
+// A missing or unparseable DISPATCHER_PHONE is a setting no retry can fix.
 async function dispatcherTarget(): Promise<Target> {
-  const address = { kind: "phone" as const, e164: env.dispatcherPhone() };
+  let e164 = "";
+  try {
+    e164 = env.dispatcherPhone();
+  } catch {
+    // missing: handled below
+  }
+  if (!e164) throw new SendNotStarted("DISPATCHER_PHONE is missing or not a phone number", NOT_SENT.noDispatcher, true);
+  const address = { kind: "phone" as const, e164 };
   return { address, driverKey: await driverKey(address) };
 }
 
@@ -114,39 +135,54 @@ async function pdfHash(claim: ClaimItem, key: string): Promise<string> {
 }
 
 const RESERVATION: Record<Audience, string> = { dispatcher: "receiptDispatcherAt", driver: "receiptDriverAt" };
+// The sort key of the not-sent row a released reservation left behind, for the retry to delete.
+const LEFT_ROW: Record<Audience, string> = { dispatcher: "receiptDispatcherNotSentSk", driver: "receiptDriverNotSentSk" };
 
 // Takes this recipient's one claim receipt, writing `at`. False when an earlier run already took it.
+// A not-sent row left by an earlier run that released the reservation is deleted (best effort):
+// this run records its own outcome.
 async function reserve(loadId: string, audience: Audience, at: string): Promise<boolean> {
+  let left: unknown;
   try {
-    await ddb.send(
+    const out = await ddb.send(
       new UpdateCommand({
         TableName: env.table(),
         Key: keys.claim(loadId),
-        UpdateExpression: "SET #r = :t",
+        UpdateExpression: "SET #r = :t REMOVE #n",
         ConditionExpression: "attribute_exists(pk) AND attribute_not_exists(#r)",
-        ExpressionAttributeNames: { "#r": RESERVATION[audience] },
+        ExpressionAttributeNames: { "#r": RESERVATION[audience], "#n": LEFT_ROW[audience] },
         ExpressionAttributeValues: { ":t": at },
+        ReturnValues: "ALL_OLD",
       }),
     );
-    return true;
+    left = out?.Attributes?.[LEFT_ROW[audience]];
   } catch (error) {
     if ((error as Error).name === "ConditionalCheckFailedException") return false;
     throw error;
   }
+  if (typeof left === "string" && left.startsWith("SEND#")) {
+    try {
+      await ddb.send(new DeleteCommand({ TableName: env.table(), Key: { pk: keys.load(loadId).pk, sk: left } }));
+    } catch (error) {
+      log("claim_receipt_row_delete_failed", { loadId, audience, error: (error as Error).name });
+    }
+  }
+  return true;
 }
 
-// Gives back a reservation this run took, when nothing was sent, so a retry can send. Only the
-// value this run wrote is removed. Best effort: a release that fails leaves the recipient handled.
-async function release(loadId: string, audience: Audience, at: string): Promise<void> {
+// Gives back a reservation this run took, when nothing was sent, so a retry can send, and notes the
+// not-sent row this run left (deleted by the retry). Only the value this run wrote is removed. Best
+// effort: a release that fails leaves the recipient handled.
+async function release(loadId: string, audience: Audience, at: string, row: { sk: string } | null): Promise<void> {
   try {
     await ddb.send(
       new UpdateCommand({
         TableName: env.table(),
         Key: keys.claim(loadId),
-        UpdateExpression: "REMOVE #r",
+        UpdateExpression: row ? "REMOVE #r SET #n = :n" : "REMOVE #r",
         ConditionExpression: "#r = :t",
-        ExpressionAttributeNames: { "#r": RESERVATION[audience] },
-        ExpressionAttributeValues: { ":t": at },
+        ExpressionAttributeNames: { "#r": RESERVATION[audience], ...(row ? { "#n": LEFT_ROW[audience] } : {}) },
+        ExpressionAttributeValues: { ":t": at, ...(row ? { ":n": row.sk } : {}) },
       }),
     );
   } catch (error) {
@@ -165,19 +201,22 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
   const driver: Target = { address: load.address, driverKey: load.driverKey };
   const results: ReceiptResult[] = [];
 
-  // The file, read once for every WhatsApp recipient. A missing or unreadable PDF is recorded on
-  // each recipient's send as not sent; the RCS link needs no file.
-  let sha256: string | null = null;
-  let fileProblem: string | null = null;
-  if (!claim.pdfKey) fileProblem = NOT_SENT.noPdf;
-  else {
+  // The file's hash, read once for every WhatsApp recipient and kept only once read. No stored PDF is
+  // a final answer for each recipient; a read that fails is a passing failure, tried again for the
+  // next recipient (and on a retry). The RCS link needs no file.
+  const pdfKey = claim.pdfKey;
+  let sha256: string | undefined;
+  const hash = async (key: string): Promise<string> => {
+    if (sha256) return sha256;
     try {
-      sha256 = await pdfHash(claim, claim.pdfKey);
+      sha256 = await pdfHash(claim, key);
+      return sha256;
     } catch (error) {
       log("claim_receipt_pdf_unreadable", { loadId: load.loadId, error: (error as Error).name });
-      fileProblem = NOT_SENT.noPdf;
+      throw new SendNotStarted("the claim PDF could not be read", NOT_SENT.pdfUnreadable, false);
     }
-  }
+  };
+  if (pdfKey) await hash(pdfKey).catch(() => undefined);
 
   // One upload for every WhatsApp recipient. Only a media id is kept: a failed upload is tried again
   // for the next recipient.
@@ -191,12 +230,11 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
 
   const document = async (target: Target, language: Language, audience: Audience, progress: SendProgress): Promise<ReceiptResult> => {
     const caption = RECEIPT_TEXT[language].caption(load.loadId, amount);
-    if (!claim.pdfKey || !sha256) {
-      const reason = fileProblem ?? NOT_SENT.noPdf;
-      await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: caption, document: { filename } }, audience, reason);
-      return { audience, channel: "whatsapp", sent: false, skipped: reason };
+    if (!pdfKey) {
+      await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: caption, document: { filename } }, audience, NOT_SENT.noPdf);
+      return { audience, channel: "whatsapp", sent: false, skipped: NOT_SENT.noPdf };
     }
-    const id = await sendDocument(target, { bucket: env.bucket(), key: claim.pdfKey, filename, caption, sha256, upload }, RECEIPT_PURPOSE, load.loadId, { audience, progress });
+    const id = await sendDocument(target, { bucket: env.bucket(), key: pdfKey, filename, caption, sha256: await hash(pdfKey), upload }, RECEIPT_PURPOSE, load.loadId, { audience, progress });
     return { audience, channel: "whatsapp", sent: id !== null };
   };
 
@@ -220,10 +258,7 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
   const language = load.language ?? "en_US";
 
   // Reserve, then send. Where a throw came from decides what happens to the reservation and the
-  // record. Before the send call nothing went: the reservation is released and the send recorded
-  // as not sent. During the send call the message may have gone: the reservation stays and nothing
-  // is recorded as not sent. After the provider accepted it (a receipt row failed to write) it was
-  // sent.
+  // record (the rules are in this file's header).
   const attempt = async (audience: Audience, run: (progress: SendProgress) => Promise<ReceiptResult | null>) => {
     const rcs = load.channel === "rcs" && audience === "driver";
     const channel = rcs ? "rcs" : "whatsapp";
@@ -251,11 +286,15 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
         results.push({ audience, channel, sent: false, skipped: SEND_UNCONFIRMED });
         return;
       }
-      log("claim_receipt_failed", { loadId: load.loadId, audience, error: name });
-      if (reserved) await release(load.loadId, audience, at);
+      // Nothing went. A setting or address no retry can fix keeps the reservation (one row, and a
+      // retry finds the recipient handled); anything else gives it back for a retry.
+      const stopped = error instanceof SendNotStarted ? error : null;
+      const permanent = stopped?.permanent === true;
+      log("claim_receipt_failed", { loadId: load.loadId, audience, error: name, permanent });
       const shown: SentMessage = rcs ? { kind: "text", text: RECEIPT_TEXT[language].caption(load.loadId, amount) } : documentShown(audience === "dispatcher" ? "en_US" : language);
-      await recordBlocked(load.loadId, RECEIPT_PURPOSE, channel, shown, audience, NOT_SENT.failed);
-      results.push({ audience, channel, sent: false, skipped: name });
+      const row = await recordBlocked(load.loadId, RECEIPT_PURPOSE, channel, shown, audience, stopped?.reason ?? NOT_SENT.failed);
+      if (reserved && !permanent) await release(load.loadId, audience, at, row);
+      results.push({ audience, channel, sent: false, skipped: stopped?.reason ?? name });
     }
   };
 

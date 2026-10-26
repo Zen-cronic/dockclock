@@ -3,7 +3,7 @@ import { PinpointSMSVoiceV2Client, SendRcsMessageCommand } from "@aws-sdk/client
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { PostWhatsAppMessageMediaCommand, SendWhatsAppMessageCommand, SocialMessagingClient } from "@aws-sdk/client-socialmessaging";
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { LANGUAGES } from "../src/messages.js";
@@ -32,18 +32,28 @@ let load: LoadItem;
 let claim: Record<string, unknown> | undefined;
 let events: Array<Record<string, unknown>>;
 let optedOut: Set<string>;
-// Receipt reservations taken on the CLAIM record (attribute names), as DynamoDB would keep them.
+// Receipt reservations taken on the CLAIM record (attribute names), as DynamoDB would keep them,
+// and the not-sent row a released reservation left behind (attribute name -> the row's sort key).
 let reserved: Set<string>;
+let leftRows: Map<string, string>;
 
-type Update = { Key: { sk: string }; UpdateExpression?: string; ConditionExpression?: string; ExpressionAttributeNames?: Record<string, string> };
+type Update = { Key: { sk: string }; UpdateExpression?: string; ConditionExpression?: string; ExpressionAttributeNames?: Record<string, string>; ExpressionAttributeValues?: Record<string, unknown> };
 // Takes and releases reservations on the CLAIM record, as DynamoDB's conditions would.
 function reservations(input: Update) {
   const name = input.ExpressionAttributeNames?.["#r"];
+  const left = input.ExpressionAttributeNames?.["#n"];
   if (input.Key.sk === "CLAIM" && name && input.ConditionExpression?.includes("attribute_not_exists(#r)")) {
     if (reserved.has(name)) throw Object.assign(new Error("taken"), { name: "ConditionalCheckFailedException" });
     reserved.add(name);
+    const old = left ? leftRows.get(left) : undefined;
+    if (left) leftRows.delete(left);
+    return { Attributes: old && left ? { [left]: old } : {} };
   }
-  if (input.Key.sk === "CLAIM" && name && input.UpdateExpression?.startsWith("REMOVE")) reserved.delete(name);
+  if (input.Key.sk === "CLAIM" && name && input.UpdateExpression?.startsWith("REMOVE")) {
+    reserved.delete(name);
+    const sk = input.ExpressionAttributeValues?.[":n"];
+    if (left && typeof sk === "string") leftRows.set(left, sk);
+  }
   return {};
 }
 
@@ -69,6 +79,12 @@ function baseLoad(over: Partial<LoadItem> = {}): LoadItem {
 type Sent = { to?: string; type: string; document?: { id: string; filename: string; caption: string }; text?: { body: string } };
 const whatsappSent = (): Sent[] => messaging.commandCalls(SendWhatsAppMessageCommand).map((c) => JSON.parse(Buffer.from(c.args[0].input.message as Uint8Array).toString()) as Sent);
 const records = () => dynamo.commandCalls(PutCommand).map((c) => c.args[0].input.Item as Record<string, unknown>).filter((i) => String(i.sk).startsWith("SEND#") && i.purpose === "claim_receipt");
+// The receipt rows still on the load: every row written, less the ones deleted.
+const kept = () => {
+  const gone = new Set(dynamo.commandCalls(DeleteCommand).map((c) => String(c.args[0].input.Key?.sk)));
+  return records().filter((r) => !gone.has(String(r.sk)));
+};
+const fail = (name: string) => Object.assign(new Error(name), { name });
 
 describe("the PDF claim summary goes back over WhatsApp after filing", () => {
   beforeAll(() => {
@@ -93,6 +109,7 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     events = [{ sk: `EVENT#${recently()}#w1`, type: "flow", channel: "whatsapp", serverAt: recently() }];
     optedOut = new Set();
     reserved = new Set();
+    leftRows = new Map();
     secrets.on(GetSecretValueCommand).resolves({ SecretString: "k" });
     s3.on(GetObjectCommand).resolves({ Body: { transformToByteArray: async () => PDF } } as never);
     let media = 0;
@@ -110,6 +127,7 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     });
     dynamo.on(QueryCommand).callsFake(() => ({ Items: [...events].reverse() }));
     dynamo.on(PutCommand).resolves({});
+    dynamo.on(DeleteCommand).resolves({});
     dynamo.on(UpdateCommand).callsFake(reservations);
   });
 
@@ -200,21 +218,54 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     expect(whatsappSent().map((m) => m.to)).toEqual([DRIVER]);
   });
 
-  it("records a failed upload as not sent, sends no document and carries on to the next recipient", async () => {
-    messaging.on(PostWhatsAppMessageMediaCommand).rejectsOnce(Object.assign(new Error("boom"), { name: "ValidationException" })).resolves({ mediaId: "media-9" });
+  it("records a failed upload as not sent, gives the reservation back and carries on to the next recipient", async () => {
+    messaging.on(PostWhatsAppMessageMediaCommand).rejectsOnce(fail("ThrottlingException")).resolves({ mediaId: "media-9" });
     const results = await sendClaimReceipts(load);
     expect(results).toEqual([
-      { audience: "dispatcher", channel: "whatsapp", sent: false },
+      { audience: "dispatcher", channel: "whatsapp", sent: false, skipped: NOT_SENT.uploadFailed },
       { audience: "driver", channel: "whatsapp", sent: true },
     ]);
     expect(whatsappSent().map((m) => m.to)).toEqual([DRIVER]);
     expect(records()[0]).toMatchObject({ audience: "dispatcher", status: "not_sent", notSentReason: NOT_SENT.uploadFailed });
+    expect([...reserved]).toEqual(["receiptDriverAt"]);
+    // A retry of the outcome step sends the dispatcher's PDF, and the earlier not-sent row is gone.
+    expect((await sendClaimReceipts(load)).map((r) => [r.audience, r.sent, r.skipped])).toEqual([["dispatcher", true, undefined], ["driver", false, ALREADY_HANDLED]]);
+    expect(whatsappSent().map((m) => m.to)).toEqual([DRIVER, DISPATCHER]);
+    expect(kept().map((r) => [r.audience, r.status ?? "sent"])).toEqual([["driver", "sent"], ["dispatcher", "sent"]]);
   });
 
-  it("records a refused document send as not sent without throwing", async () => {
-    messaging.on(SendWhatsAppMessageCommand).rejects(Object.assign(new Error("no"), { name: "AccessDeniedByMetaException" }));
-    expect((await sendClaimReceipts(load)).every((r) => !r.sent)).toBe(true);
-    expect(records().map((r) => r.notSentReason)).toEqual([NOT_SENT.sendFailed, NOT_SENT.sendFailed]);
+  it("gives the reservation back when the stored PDF cannot be read, and a retry sends it", async () => {
+    // Read once up front and again for the dispatcher: both fail. The driver's read succeeds.
+    s3.on(GetObjectCommand).rejectsOnce(fail("SlowDown")).rejectsOnce(fail("SlowDown")).resolves({ Body: { transformToByteArray: async () => PDF } } as never);
+    const results = await sendClaimReceipts(load);
+    expect(results).toEqual([
+      { audience: "dispatcher", channel: "whatsapp", sent: false, skipped: NOT_SENT.pdfUnreadable },
+      { audience: "driver", channel: "whatsapp", sent: true },
+    ]);
+    expect(records()[0]).toMatchObject({ audience: "dispatcher", status: "not_sent", notSentReason: NOT_SENT.pdfUnreadable });
+    expect(reserved.has("receiptDispatcherAt")).toBe(false);
+    expect((await sendClaimReceipts(load))[0]).toEqual({ audience: "dispatcher", channel: "whatsapp", sent: true });
+    expect(kept().filter((r) => r.status === "not_sent")).toEqual([]);
+  });
+
+  it("treats a throw during the WhatsApp document send as unconfirmed: no not-sent row, the reservation stays", async () => {
+    messaging.on(SendWhatsAppMessageCommand).rejects(fail("TimeoutError"));
+    expect(await sendClaimReceipts(load)).toEqual([
+      { audience: "dispatcher", channel: "whatsapp", sent: false, skipped: SEND_UNCONFIRMED },
+      { audience: "driver", channel: "whatsapp", sent: false, skipped: SEND_UNCONFIRMED },
+    ]);
+    expect(records()).toEqual([]);
+    expect([...reserved].sort()).toEqual(["receiptDispatcherAt", "receiptDriverAt"]);
+    // A retry sends no second copy of a PDF that may have gone.
+    messaging.on(SendWhatsAppMessageCommand).resolves({ messageId: "out-z" });
+    expect((await sendClaimReceipts(load)).map((r) => r.skipped)).toEqual([ALREADY_HANDLED, ALREADY_HANDLED]);
+    expect(records()).toEqual([]);
+  });
+
+  it("treats a send reply without a message id as unconfirmed too", async () => {
+    messaging.on(SendWhatsAppMessageCommand).resolves({});
+    expect((await sendClaimReceipts(load)).map((r) => r.skipped)).toEqual([SEND_UNCONFIRMED, SEND_UNCONFIRMED]);
+    expect(records()).toEqual([]);
   });
 
   it("records a missing PDF as not sent, with no upload", async () => {
@@ -302,6 +353,56 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     expect(records()[0]!.message).toEqual({ kind: "document", text: expect.stringContaining("Claim summary for load L1"), document: { filename: "detention-claim-L1.pdf", sha256: PDF_SHA } });
   });
 
+  it("records a setting no retry can fix once and keeps the reservation: no DISPATCHER_PHONE", async () => {
+    const phone = process.env.DISPATCHER_PHONE;
+    delete process.env.DISPATCHER_PHONE;
+    try {
+      expect(await sendClaimReceipts(load)).toEqual([
+        { audience: "dispatcher", channel: "whatsapp", sent: false, skipped: NOT_SENT.noDispatcher },
+        { audience: "driver", channel: "whatsapp", sent: true },
+      ]);
+      expect(reserved.has("receiptDispatcherAt")).toBe(true);
+      // Every retry finds the recipient handled; the conversation keeps the one row.
+      await sendClaimReceipts(load);
+      await sendClaimReceipts(load);
+    } finally {
+      process.env.DISPATCHER_PHONE = phone;
+    }
+    expect(records().filter((r) => r.audience === "dispatcher").map((r) => r.notSentReason)).toEqual([NOT_SENT.noDispatcher]);
+  });
+
+  it("records an RCS receipt that this deployment cannot send once, and keeps the reservation", async () => {
+    load = baseLoad({ demo: true, channel: "rcs", ws: "demo" });
+    const agent = process.env.RCS_AGENT_ID;
+    delete process.env.RCS_AGENT_ID;
+    try {
+      expect(await sendClaimReceipts(load)).toEqual([{ audience: "driver", channel: "rcs", sent: false, skipped: NOT_SENT.rcsOff }]);
+      expect(await sendClaimReceipts(load)).toEqual([{ audience: "driver", channel: "rcs", sent: false, skipped: ALREADY_HANDLED }]);
+    } finally {
+      process.env.RCS_AGENT_ID = agent;
+    }
+    expect(sms.calls()).toHaveLength(0);
+    expect(records().map((r) => [r.channel, r.notSentReason])).toEqual([["rcs", NOT_SENT.rcsOff]]);
+  });
+
+  it("records an address no channel can reach once: a bad number, or an RCS driver with no phone number", async () => {
+    load = baseLoad({ demo: true, address: { kind: "phone", e164: "+1555" } });
+    expect(await sendClaimReceipts(load)).toEqual([{ audience: "driver", channel: "whatsapp", sent: false, skipped: NOT_SENT.badNumber }]);
+    expect(reserved.has("receiptDriverAt")).toBe(true);
+    reserved.clear();
+    dynamo.resetHistory();
+    const allowlist = process.env.DRIVER_ALLOWLIST;
+    process.env.DRIVER_ALLOWLIST = `${allowlist},bsuid-test-1`;
+    try {
+      load = baseLoad({ demo: true, channel: "rcs", ws: "demo", address: { kind: "bsuid", id: "bsuid-test-1" } });
+      expect(await sendClaimReceipts(load)).toEqual([{ audience: "driver", channel: "rcs", sent: false, skipped: NOT_SENT.rcsNeedsPhone }]);
+    } finally {
+      process.env.DRIVER_ALLOWLIST = allowlist;
+    }
+    expect(reserved.has("receiptDriverAt")).toBe(true);
+    expect(records().map((r) => r.notSentReason)).toEqual([NOT_SENT.rcsNeedsPhone]);
+  });
+
   it("gives back the reservation when a throw came before the send, so a retry still sends the PDF", async () => {
     const throttled = () => Object.assign(new Error("throttled"), { name: "ProvisionedThroughputExceededException" });
     dynamo.on(GetCommand).callsFake((input: { Key: { pk: string; sk: string } }) => {
@@ -316,6 +417,8 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     dynamo.on(GetCommand).callsFake((input: { Key: { pk: string; sk: string } }) => (input.Key.sk === "CLAIM" ? { Item: claim } : {}));
     expect((await sendClaimReceipts(load)).map((r) => r.sent)).toEqual([true, true]);
     expect(whatsappSent().map((m) => m.to)).toEqual([DISPATCHER, DRIVER]);
+    // The first run's not-sent rows are deleted by the retry, so each recipient shows one sent row.
+    expect(kept().map((r) => [r.audience, r.status ?? "sent"])).toEqual([["dispatcher", "sent"], ["driver", "sent"]]);
   });
 
   it("counts an RCS link whose receipt row failed to write as sent, keeps the reservation and records no not-sent row", async () => {

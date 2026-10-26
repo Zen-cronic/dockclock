@@ -25,10 +25,24 @@ export interface Target {
   driverKey: string;
 }
 
+// A send that stopped before the provider call, so nothing went out. `reason` is the plain words the
+// load's conversation shows (NOT_SENT). `permanent`: the same send would stop the same way on every
+// retry (a deployment setting or an address that cannot be reached), so retrying cannot help.
+export class SendNotStarted extends Error {
+  override name = "SendNotStarted";
+  constructor(
+    message: string,
+    readonly reason: string,
+    readonly permanent: boolean,
+  ) {
+    super(message);
+  }
+}
+
 export function canonical(address: Address): Address {
   if (address.kind === "bsuid") return address;
   const e164 = normalizeE164(address.e164);
-  if (!e164) throw new Error("invalid phone number");
+  if (!e164) throw new SendNotStarted("invalid phone number", NOT_SENT.badNumber, true);
   return { kind: "phone", e164 };
 }
 
@@ -184,13 +198,17 @@ async function cleared(target: Target, purpose: string, loadId: string, options:
 
 // A message the gates stopped is still recorded under its load, marked not sent with the reason,
 // so a test load's conversation shows what DockClock would have said. Best effort, like recordSend.
-export async function recordBlocked(loadId: string, purpose: string, channel: Channel, message: SentMessage, audience: Audience, reason: string): Promise<void> {
-  if (loadId === "-") return;
+// Returns the row's key, or null when nothing was written.
+export async function recordBlocked(loadId: string, purpose: string, channel: Channel, message: SentMessage, audience: Audience, reason: string): Promise<{ pk: string; sk: string } | null> {
+  if (loadId === "-") return null;
   try {
     const messageId = `not-sent-${randomBytes(6).toString("hex")}`;
-    await ddb.send(new PutCommand({ TableName: env.table(), Item: sendRecord({ loadId, messageId, channel, purpose, audience, sentAt: new Date().toISOString(), message, notSentReason: reason }) }));
+    const item = sendRecord({ loadId, messageId, channel, purpose, audience, sentAt: new Date().toISOString(), message, notSentReason: reason });
+    await ddb.send(new PutCommand({ TableName: env.table(), Item: item }));
+    return { pk: item.pk, sk: item.sk };
   } catch (error) {
     log("send_record_failed", { purpose, loadId, error: (error as Error).name });
+    return null;
   }
 }
 
@@ -268,8 +286,10 @@ export async function uploadMedia(bucket: string, key: string, purpose: string, 
 // Sends one file as a WhatsApp document through the same gates as send(): the gates first, so a
 // blocked recipient never causes an upload; then PostWhatsAppMessageMedia reads the object from S3
 // (with this function's own S3 permission) and returns a media id; then SendWhatsAppMessage sends
-// the document. Unlike send() it never throws: a failed upload or send is logged and recorded under
-// the load as not sent with the reason, and the caller carries on.
+// the document. A recipient the gates stopped is recorded as not sent and gets null. A failed
+// upload throws SendNotStarted (nothing went; the caller records it). Once the send call starts the
+// document may have gone, so a throw or a reply without a message id there is rethrown with
+// options.progress at "sending", and nothing is recorded as not sent.
 export async function sendDocument(target: Target, file: DocumentFile, purpose: string, loadId: string, options: SendOptions = {}): Promise<string | null> {
   const audience = options.audience ?? "driver";
   const shown = { kind: "document" as const, text: file.caption, document: { filename: file.filename, sha256: file.sha256 } };
@@ -279,12 +299,9 @@ export async function sendDocument(target: Target, file: DocumentFile, purpose: 
     return null;
   }
   const mediaId = file.upload ? await file.upload() : await uploadMedia(file.bucket, file.key, purpose, loadId);
-  if (!mediaId) {
-    await recordBlocked(loadId, purpose, "whatsapp", shown, audience, NOT_SENT.uploadFailed);
-    return null;
-  }
-  let messageId: string | null = null;
+  if (!mediaId) throw new SendNotStarted("media upload failed", NOT_SENT.uploadFailed, false);
   mark(options, "sending");
+  let messageId: string | null;
   try {
     const out = await messaging.send(
       new SendWhatsAppMessageCommand({
@@ -296,11 +313,9 @@ export async function sendDocument(target: Target, file: DocumentFile, purpose: 
     messageId = out.messageId ?? null;
   } catch (error) {
     log("send_failed", { purpose, loadId, channel: "whatsapp", error: (error as Error).name });
+    throw error;
   }
-  if (!messageId) {
-    await recordBlocked(loadId, purpose, "whatsapp", shown, audience, NOT_SENT.sendFailed);
-    return null;
-  }
+  if (!messageId) throw new Error("the send call returned no message id");
   mark(options, "accepted");
   log("send_accepted", { purpose, loadId, messageId, channel: "whatsapp" });
   try {
@@ -316,14 +331,14 @@ export async function sendDocument(target: Target, file: DocumentFile, purpose: 
 // purpose ride along as Context, so delivery events name their load even before the record exists.
 export async function sendRcs(target: Target, content: RcsMessageContent, purpose: string, loadId: string, options: SendOptions = {}): Promise<string | null> {
   const rcs = env.rcs();
-  if (!rcs) throw new Error("RCS is not configured (RCS_AGENT_ID, RCS_TOPIC_ARN)");
+  if (!rcs) throw new SendNotStarted("RCS is not configured (RCS_AGENT_ID, RCS_TOPIC_ARN)", NOT_SENT.rcsOff, true);
   const gate = await cleared(target, purpose, loadId, options);
   if ("blocked" in gate) {
     await recordBlocked(loadId, purpose, "rcs", renderRcs(content), options.audience ?? "driver", gate.blocked);
     return null;
   }
   const address = gate.address;
-  if (address.kind !== "phone") throw new Error("RCS needs a phone number");
+  if (address.kind !== "phone") throw new SendNotStarted("RCS needs a phone number", NOT_SENT.rcsNeedsPhone, true);
   const configurationSet = env.rcsConfigurationSet();
   mark(options, "sending");
   const out = await sms.send(

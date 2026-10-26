@@ -137,8 +137,13 @@ export const NOT_SENT = {
   // The claim summary PDF sent back over WhatsApp (claim-receipt.ts).
   noPdf: "Not sent: the claim PDF was not stored, so there was no file to send.",
   uploadFailed: "Not sent: the claim PDF could not be uploaded to WhatsApp.",
-  sendFailed: "Not sent: WhatsApp did not accept the message.",
+  pdfUnreadable: "Not sent: the stored claim PDF could not be read.",
   windowClosed: "Not sent: the driver has not written in the last 24 hours, and WhatsApp then allows only approved templates.",
   testLoad: "Not sent: a test load. Dispatch is only messaged when the test asks for it.",
   failed: "Not sent: the send stopped on an error.",
+  // Settings or addresses no retry can fix (sender.ts SendNotStarted, permanent).
+  badNumber: "Not sent: the phone number on file is not a valid number.",
+  rcsOff: "Not sent: RCS is not set up in this deployment.",
+  rcsNeedsPhone: "Not sent: RCS reaches phone numbers only, and this driver has none on file.",
+  noDispatcher: "Not sent: no dispatch phone number is set in this deployment.",
 } as const;
