@@ -234,6 +234,13 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     expect(kept().map((r) => [r.audience, r.status ?? "sent"])).toEqual([["driver", "sent"], ["dispatcher", "sent"]]);
   });
 
+  it("reads back only the reservation's own attributes when it reserves, not the whole claim", async () => {
+    await sendClaimReceipts(load);
+    const takes = dynamo.commandCalls(UpdateCommand).map((c) => c.args[0].input).filter((i) => i.ConditionExpression?.includes("attribute_not_exists(#r)"));
+    expect(takes).toHaveLength(2);
+    for (const take of takes) expect(take.ReturnValues).toBe("UPDATED_OLD");
+  });
+
   it("gives the reservation back when the stored PDF cannot be read, and a retry sends it", async () => {
     // Read once up front and again for the dispatcher: both fail. The driver's read succeeds.
     s3.on(GetObjectCommand).rejectsOnce(fail("SlowDown")).rejectsOnce(fail("SlowDown")).resolves({ Body: { transformToByteArray: async () => PDF } } as never);

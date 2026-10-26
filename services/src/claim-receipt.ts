@@ -155,7 +155,8 @@ async function reserve(loadId: string, audience: Audience, at: string): Promise<
         ConditionExpression: "attribute_exists(pk) AND attribute_not_exists(#r)",
         ExpressionAttributeNames: { "#r": RESERVATION[audience], "#n": LEFT_ROW[audience] },
         ExpressionAttributeValues: { ":t": at },
-        ReturnValues: "ALL_OLD",
+        // Only the attributes this update touched: the reservation and the left row's key.
+        ReturnValues: "UPDATED_OLD",
       }),
     );
     left = out?.Attributes?.[LEFT_ROW[audience]];
