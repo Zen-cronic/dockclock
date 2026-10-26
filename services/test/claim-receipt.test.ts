@@ -5,11 +5,11 @@ import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-sec
 import { PostWhatsAppMessageMediaCommand, SendWhatsAppMessageCommand, SocialMessagingClient } from "@aws-sdk/client-socialmessaging";
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { LANGUAGES } from "../src/messages.js";
 import { NOT_SENT } from "../src/outbound.js";
 import { handler as tellOutcome } from "../src/outcome.js";
-import { ALREADY_HANDLED, RECEIPT_TEXT, SEND_UNCONFIRMED, sendClaimReceipts, windowOpen } from "../src/claim-receipt.js";
+import { ALREADY_HANDLED, RECEIPT_TEXT, SEND_UNCONFIRMED, sameRecipient, sendClaimReceipts, windowOpen } from "../src/claim-receipt.js";
 import type { LoadItem } from "../src/store.js";
 
 const dynamo = mockClient(DynamoDBDocumentClient);
@@ -36,23 +36,35 @@ let optedOut: Set<string>;
 // and the not-sent row a released reservation left behind (attribute name -> the row's sort key).
 let reserved: Set<string>;
 let leftRows: Map<string, string>;
+// A role's share of another role's send (attribute name -> the role it shared).
+let shares: Map<string, unknown>;
 
 type Update = { Key: { sk: string }; UpdateExpression?: string; ConditionExpression?: string; ExpressionAttributeNames?: Record<string, string>; ExpressionAttributeValues?: Record<string, unknown> };
-// Takes and releases reservations on the CLAIM record, as DynamoDB's conditions would.
+// Takes and releases reservations on the CLAIM record, as DynamoDB's conditions would: #r0 (and
+// #r1 for a role sharing the send), each with its left row's key #n0/#n1 and a share #s1.
 function reservations(input: Update) {
-  const name = input.ExpressionAttributeNames?.["#r"];
-  const left = input.ExpressionAttributeNames?.["#n"];
-  if (input.Key.sk === "CLAIM" && name && input.ConditionExpression?.includes("attribute_not_exists(#r)")) {
-    if (reserved.has(name)) throw Object.assign(new Error("taken"), { name: "ConditionalCheckFailedException" });
-    reserved.add(name);
-    const old = left ? leftRows.get(left) : undefined;
-    if (left) leftRows.delete(left);
-    return { Attributes: old && left ? { [left]: old } : {} };
+  const named = input.ExpressionAttributeNames ?? {};
+  const roles = [0, 1].filter((i) => named[`#r${i}`]).map((i) => ({ name: named[`#r${i}`]!, left: named[`#n${i}`], share: named[`#s${i}`], i }));
+  if (input.Key.sk !== "CLAIM" || !roles.length) return {};
+  if (input.ConditionExpression?.includes("attribute_not_exists(#r0)")) {
+    if (roles.some((r) => reserved.has(r.name))) throw Object.assign(new Error("taken"), { name: "ConditionalCheckFailedException" });
+    const old: Record<string, string> = {};
+    for (const r of roles) {
+      reserved.add(r.name);
+      if (r.share) shares.set(r.share, input.ExpressionAttributeValues?.[":a"]);
+      const sk = r.left ? leftRows.get(r.left) : undefined;
+      if (r.left && sk) old[r.left] = sk;
+      if (r.left) leftRows.delete(r.left);
+    }
+    return { Attributes: old };
   }
-  if (input.Key.sk === "CLAIM" && name && input.UpdateExpression?.startsWith("REMOVE")) {
-    reserved.delete(name);
-    const sk = input.ExpressionAttributeValues?.[":n"];
-    if (left && typeof sk === "string") leftRows.set(left, sk);
+  if (input.UpdateExpression?.startsWith("REMOVE")) {
+    for (const r of roles) {
+      reserved.delete(r.name);
+      if (r.share) shares.delete(r.share);
+      const sk = input.ExpressionAttributeValues?.[`:n${r.i}`];
+      if (r.left && typeof sk === "string") leftRows.set(r.left, sk);
+    }
   }
   return {};
 }
@@ -110,6 +122,7 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     optedOut = new Set();
     reserved = new Set();
     leftRows = new Map();
+    shares = new Map();
     secrets.on(GetSecretValueCommand).resolves({ SecretString: "k" });
     s3.on(GetObjectCommand).resolves({ Body: { transformToByteArray: async () => PDF } } as never);
     let media = 0;
@@ -236,7 +249,7 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
 
   it("reads back only the reservation's own attributes when it reserves, not the whole claim", async () => {
     await sendClaimReceipts(load);
-    const takes = dynamo.commandCalls(UpdateCommand).map((c) => c.args[0].input).filter((i) => i.ConditionExpression?.includes("attribute_not_exists(#r)"));
+    const takes = dynamo.commandCalls(UpdateCommand).map((c) => c.args[0].input).filter((i) => i.ConditionExpression?.includes("attribute_not_exists(#r0)"));
     expect(takes).toHaveLength(2);
     for (const take of takes) expect(take.ReturnValues).toBe("UPDATED_OLD");
   });
@@ -403,6 +416,119 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     expect(records()).toEqual([]);
   });
 
+  // One phone set as DISPATCHER_PHONE and allowlisted as the driver: one person in both roles.
+  describe("when the dispatcher and the driver are one person", () => {
+    let phone: string | undefined;
+    beforeEach(() => {
+      phone = process.env.DISPATCHER_PHONE;
+      // The driver's number, written another way: the comparison is on the canonical E.164.
+      process.env.DISPATCHER_PHONE = "(555) 010-0001";
+    });
+    afterEach(() => {
+      process.env.DISPATCHER_PHONE = phone;
+    });
+
+    it("sends the PDF once, records one row, and records the driver as sharing the dispatcher's send", async () => {
+      expect(await sendClaimReceipts(load)).toEqual([
+        { audience: "dispatcher", channel: "whatsapp", sent: true },
+        { audience: "driver", channel: "whatsapp", sent: true, sharedWith: "dispatcher" },
+      ]);
+      expect(messaging.commandCalls(SendWhatsAppMessageCommand)).toHaveLength(1);
+      expect(whatsappSent().map((m) => m.to)).toEqual([DRIVER]);
+      expect(records().map((r) => [r.audience, r.status ?? "sent"])).toEqual([["dispatcher", "sent"]]);
+      expect([...reserved].sort()).toEqual(["receiptDispatcherAt", "receiptDriverAt"]);
+      expect(shares.get("receiptDriverSharedWith")).toBe("dispatcher");
+    });
+
+    it("shares the send even when the driver's own window has closed: the Approve tap opened it", async () => {
+      events = [{ type: "flow", channel: "whatsapp", serverAt: longAgo() }];
+      expect((await sendClaimReceipts(load)).map((r) => [r.audience, r.sent, r.skipped, r.sharedWith])).toEqual([
+        ["dispatcher", true, undefined, undefined],
+        ["driver", true, undefined, "dispatcher"],
+      ]);
+      expect(records().filter((r) => r.status === "not_sent")).toEqual([]);
+    });
+
+    it("sends nothing on a retry after the shared send", async () => {
+      await sendClaimReceipts(load);
+      messaging.resetHistory();
+      dynamo.resetHistory();
+      expect(await sendClaimReceipts(load)).toEqual([
+        { audience: "dispatcher", channel: "whatsapp", sent: false, skipped: ALREADY_HANDLED },
+        { audience: "driver", channel: "whatsapp", sent: false, skipped: ALREADY_HANDLED },
+      ]);
+      expect(messaging.calls()).toHaveLength(0);
+      expect(records()).toEqual([]);
+    });
+
+    it("gives both reservations back after a passing failure before the send, and the retry sends once", async () => {
+      messaging.on(PostWhatsAppMessageMediaCommand).rejectsOnce(fail("ThrottlingException")).resolves({ mediaId: "media-9" });
+      expect(await sendClaimReceipts(load)).toEqual([
+        { audience: "dispatcher", channel: "whatsapp", sent: false, skipped: NOT_SENT.uploadFailed },
+        { audience: "driver", channel: "whatsapp", sent: false, skipped: NOT_SENT.uploadFailed, sharedWith: "dispatcher" },
+      ]);
+      expect(records().map((r) => [r.audience, r.notSentReason])).toEqual([["dispatcher", NOT_SENT.uploadFailed]]);
+      expect(reserved.size).toBe(0);
+      expect(shares.size).toBe(0);
+      expect((await sendClaimReceipts(load)).map((r) => [r.audience, r.sent, r.sharedWith])).toEqual([["dispatcher", true, undefined], ["driver", true, "dispatcher"]]);
+      expect(whatsappSent().map((m) => m.to)).toEqual([DRIVER]);
+      // The retry's send replaces the first run's not-sent row: one row, sent.
+      expect(kept().map((r) => [r.audience, r.status ?? "sent"])).toEqual([["dispatcher", "sent"]]);
+    });
+
+    it("keeps both reservations when the shared send may have gone, and a retry sends nothing", async () => {
+      messaging.on(SendWhatsAppMessageCommand).rejects(fail("TimeoutError"));
+      expect((await sendClaimReceipts(load)).map((r) => [r.audience, r.skipped])).toEqual([["dispatcher", SEND_UNCONFIRMED], ["driver", SEND_UNCONFIRMED]]);
+      expect([...reserved].sort()).toEqual(["receiptDispatcherAt", "receiptDriverAt"]);
+      messaging.on(SendWhatsAppMessageCommand).resolves({ messageId: "out-z" });
+      expect((await sendClaimReceipts(load)).map((r) => r.skipped)).toEqual([ALREADY_HANDLED, ALREADY_HANDLED]);
+      expect(messaging.commandCalls(SendWhatsAppMessageCommand)).toHaveLength(1);
+      expect(records()).toEqual([]);
+    });
+
+    it("sends the filed text and one PDF from the filed outcome step", async () => {
+      await tellOutcome({ kind: "filed", loadId: "L1" });
+      expect(whatsappSent().map((m) => m.type)).toEqual(["text", "document"]);
+    });
+
+    it("still sends the driver's own copy on a test load that does not ask dispatch", async () => {
+      load = baseLoad({ synthetic: true });
+      expect((await sendClaimReceipts(load)).map((r) => [r.audience, r.sent, r.skipped])).toEqual([["dispatcher", false, NOT_SENT.testLoad], ["driver", true, undefined]]);
+      expect(whatsappSent().map((m) => m.to)).toEqual([DRIVER]);
+    });
+
+    it("sends both copies when the driver is known by a BSUID: nothing shows it is the dispatcher's phone", async () => {
+      const allowlist = process.env.DRIVER_ALLOWLIST;
+      process.env.DRIVER_ALLOWLIST = `${allowlist},bsuid-test-7`;
+      try {
+        load = baseLoad({ address: { kind: "bsuid", id: "bsuid-test-7" }, driverKey: "bsuid:bsuid-test-7" });
+        expect(await sendClaimReceipts(load)).toEqual([
+          { audience: "dispatcher", channel: "whatsapp", sent: true },
+          { audience: "driver", channel: "whatsapp", sent: true },
+        ]);
+      } finally {
+        process.env.DRIVER_ALLOWLIST = allowlist;
+      }
+      expect(messaging.commandCalls(SendWhatsAppMessageCommand)).toHaveLength(2);
+      expect(records().map((r) => r.audience)).toEqual(["dispatcher", "driver"]);
+    });
+  });
+
+  it("sends each of two different phones its own copy, neither marked as shared", async () => {
+    const results = await sendClaimReceipts(load);
+    expect(results.map((r) => r.sharedWith)).toEqual([undefined, undefined]);
+    expect(whatsappSent().map((m) => m.to)).toEqual([DISPATCHER, DRIVER]);
+    expect(shares.size).toBe(0);
+  });
+
+  it("compares addresses by kind and canonical value", () => {
+    expect(sameRecipient({ kind: "phone", e164: "+15550100001" }, { kind: "phone", e164: "1 (555) 010-0001" })).toBe(true);
+    expect(sameRecipient({ kind: "phone", e164: "+15550100001" }, { kind: "phone", e164: "+15550100009" })).toBe(false);
+    expect(sameRecipient({ kind: "bsuid", id: "bsuid-test-7" }, { kind: "bsuid", id: "bsuid-test-7" })).toBe(true);
+    expect(sameRecipient({ kind: "phone", e164: "+15550100001" }, { kind: "bsuid", id: "+15550100001" })).toBe(false);
+    expect(sameRecipient({ kind: "phone", e164: "+1555" }, { kind: "phone", e164: "+1555" })).toBe(false);
+  });
+
   it("uses the PDF hash recorded at filing instead of reading the file again", async () => {
     claim = { ...claim, pdfSha256: "c".repeat(64) };
     await sendClaimReceipts(load);
@@ -495,7 +621,7 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
   it("counts an RCS link whose receipt row failed to write as sent, keeps the reservation and records no not-sent row", async () => {
     load = baseLoad({ demo: true, channel: "rcs", ws: "demo" });
     dynamo.on(UpdateCommand).callsFake((input: Update) => {
-      if (input.Key.sk === "RECEIPT" || !input.ExpressionAttributeNames?.["#r"]) throw Object.assign(new Error("throttled"), { name: "ThrottlingException" });
+      if (input.Key.sk === "RECEIPT" || !input.ExpressionAttributeNames?.["#r0"]) throw Object.assign(new Error("throttled"), { name: "ThrottlingException" });
       return reservations(input);
     });
     expect(await sendClaimReceipts(load)).toEqual([{ audience: "driver", channel: "rcs", sent: true }]);

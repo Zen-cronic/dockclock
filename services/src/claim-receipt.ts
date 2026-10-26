@@ -6,8 +6,8 @@ import { driverKey } from "./identity.js";
 import type { Language } from "./messages.js";
 import { NOT_SENT, type Audience, type SentMessage } from "./outbound.js";
 import { rcsText } from "./rcs.js";
-import { recordBlocked, SendNotStarted, sendDocument, sendRcs, uploadMedia, type SendProgress, type Target } from "./sender.js";
-import { ddb, type LoadItem } from "./store.js";
+import { addressValue, canonical, recordBlocked, SendNotStarted, sendDocument, sendRcs, uploadMedia, type SendProgress, type Target } from "./sender.js";
+import { ddb, type Address, type LoadItem } from "./store.js";
 import { env, log } from "./config.js";
 import { keys } from "./keys.js";
 
@@ -19,6 +19,15 @@ import { keys } from "./keys.js";
 // gates in sender.ts. Nothing here may fail the load: each recipient is tried on its own, and a
 // failure is logged. The file is uploaded to WhatsApp once and its media id reused for every
 // recipient.
+//
+// The dispatcher and a carrier load's WhatsApp driver can be one person (an owner-operator, or one
+// phone set as DISPATCHER_PHONE and allowlisted as a driver). When both resolve to the same
+// recipient (sameRecipient: the same kind of address with the same value once canonical, E.164 for
+// a phone number; a BSUID never equals a phone number), that person gets one PDF: one send, recorded
+// once as the dispatcher's, and the driver's result says it shared that send (sharedWith) instead of
+// sending its own. The driver's 24-hour window is not checked then: the send is the dispatcher's,
+// whose window the Approve tap opened. A test load that does not ask dispatch keeps the two apart,
+// since only the driver's copy goes.
 //
 // Each recipient is reserved on the CLAIM record before anything is sent, so a retried outcome step
 // (its text failed after the PDF went) never sends the PDF twice. How far the send got decides
@@ -39,6 +48,11 @@ import { keys } from "./keys.js";
 //   delivery, a throttle or 5xx after a retried attempt): the reservation stays and nothing is
 //   recorded as not sent (SEND_UNCONFIRMED), on either channel.
 // - After the provider accepted it (a receipt row failed to write) it was sent.
+// A shared send reserves both roles in one write, and each rule above acts on the pair: both are
+// kept, or both released; the one row (sent or not sent) is the dispatcher's, the CLAIM record notes
+// the driver's share (receiptDriverSharedWith), and a retry finds both handled. When the pair cannot
+// be reserved together (an earlier run, from before roles were shared, took only one of them), each
+// role is tried on its own as before.
 
 export const RECEIPT_PURPOSE = "claim_receipt";
 
@@ -93,6 +107,9 @@ export interface ReceiptResult {
   sent: boolean;
   // Why nothing went out, when nothing did (a gate, a closed window, a failure).
   skipped?: string;
+  // The role whose send this one shared: the dispatcher and the driver are one person, so one PDF
+  // went for both (or one attempt, with this same outcome).
+  sharedWith?: Audience;
 }
 
 // The last time the driver wrote on WhatsApp for this load: their latest inbound WhatsApp event.
@@ -129,6 +146,18 @@ async function dispatcherTarget(): Promise<Target> {
   return { address, driverKey: await driverKey(address) };
 }
 
+// Whether DISPATCHER_PHONE and the driver's address are one WhatsApp recipient (sameRecipient). A
+// missing or unparseable setting is no one.
+function dispatcherIsDriver(address: Address): boolean {
+  let e164 = "";
+  try {
+    e164 = env.dispatcherPhone();
+  } catch {
+    // missing: no one
+  }
+  return e164 !== "" && sameRecipient({ kind: "phone", e164 }, address);
+}
+
 // The PDF's SHA-256 (the same hash the console shows for the claim email's attachment): the one
 // recorded at filing, else the stored bytes read once. WhatsApp reads the object itself through
 // PostWhatsAppMessageMedia.
@@ -141,27 +170,54 @@ async function pdfHash(claim: ClaimItem, key: string): Promise<string> {
 const RESERVATION: Record<Audience, string> = { dispatcher: "receiptDispatcherAt", driver: "receiptDriverAt" };
 // The sort key of the not-sent row a released reservation left behind, for the retry to delete.
 const LEFT_ROW: Record<Audience, string> = { dispatcher: "receiptDispatcherNotSentSk", driver: "receiptDriverNotSentSk" };
+// Set on a role whose receipt shared another role's send: the role it shared.
+const SHARED_WITH: Record<Audience, string> = { dispatcher: "receiptDispatcherSharedWith", driver: "receiptDriverSharedWith" };
 
-// Takes this recipient's one claim receipt, writing `at`. Null when an earlier run already took it.
-// Otherwise gives the key of the not-sent row an earlier run left when it released the reservation:
-// that row stays until this run records its own outcome (dropLeftRow), so a run that ends
-// unconfirmed or stops part way leaves the conversation with the earlier attempt's row.
-async function reserve(loadId: string, audience: Audience, at: string): Promise<{ left: string | null } | null> {
+// Whether two addresses reach the same WhatsApp recipient, as far as DockClock can prove: the same
+// kind with the same value once canonical. A BSUID and a phone number may be one person, but nothing
+// here shows it, so they differ; an address that does not parse equals nothing.
+export function sameRecipient(a: Address, b: Address): boolean {
+  try {
+    const x = canonical(a);
+    const y = canonical(b);
+    return x.kind === y.kind && addressValue(x) === addressValue(y);
+  } catch {
+    return false;
+  }
+}
+
+// Expression names for a reservation over one or more roles: #r0/#n0 for the first, #r1/#n1 for a
+// role sharing its send.
+const names = (audiences: Audience[], table: Record<Audience, string>, prefix: string) => Object.fromEntries(audiences.map((a, i) => [`${prefix}${i}`, table[a]]));
+const leftKey = (value: unknown): string | null => (typeof value === "string" && value.startsWith("SEND#") ? value : null);
+
+// Takes the recipient's one claim receipt, writing `at`: for one role, or for the dispatcher and the
+// driver together when they are one person (the later roles noted as sharing the first's send).
+// Null when an earlier run already took any of them. Otherwise gives, per role, the key of the
+// not-sent row an earlier run left when it released the reservation: that row stays until this run
+// records its own outcome (dropLeftRow), so a run that ends unconfirmed or stops part way leaves the
+// conversation with the earlier attempt's row.
+async function reserve(loadId: string, audiences: Audience[], at: string): Promise<{ left: Array<string | null> } | null> {
+  const [first, ...sharing] = audiences;
+  const set = [...audiences.map((_, i) => `#r${i} = :t`), ...sharing.map((_, i) => `#s${i + 1} = :a`)];
   try {
     const out = await ddb.send(
       new UpdateCommand({
         TableName: env.table(),
         Key: keys.claim(loadId),
-        UpdateExpression: "SET #r = :t REMOVE #n",
-        ConditionExpression: "attribute_exists(pk) AND attribute_not_exists(#r)",
-        ExpressionAttributeNames: { "#r": RESERVATION[audience], "#n": LEFT_ROW[audience] },
-        ExpressionAttributeValues: { ":t": at },
-        // Only the attributes this update touched: the reservation and the left row's key.
+        UpdateExpression: `SET ${set.join(", ")} REMOVE ${audiences.map((_, i) => `#n${i}`).join(", ")}`,
+        ConditionExpression: ["attribute_exists(pk)", ...audiences.map((_, i) => `attribute_not_exists(#r${i})`)].join(" AND "),
+        ExpressionAttributeNames: {
+          ...names(audiences, RESERVATION, "#r"),
+          ...names(audiences, LEFT_ROW, "#n"),
+          ...Object.fromEntries(sharing.map((a, i) => [`#s${i + 1}`, SHARED_WITH[a]])),
+        },
+        ExpressionAttributeValues: { ":t": at, ...(sharing.length ? { ":a": first } : {}) },
+        // Only the attributes this update touched: the reservations, the shares and the left rows' keys.
         ReturnValues: "UPDATED_OLD",
       }),
     );
-    const left: unknown = out?.Attributes?.[LEFT_ROW[audience]];
-    return { left: typeof left === "string" && left.startsWith("SEND#") ? left : null };
+    return { left: audiences.map((a) => leftKey(out?.Attributes?.[LEFT_ROW[a]])) };
   } catch (error) {
     if ((error as Error).name === "ConditionalCheckFailedException") return null;
     throw error;
@@ -179,23 +235,31 @@ async function dropLeftRow(loadId: string, audience: Audience, left: string | nu
   }
 }
 
-// Gives back a reservation this run took, when nothing was sent, so a retry can send, and notes the
-// not-sent row left on the load (deleted by the retry once it records its own). Only the value this
-// run wrote is removed. Best effort: a release that fails leaves the recipient handled.
-async function release(loadId: string, audience: Audience, at: string, row: { sk: string } | null): Promise<void> {
+// Gives back a reservation this run took (one role, or a shared pair together), when nothing was
+// sent, so a retry can send, and notes per role the not-sent row left on the load (deleted by the
+// retry once it records its own). Only the values this run wrote are removed. Best effort: a release
+// that fails leaves the recipient handled.
+async function release(loadId: string, audiences: Audience[], at: string, rows: Array<{ sk: string } | null>): Promise<void> {
+  const sharing = audiences.slice(1);
+  const noted = audiences.flatMap((a, i) => (rows[i] ? [i] : []));
+  const remove = [...audiences.map((_, i) => `#r${i}`), ...sharing.map((_, i) => `#s${i + 1}`)];
   try {
     await ddb.send(
       new UpdateCommand({
         TableName: env.table(),
         Key: keys.claim(loadId),
-        UpdateExpression: row ? "REMOVE #r SET #n = :n" : "REMOVE #r",
-        ConditionExpression: "#r = :t",
-        ExpressionAttributeNames: { "#r": RESERVATION[audience], ...(row ? { "#n": LEFT_ROW[audience] } : {}) },
-        ExpressionAttributeValues: { ":t": at, ...(row ? { ":n": row.sk } : {}) },
+        UpdateExpression: `REMOVE ${remove.join(", ")}${noted.length ? ` SET ${noted.map((i) => `#n${i} = :n${i}`).join(", ")}` : ""}`,
+        ConditionExpression: audiences.map((_, i) => `#r${i} = :t`).join(" AND "),
+        ExpressionAttributeNames: {
+          ...names(audiences, RESERVATION, "#r"),
+          ...Object.fromEntries(sharing.map((a, i) => [`#s${i + 1}`, SHARED_WITH[a]])),
+          ...Object.fromEntries(noted.map((i) => [`#n${i}`, LEFT_ROW[audiences[i]!]])),
+        },
+        ExpressionAttributeValues: { ":t": at, ...Object.fromEntries(noted.map((i) => [`:n${i}`, rows[i]!.sk])) },
       }),
     );
   } catch (error) {
-    log("claim_receipt_release_failed", { loadId, audience, error: (error as Error).name });
+    log("claim_receipt_release_failed", { loadId, audience: audiences[0], error: (error as Error).name });
   }
 }
 
@@ -269,20 +333,31 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
   const language = load.language ?? "en_US";
 
   // Reserve, then send. Where a throw came from decides what happens to the reservation and the
-  // record (the rules are in this file's header).
-  const attempt = async (audience: Audience, run: (progress: SendProgress) => Promise<ReceiptResult | null>) => {
+  // record (the rules are in this file's header). `audiences` is the recipient's roles: one, or the
+  // dispatcher and the driver when they are one person, sent once and recorded under the first, the
+  // others' results marked as sharing it. False when such a pair could not be reserved together.
+  const attempt = async (audiences: Audience[], run: (progress: SendProgress) => Promise<ReceiptResult | null>): Promise<boolean> => {
+    const [audience, ...sharing] = audiences as [Audience, ...Audience[]];
     const rcs = load.channel === "rcs" && audience === "driver";
     const channel = rcs ? "rcs" : "whatsapp";
     const progress: SendProgress = { stage: "gates" };
     const at = new Date().toISOString();
     let reserved = false;
-    let left: string | null = null;
+    let left: Array<string | null> = [];
+    const push = (result: ReceiptResult) => {
+      results.push(result);
+      for (const other of sharing) results.push({ ...result, audience: other, sharedWith: audience });
+    };
+    const dropLeftRows = async () => {
+      for (const [i, a] of audiences.entries()) await dropLeftRow(load.loadId, a, left[i] ?? null);
+    };
     try {
-      const taken = await reserve(load.loadId, audience, at);
+      const taken = await reserve(load.loadId, audiences, at);
       if (!taken) {
+        if (sharing.length) return false;
         log("claim_receipt_skipped", { loadId: load.loadId, audience, reason: ALREADY_HANDLED });
         results.push({ audience, channel, sent: false, skipped: ALREADY_HANDLED });
-        return;
+        return true;
       }
       reserved = true;
       left = taken.left;
@@ -290,23 +365,23 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
       // Every answer has recorded its own row (sent, or not sent with the reason; best effort); a
       // skipped RCS link (null) recorded none, so an earlier row stays.
       if (result) {
-        results.push(result);
-        await dropLeftRow(load.loadId, audience, left);
+        push(result);
+        await dropLeftRows();
       }
     } catch (error) {
       const name = (error as Error).name;
       if (progress.stage === "accepted") {
         log("claim_receipt_record_failed", { loadId: load.loadId, audience, error: name });
-        results.push({ audience, channel, sent: true });
+        push({ audience, channel, sent: true });
         // It went, so an earlier attempt's not-sent row is no longer true.
-        await dropLeftRow(load.loadId, audience, left);
-        return;
+        await dropLeftRows();
+        return true;
       }
       if (progress.stage === "sending") {
         // Nothing is recorded for a send that may have gone, so an earlier attempt's row stays.
         log("claim_receipt_unconfirmed", { loadId: load.loadId, audience, error: name });
-        results.push({ audience, channel, sent: false, skipped: SEND_UNCONFIRMED });
-        return;
+        push({ audience, channel, sent: false, skipped: SEND_UNCONFIRMED });
+        return true;
       }
       // Nothing went. A setting or address no retry can fix, or a refusal, keeps the reservation
       // (one row, and a retry finds the recipient handled); anything else gives it back for a retry.
@@ -315,25 +390,35 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
       log("claim_receipt_failed", { loadId: load.loadId, audience, error: name, permanent });
       const shown: SentMessage = rcs ? { kind: "text", text: RECEIPT_TEXT[language].caption(load.loadId, amount) } : documentShown(audience === "dispatcher" ? "en_US" : language);
       const row = await recordBlocked(load.loadId, RECEIPT_PURPOSE, channel, shown, audience, stopped?.reason ?? NOT_SENT.failed);
-      // This run's row replaces an earlier one; when it could not be written the earlier one stays,
-      // and a released reservation remembers whichever is on the load.
-      if (row) await dropLeftRow(load.loadId, audience, left);
-      if (reserved && !permanent) await release(load.loadId, audience, at, row ?? (left ? { sk: left } : null));
-      results.push({ audience, channel, sent: false, skipped: stopped?.reason ?? name });
+      // This run's row (the first role's, for a shared pair) replaces every earlier one; when it could
+      // not be written the earlier ones stay, and a released reservation remembers whichever are on
+      // the load.
+      if (row) await dropLeftRows();
+      const kept = (i: number) => (left[i] ? { sk: left[i]! } : null);
+      if (reserved && !permanent) await release(load.loadId, audiences, at, audiences.map((_, i) => (row ? (i === 0 ? row : null) : kept(i))));
+      push({ audience, channel, sent: false, skipped: stopped?.reason ?? name });
     }
+    return true;
   };
 
   if (load.demo === true) {
     // The judge approved their own claim, so the judge is the one waiting for it.
-    await attempt("driver", (progress) => (load.channel === "rcs" ? rcsLink(progress) : document(driver, language, "driver", progress)));
+    await attempt(["driver"], (progress) => (load.channel === "rcs" ? rcsLink(progress) : document(driver, language, "driver", progress)));
   } else {
     // The dispatcher reads the approval template in English (dockclock_dispatch_approval).
-    await attempt("dispatcher", async (progress) => (load.synthetic && !load.askDispatcher ? notSent("dispatcher", "en_US", NOT_SENT.testLoad) : document(await dispatcherTarget(), "en_US", "dispatcher", progress)));
-    await attempt("driver", async (progress) => {
+    const testLoad = load.synthetic && !load.askDispatcher;
+    const toDispatcher = async (progress: SendProgress) => (testLoad ? notSent("dispatcher", "en_US", NOT_SENT.testLoad) : document(await dispatcherTarget(), "en_US", "dispatcher", progress));
+    const toDriver = async (progress: SendProgress) => {
       if (load.channel === "rcs") return rcsLink(progress);
       return windowOpen(await lastDriverWhatsAppAt(load.loadId)) ? document(driver, language, "driver", progress) : notSent("driver", language, NOT_SENT.windowClosed);
-    });
+    };
+    // One person in both roles gets the dispatcher's copy only (this file's header).
+    const shared = !testLoad && load.channel !== "rcs" && dispatcherIsDriver(load.address);
+    if (!shared || !(await attempt(["dispatcher", "driver"], toDispatcher))) {
+      await attempt(["dispatcher"], toDispatcher);
+      await attempt(["driver"], toDriver);
+    }
   }
-  log("claim_receipts", { loadId: load.loadId, results: results.map((r) => ({ audience: r.audience, channel: r.channel, sent: r.sent })) });
+  log("claim_receipts", { loadId: load.loadId, results: results.map((r) => ({ audience: r.audience, channel: r.channel, sent: r.sent, ...(r.sharedWith ? { sharedWith: r.sharedWith } : {}) })) });
   return results;
 }
