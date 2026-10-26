@@ -279,6 +279,23 @@ describe("recorded responses", () => {
     }
   });
 
+  it("picks the most specific recorded file, whatever order the glob lists them in", async () => {
+    const { fixtureFor } = await import("../src/model/fixtures.js");
+    // Glob order: messages.json sorts before messages.rcs.json.
+    const modules = {
+      "../../fixtures/api/messages.json": "all",
+      "../../fixtures/api/messages.rcs.json": "rcs",
+      "../../fixtures/api/loads/L1.json": "load",
+      "../../fixtures/api/loads/L1.pack.json": "pack",
+    };
+    expect(fixtureFor("/api/messages?channel=rcs", modules)).toBe("rcs");
+    expect(fixtureFor("/api/messages", modules)).toBe("all");
+    expect(fixtureFor("/api/messages?channel=whatsapp", modules)).toBe("all");
+    expect(fixtureFor("/api/loads/L1/pack", modules)).toBe("pack");
+    expect(fixtureFor("/api/loads/L1", modules)).toBe("load");
+    expect(() => fixtureFor("/api/loads/L2", modules)).toThrow(/no fixture/);
+  });
+
   it("still finds the lists, the load files and the live captures for the console", async () => {
     const { hasRecordedDetail, recordedCaptures } = await import("../src/model/client.js");
     const { fixtureFor, loadFixtureModules } = await import("../src/model/fixtures.js");
