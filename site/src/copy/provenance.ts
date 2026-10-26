@@ -18,9 +18,9 @@ export function acceptsAnyLocation(d: Pick<LoadDetail, "summary" | "snapshot">):
   return d.snapshot?.load.facility.id === "judge-demo" || /any location/i.test(d.summary.facility);
 }
 
-// A few words for a badge: what kind of run this was.
-export function runLabel(d: Pick<LoadDetail, "run" | "approval">): string {
-  return d.run.kind === "integration" ? "Test load" : RUN_LABELS[d.run.kind];
+// A few words for a badge: what kind of run this was, in the words the Loads table and the API use.
+export function runLabel(d: Pick<LoadDetail, "run">): string {
+  return RUN_LABELS[d.run.kind];
 }
 
 export function provedWords(d: Pick<LoadDetail, "run" | "clock" | "verdict" | "summary">): Words {

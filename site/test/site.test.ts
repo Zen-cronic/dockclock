@@ -429,4 +429,10 @@ describe("run labels", () => {
     for (const l of list.data.loads) if (l.runLabel !== undefined) expect(l.runLabel).toBe(RUN_LABELS[l.runKind]);
     expect(RUN_LABELS.operator).toBe("Test load ∙ real tap");
   });
+
+  it("gives the load page's badge the same words for every run kind", () => {
+    const d = detailFromReplay(snap, "replay");
+    for (const kind of Object.keys(RUN_LABELS) as Array<keyof typeof RUN_LABELS>) expect(runLabel({ run: { ...d.run, kind } })).toBe(RUN_LABELS[kind]);
+    expect(runLabel({ run: { ...d.run, kind: "integration" } })).toBe("Test run");
+  });
 });

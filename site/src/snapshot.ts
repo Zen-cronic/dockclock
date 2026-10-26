@@ -11,6 +11,8 @@
 // exporter fills them once SEND#, AGENT# rows and the email MIME in S3 exist; until then the page
 // says what is missing instead of inventing it.
 
+import type { RunKind } from "@dockclock/clause-engine";
+
 export const SNAPSHOT_SCHEMA = "dockclock.replay/1" as const;
 
 // How a value came to be in this file. The page shows this next to anything that is not "recorded".
@@ -21,16 +23,11 @@ export const SNAPSHOT_SCHEMA = "dockclock.replay/1" as const;
 //   derived:                computed from recorded values (for example a minute difference)
 export type Provenance = "recorded" | "rendered_from_template" | "synthetic_input" | "derived";
 
-// What kind of run this load was, matching FACTS.md's status key.
-//   phone:       driven end to end from a real phone
-//   operator:    a real person tapped on a real phone; driver messages were synthetic
-//   integration: synthetic driver messages through the deployed stack; everything after is real
-//   demo:        a judge's DEMO keyword run
-export type RunKind = "phone" | "operator" | "integration" | "demo";
-
-// The run kind in a few words. The console API sends it as runLabel and the site falls back to it,
-// so a load reads the same from either source.
-export const RUN_LABELS: Record<RunKind, string> = { phone: "Real phone", operator: "Test load ∙ real tap", integration: "Test run", demo: "Judge demo" };
+// What kind of run this load was (phone, operator, integration, demo) and its label in a few words:
+// defined in @dockclock/clause-engine (runs.ts), so the console API sends the same words the site
+// shows without importing from the site.
+export type { RunKind };
+export { RUN_LABELS } from "@dockclock/clause-engine";
 
 export type Channel = "whatsapp" | "rcs" | "email";
 

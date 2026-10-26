@@ -3,7 +3,7 @@
 // from dispatch onwards: everything that needs the sealed pack is null until the load is sealed.
 // Every string that came from a stored record is scrubbed; handler.ts still runs findLeaks on the
 // whole response before it is sent.
-import { clauseById, detentionStartsAt, RELEASE_PIN_WINDOW_MINUTES, releasePinCheck, releasePinGapWords, releaseTimeOf, timeReadable, type ClauseSpec } from "@dockclock/clause-engine";
+import { clauseById, detentionStartsAt, RELEASE_PIN_WINDOW_MINUTES, releasePinCheck, releasePinGapWords, releaseTimeOf, RUN_LABELS, timeReadable, type ClauseSpec } from "@dockclock/clause-engine";
 import { canonicalJson, checkGeofence, facilityById, isoToLocalClock, zoneAbbreviation, type Facility, type SignedPack } from "@dockclock/evidence";
 import { parseMime, scrub, scrubText, type ParsedEmail } from "@dockclock/sanitize";
 import type { Language } from "../src/messages.js";
@@ -32,7 +32,6 @@ import type {
   VerdictInfo,
   WorkflowStep,
 } from "../../site/src/api.js";
-import { RUN_LABELS } from "../../site/src/snapshot.js";
 import {
   addressOnly,
   agentRunsOf,

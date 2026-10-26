@@ -135,7 +135,7 @@ describe("console read API", () => {
   });
 
   it("labels each run kind as the site's fallback does", async () => {
-    const { RUN_LABELS } = await import("../../site/src/snapshot.js");
+    const { RUN_LABELS } = await import("@dockclock/clause-engine");
     const list = JSON.parse((await get("/api/loads")).body) as { data: { loads: Array<{ runKind: keyof typeof RUN_LABELS; runLabel: string }> } };
     for (const l of list.data.loads) expect(l.runLabel).toBe(RUN_LABELS[l.runKind]);
     expect(RUN_LABELS.operator).toBe("Test load ∙ real tap");
