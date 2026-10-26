@@ -604,6 +604,7 @@ function workflowOf(p: Parts, status: LoadStatus, photos: PhotoInfo[]): Workflow
     step("dispatched", "Load dispatched to the driver", ["Lambda", "Step Functions", channelTag], String(m.createdAt ?? m.appointmentAt), false),
     step("arrived", "Arrival confirmed by a location pin", [channelTag, "SQS", "Lambda", "DynamoDB"], arrivedAt, phase === "dispatched" || phase === "awaiting_arrival_pin"),
   ];
+  if (arrivedAt && !timeReadable(arrivedAt)) Object.assign(steps[1]!, { state: "failed", at: null, detail: "The arrival pin's time could not be read. A person reviews the load." });
   const noticeStep = step("notice", "Detention notice emailed before free time ends", ["EventBridge Scheduler", "Lambda", "SES"], str(notice.sentAt), Boolean(arrivedAt) && !releasedAt);
   if (str(notice.skipped) && !str(notice.sentAt)) Object.assign(noticeStep, { state: "skipped", detail: scrubText(String(notice.skipped)) });
   else if (!str(notice.sentAt) && str(notice.scheduledFor) && !closed && phase !== "sealed") Object.assign(noticeStep, { state: "waiting", detail: `Scheduled for ${String(notice.scheduledFor)}` });
@@ -648,7 +649,13 @@ function releaseStep(
   phase: Phase,
   closed: boolean,
 ): WorkflowStep {
-  if (!tapAt) return step("released", "Release confirmed by a location pin", services, pinAt, phase === "at_dock" || phase === "awaiting_release_pin");
+  if (!tapAt) {
+    // An older load's release is the pin alone. A pin time that does not parse is the engine's
+    // TIMESTAMP_UNREADABLE (timeReadable, as releasePinCheck reads it): the step fails and says so.
+    const label = "Release confirmed by a location pin";
+    if (pinAt && !timeReadable(pinAt)) return step("released", label, services, null, false, { state: "failed", detail: "The location pin's time could not be read. A person reviews the load." });
+    return step("released", label, services, pinAt, phase === "at_dock" || phase === "awaiting_release_pin");
+  }
   const tz = p.facility.timeZone;
   const label = "Driver tapped Released: the dock clock stopped";
   const stopped = timeReadable(tapAt) ? `Clock stopped at ${isoToLocalClock(tapAt, tz)} ${zoneAbbreviation(tapAt, tz)}.` : "The Released tap's time could not be read.";

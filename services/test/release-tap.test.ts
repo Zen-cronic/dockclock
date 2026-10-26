@@ -181,6 +181,14 @@ describe("console views of the Released tap", () => {
     expect(v.workflow.find((s) => s.key === "released")).toMatchObject({ label: "Release confirmed by a location pin", state: "done", at: T(17, 20) });
   });
 
+  it("fails an older pin-only load's release step on a pin time that does not parse, as the engine holds it", async () => {
+    const v = await view(null, "not a time");
+    expect(v.workflow.find((s) => s.key === "released")).toMatchObject({ label: "Release confirmed by a location pin", state: "failed", at: null, detail: "The location pin's time could not be read. A person reviews the load." });
+    const m = { ...meta(T(17, 20), T(17, 23)), arrived: { serverAt: "garbage", messageId: "w-arr" }, phase: "awaiting_bol", bol: null };
+    const arrival = buildLoadView({ items: [m], receipts: {}, signedPack: null, emails: {}, photoTypes: {}, spkiSha256: "spki", now: T(17, 25) });
+    expect(arrival.workflow.find((s) => s.key === "arrived")).toMatchObject({ state: "failed", at: null, detail: "The arrival pin's time could not be read. A person reviews the load." });
+  });
+
   it("names the tap on the timeline", () => {
     expect(inboundTitle("button", "ADVANCED", "released").title).toBe("Driver tapped Released: the dock clock stopped");
     expect(inboundTitle("button", "IGNORED_DUPLICATE_TAP", "released").title).toBe("Released tapped again: ignored");
