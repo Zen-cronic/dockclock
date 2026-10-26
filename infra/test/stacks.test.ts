@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { buildApp } from "../lib/app.js";
 import { CoreStack } from "../lib/core-stack.js";
 import { DESK_PLACEHOLDER_CONTEXT, DeskStack, deskSource } from "../lib/desk-stack.js";
-import { DESK_STACK, STACKS, deployPlan, readArgs } from "../lib/deploy-stacks.js";
+import { DESK_STACK, STACKS, deployPlan, mergeOutputs, readArgs } from "../lib/deploy-stacks.js";
 
 const config = {
   account: "111122223333",
@@ -313,5 +313,14 @@ describe("npm run deploy", () => {
     // The command line wins over the files.
     expect(plan(missing, ["-c", `${key}=0`], { [key]: "1" }).refused).not.toBeNull();
     expect(readArgs(["-c", "a=b", "--context=c=d=e"]).context).toEqual({ a: "b", c: "d=e" });
+  });
+
+  it("keeps every other stack's outputs when a run deploys some of them", () => {
+    const previous = { DockClockCore: { Table: "t" }, DockClockMessaging: { Api: "old" }, DockClockDesk: { Url: "u" } };
+    expect(mergeOutputs(previous, { DockClockMessaging: { Api: "new" } })).toEqual({ DockClockCore: { Table: "t" }, DockClockMessaging: { Api: "new" }, DockClockDesk: { Url: "u" } });
+    expect(mergeOutputs(undefined, { DockClockCore: { Table: "t" } })).toEqual({ DockClockCore: { Table: "t" } });
+    expect(mergeOutputs(previous, undefined)).toEqual(previous);
+    expect(deployPlan(built, ["--outputs-file", "x.json"]).outputsFile).toBe(true);
+    expect(deployPlan(built, []).outputsFile).toBe(false);
   });
 });

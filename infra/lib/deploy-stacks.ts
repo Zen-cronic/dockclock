@@ -26,10 +26,12 @@ export interface DeployArgs {
   // Context given on the command line (-c k=v, --context k=v, --context=k=v), by key.
   context: Record<string, string>;
   allowSkipDesk: boolean;
+  // The caller chose their own --outputs-file.
+  outputsFile: boolean;
 }
 
 export function readArgs(extra: string[]): DeployArgs {
-  const out: DeployArgs = { pass: [], named: false, context: {}, allowSkipDesk: false };
+  const out: DeployArgs = { pass: [], named: false, context: {}, allowSkipDesk: false, outputsFile: false };
   const addContext = (pair: string | undefined) => {
     const at = pair?.indexOf("=") ?? -1;
     if (pair && at > 0) out.context[pair.slice(0, at)] = pair.slice(at + 1);
@@ -48,6 +50,7 @@ export function readArgs(extra: string[]): DeployArgs {
     const eq = arg.indexOf("=");
     const flag = eq > 0 ? arg.slice(0, eq) : arg;
     if (flag === "--all") out.named = true;
+    if (flag === "-O" || flag === "--outputs-file") out.outputsFile = true;
     if (eq > 0) {
       if (flag === "-c" || flag === "--context") addContext(arg.slice(eq + 1));
       continue;
@@ -68,6 +71,8 @@ export interface DeployPlan {
   note: string | null;
   // Why nothing is deployed (exit non-zero), when the desk would be left out without asking.
   refused: string | null;
+  // The caller chose their own --outputs-file, so the shared outputs file is not touched.
+  outputsFile: boolean;
 }
 
 // What `npm run deploy` deploys. Stacks named on the command line (names, wildcard patterns or
@@ -81,17 +86,28 @@ export function deployPlan(source: DeskSource, extra: string[], fileContext: Rec
   const a = readArgs(extra);
   const asked = DESK_PLACEHOLDER_CONTEXT in a.context ? a.context[DESK_PLACEHOLDER_CONTEXT] : fileContext[DESK_PLACEHOLDER_CONTEXT];
   const placeholder = asked !== undefined && String(asked) === "1";
-  if (a.named || !source.error || placeholder) return { args: a.named ? a.pass : ["--all", ...a.pass], note: null, refused: null };
+  const base = { outputsFile: a.outputsFile };
+  if (a.named || !source.error || placeholder) return { ...base, args: a.named ? a.pass : ["--all", ...a.pass], note: null, refused: null };
   if (!a.allowSkipDesk) {
     return {
+      ...base,
       args: [],
       note: null,
       refused: `Not deploying anything: ${DESK_STACK} cannot deploy. ${source.error} To deploy every other stack without it, run: npm run deploy -- ${ALLOW_SKIP_DESK}`,
     };
   }
   return {
+    ...base,
     args: [...STACKS.filter((stack) => stack !== DESK_STACK), ...a.pass],
     note: `Warning: skipping ${DESK_STACK} (${ALLOW_SKIP_DESK}). ${source.error}`,
     refused: null,
   };
+}
+
+const record = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+
+// `cdk deploy --outputs-file` writes only the stacks that run deployed and replaces the file. The
+// stacks this run wrote replace their own entries; every other stack's outputs are kept.
+export function mergeOutputs(previous: unknown, fresh: unknown): Record<string, unknown> {
+  return { ...record(previous), ...record(fresh) };
 }
