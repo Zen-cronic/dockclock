@@ -291,6 +291,25 @@ describe("release tap and pin", async () => {
     delete noPin.releasePinAt;
     expect(moveRelease(noPin, tapAt).releasePinAt).toBeUndefined();
   });
+
+  it("never throws on a pin time that does not parse, and turns the switches off with a reason", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { moveRelease, UNREADABLE_NOTE, WhatIfPanel, QuickWhatIf } = await import("../src/ui/WhatIfPanel.js");
+    const v = structuredClone(body.data);
+    v.verdict!.engineInput.releasePinAt = "not a time";
+    const d = detailFromApi(v, "fixture");
+    const base = recordedInput(d)!;
+    expect(() => moveRelease(base, tapAt)).not.toThrow();
+    for (const w of whatIfs(d)) {
+      const changed = w.apply(base);
+      expect(run(changed), w.id).toMatchObject({ verdict: "NEEDS_HUMAN" });
+    }
+    const html = renderToStaticMarkup(createElement(WhatIfPanel, { load: d, initial: ["early"] }));
+    expect(html).toContain(UNREADABLE_NOTE.replace("can't", "can&#x27;t"));
+    expect(html).toMatch(/disabled=""/);
+    expect(() => renderToStaticMarkup(createElement(QuickWhatIf, { load: d, ids: ["early", "pinLate"] }))).not.toThrow();
+  });
 });
 
 // The tamper switch moves what stopped the clock: the Released tap on a version 2 pack, the pin on v1.

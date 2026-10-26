@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BOL_TOLERANCE_MINUTES, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, type LoadEvidence } from "@dockclock/clause-engine";
+import { BOL_TOLERANCE_MINUTES, RELEASE_PIN_WINDOW_MINUTES, releasePinGapMinutes, timestampUnreadable, type LoadEvidence } from "@dockclock/clause-engine";
 import { baseline, clauseSpec, REASON_WORDS, run } from "../engine.js";
 import { clock, duration, usd } from "../format.js";
 import type { LoadDetail } from "../model/model.js";
@@ -20,7 +20,9 @@ interface WhatIf {
 }
 
 const sentence = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-const iso = (ms: number) => new Date(ms).toISOString();
+// A time built from one that does not parse stays unreadable ("") instead of throwing; the engine
+// then sends the load to a person (TIMESTAMP_UNREADABLE).
+const iso = (ms: number) => (Number.isFinite(ms) ? new Date(ms).toISOString() : "");
 
 // A release inside free time and after the arrival, even on a 5-minute clause: up to 10 min early,
 // never more than half the free time. The paper's out-time sits just before it.
@@ -29,20 +31,28 @@ export function earlyRelease(d: LoadDetail): { out: string; paperOut: string } |
   if (!free) return null;
   const f = Date.parse(free);
   const a = d.clock.arrivedAt ? Date.parse(d.clock.arrivedAt) : f - 20 * 60_000;
+  if (!Number.isFinite(f) || !Number.isFinite(a)) return null;
   const lead = Math.min(10 * 60_000, Math.max(60_000, (f - a) / 2));
   return { out: iso(f - lead), paperOut: iso(f - lead - Math.min(2 * 60_000, lead / 5)) };
 }
 
 // Moves the Released tap to `at` and the release pin with it, keeping the recorded gap (held inside
-// the confirm window), so the early release is decided on free time alone.
+// the confirm window), so the early release is decided on free time alone. A recorded gap that
+// cannot be measured (a time that does not parse) is not invented: the pin stays as recorded and
+// the engine still sends the load to a person.
 export function moveRelease(e: LoadEvidence, at: string): LoadEvidence {
   if (!e.released) return e;
   const out: LoadEvidence = { ...e, released: { ...e.released, at } };
   if (!e.releasePinAt) return out;
   const gap = releasePinGapMinutes(e.released.at, e.releasePinAt);
+  if (!Number.isFinite(gap)) return out;
   const kept = Math.max(-RELEASE_PIN_WINDOW_MINUTES, Math.min(RELEASE_PIN_WINDOW_MINUTES, gap));
   return { ...out, releasePinAt: iso(Date.parse(at) + kept * 60_000) };
 }
+
+// Said instead of the switches' lede when a recorded time does not parse: no changed fact can give
+// a verdict then, and the engine sends the load to a person.
+export const UNREADABLE_NOTE = "A recorded arrival or release time could not be read, so changing a fact can't give a verdict. A person reviews this load.";
 
 // A pin this long after the Released tap is past the confirm window.
 const PIN_LATE_MINUTES = RELEASE_PIN_WINDOW_MINUTES + 2;
@@ -101,7 +111,7 @@ const RULES: Array<[string, (d: LoadDetail) => string, string[]]> = [
   ["Free time", (d) => duration(d.clause.freeTimeMinutes), ["WITHIN_FREE_TIME"]],
   ["On time", (d) => (d.clause.requireOnTimeArrival ? "required" : "not required"), ["LATE_ARRIVAL"]],
   ["Signed paper", (d) => (d.clause.acceptedRecords.includes("signed_bol_times") ? "both times" : "not required"), ["NO_STATEMENT_OF_RECORD"]],
-  ["Paper vs phone", () => `within ${BOL_TOLERANCE_MINUTES} min`, ["BOL_TIMESTAMP_CONFLICT", "PIN_OUTSIDE_GEOFENCE", "RELEASE_PIN_LATE"]],
+  ["Paper vs phone", () => `within ${BOL_TOLERANCE_MINUTES} min`, ["BOL_TIMESTAMP_CONFLICT", "PIN_OUTSIDE_GEOFENCE", "RELEASE_PIN_LATE", "TIMESTAMP_UNREADABLE"]],
   ["Notice", (d) => (d.clause.noticeLeadMinutes === null ? "not required" : "before free time ends"), ["NOTICE_MISSING", "NOTICE_LATE"]],
   ["Claim window", (d) => hoursWords(d.clause.claimWindowHours), ["CLAIM_WINDOW_EXPIRED"]],
 ];
@@ -158,6 +168,7 @@ export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: str
   if (!base) return <p className="small">This load has no recorded facts to change.</p>;
   // Only the facts this contract can turn on; a rule it doesn't have stays in the list on the right.
   const all = whatIfs(load).filter((w) => w.applies);
+  const locked = timestampUnreadable(base);
   let changed = base;
   for (const w of all) if (on.has(w.id)) changed = w.apply(changed);
   const recorded = run(base);
@@ -173,11 +184,11 @@ export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: str
   };
   return (
     <div className="whatif">
-      <p className="whatif-lede">Change a fact. The contract's rules run again in your browser.</p>
+      <p className="whatif-lede">{locked ? UNREADABLE_NOTE : "Change a fact. The contract's rules run again in your browser."}</p>
       <div className="whatif-sw">
         {all.map((w) => (
           <label className="switch" key={w.id}>
-            <input type="checkbox" role="switch" checked={on.has(w.id)} onChange={(e) => toggle(w.id, e.target.checked)} />
+            <input type="checkbox" role="switch" checked={on.has(w.id)} disabled={locked} onChange={(e) => toggle(w.id, e.target.checked)} />
             {w.label}
             <span className="hint">{w.hint}</span>
           </label>
@@ -215,6 +226,7 @@ export function QuickWhatIf({ load, ids }: { load: LoadDetail; ids: string[] }) 
   const base = recordedInput(load);
   const shown = whatIfs(load).filter((w) => w.applies && ids.includes(w.id));
   if (!base || shown.length === 0) return <p className="small">This load has no recorded facts to change.</p>;
+  const locked = timestampUnreadable(base);
   let changed = base;
   for (const w of shown) if (on.has(w.id)) changed = w.apply(changed);
   const computed = run(changed);
@@ -227,10 +239,11 @@ export function QuickWhatIf({ load, ids }: { load: LoadDetail; ids: string[] }) 
   };
   return (
     <>
+      {locked && <p className="small">{UNREADABLE_NOTE}</p>}
       <div className="quick-sw">
         {shown.map((w) => (
           <label className="switch" key={w.id}>
-            <input type="checkbox" role="switch" checked={on.has(w.id)} onChange={(e) => toggle(w.id, e.target.checked)} />
+            <input type="checkbox" role="switch" checked={on.has(w.id)} disabled={locked} onChange={(e) => toggle(w.id, e.target.checked)} />
             {w.label}
             <span className="hint">{w.hint}</span>
           </label>
