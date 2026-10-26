@@ -248,6 +248,25 @@ describe("static hero", () => {
     expect(driverShown.size).toBeGreaterThan(0);
     expect(html.match(/class="bub /g)?.length).toBe(driverShown.size);
   });
+
+  it("draws a tap that ends the last chapter as tapped", () => {
+    const v = structuredClone(raw("SMOKE-DEMO-mvh3xsdv").data);
+    v.emails = v.emails.filter((e) => e.purpose !== "claim");
+    const story = buildStory(v, {})!;
+    const last = story.chapters.at(-1)!;
+    const party = last.screen.kind === "phone" ? last.screen.party : "driver";
+    // A button already on that phone, tapped as the chapter's very last beat.
+    const shown = new Set(story.chapters.flatMap((c) => c.beats.flatMap((b) => (b.message ? [b.message.id] : []))));
+    const taps = new Set(story.chapters.flatMap((c) => c.beats.flatMap((b) => (b.tap ? [`${b.tap.messageId}:${b.tap.title}`] : []))));
+    const offers = story.thread[party].filter((m) => shown.has(m.id) && m.direction === "out").flatMap((m) => (m.buttons ?? []).map((b) => ({ messageId: m.id, title: b.title })));
+    const untapped = offers.find((o) => !taps.has(`${o.messageId}:${o.title}`))!;
+    expect(untapped).toBeDefined();
+    const before = renderToStaticMarkup(createElement(StaticHero, { story, onPlay: () => {} }));
+    expect(before).not.toContain(`class="tapped ">${untapped.title}</div>`);
+    last.beats.push({ tap: untapped });
+    const html = renderToStaticMarkup(createElement(StaticHero, { story, onPlay: () => {} }));
+    expect(html).toContain(`class="tapped ">${untapped.title}</div>`);
+  });
 });
 
 // The landing and the console's client read the recorded responses through one lookup.

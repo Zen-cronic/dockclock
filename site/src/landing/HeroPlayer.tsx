@@ -219,6 +219,8 @@ export function StaticHero({ story, onPlay }: { story: Story; onPlay: () => void
   const index = story.chapters.indexOf(filed);
   const end = steps.findLastIndex((s) => s.c === index);
   const v = view(steps, end);
+  // The still is the chapter's end: a tap the player would be pressing on its last step has landed.
+  const tapped = v.pressing ? new Set([...v.tapped, v.pressing]) : v.tapped;
   const screen = filed.screen;
   return (
     <div className="lp-stagewrap">
@@ -229,7 +231,7 @@ export function StaticHero({ story, onPlay }: { story: Story; onPlay: () => void
             {screen.kind === "mail" ? (
               <Mail email={screen.email} body={screen.body} timeZone={tz} lines={lines} cols={narrow ? 44 : 62} />
             ) : (
-              <Phone party={screen.party} messages={story.thread[screen.party].filter((m) => v.shown.has(m.id))} timeZone={tz} tapped={v.tapped} {...(screen.party === "driver" ? { anyLocation: acceptsAnyLocation(story.load), bolPhoto: story.bolPhoto } : {})} />
+              <Phone party={screen.party} messages={story.thread[screen.party].filter((m) => v.shown.has(m.id))} timeZone={tz} tapped={tapped} {...(screen.party === "driver" ? { anyLocation: acceptsAnyLocation(story.load), bolPhoto: story.bolPhoto } : {})} />
             )}
           </div>
         </div>
