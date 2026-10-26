@@ -37,38 +37,50 @@ export function toCents(amountUsd: number): number {
   return Math.round(amountUsd * 100);
 }
 
-// An AWS resource name, a phone number or an account id in the opening, written any common way:
-// - an ARN, in any case (arn:aws, ARN:aws, arn:aws-us-gov);
-// - a phone number with a + and 10 to 15 digits, spaced, dashed, dotted or bracketed
-//   (+1 416-555-0143, +1 (416) 555-0143);
-// - a North American number without a +: (416) 555-0143, 416-555-0143, 416.555.0143, 1-416-555-0143;
-// - a run of 10 to 15 digits (an unformatted phone number or a 12-digit account id);
-// - a 12-digit account id in groups of four (1111-2222-3333, 1111 2222 3333).
-// Money ($1,234.56), dates (2026-10-23, 10/23/2026) and clock times (13:05) match none of these.
-// The load id is required, so a match that lies wholly inside one of its occurrences is allowed: a
-// load id with a 12-digit run (PO-123456789012) is not an account id. A match that only overlaps the
-// load id (Account 999901439999 on load 0143) still counts.
-const LEAK = new RegExp(
-  [
-    String.raw`\barn:`,
-    String.raw`\+\d[\d\s().-]{8,}\d`,
-    String.raw`(?<![\w.,$/:-])(?:1[\s.-]?)?(?:\(\d{3}\)\s?|\d{3}[\s.-])\d{3}[\s.-]\d{4}(?![\w-]|[.,:]\d)`,
-    String.raw`(?<![\d.,])\d{10,15}(?!\d|[.,]\d)`,
-    String.raw`(?<![\d-])\d{4}[\s-]\d{4}[\s-]\d{4}(?![\d-])`,
-  ].join("|"),
+// An AWS resource name, a phone number or an account id in the opening, written any common way.
+// Known-safe tokens are taken out first, then anything left that could be one is refused:
+// - safe: money ($80.00, $1,234.56), dates (2026-10-23, 10/23/2026), clock times (13:05, 1:05 PM),
+//   durations (+15, +15 min, +2 hours) and a labelled freight reference written as one unbroken
+//   number (PRO 1234567890, BOL #123456789012, PO: 123456789012, ref no. 12345678901, an order,
+//   shipment or invoice number);
+// - refused: "arn:" in any case, and any remaining run of 10 or more digits, however its groups are
+//   joined (spaces, dots, dashes, slashes, brackets, a comma with no space): +1 (416) 555-0143,
+//   tel:416-555-0143, 1111.2222.3333, 4165550143,4165550199.
+// A safe token is blanked, never deleted, so the digits on either side of it are not joined. A run
+// that lies wholly inside an occurrence of the load id is allowed (PO-123456789012 is not an account
+// id); one that only overlaps it (Account 999901439999 on load 0143) still counts.
+const JOIN = String.raw`(?:\) ?| ?\(|[ .\-/\u00a0\u2010-\u2015]|,(?=\d))`;
+const SAFE = [
+  // Money: $80, $80.00, $1,234.56. A run that continues past the cents or the groups is not money.
+  String.raw`\$ ?(?:\d{1,3}(?:,\d{3})+|\d{1,7})(?:\.\d{1,2})?(?!,?\d|\.\d)`,
+  String.raw`(?<!\d)(?:19|20)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d)`,
+  String.raw`(?<!\d)(?:0?[1-9]|1[0-2])\/(?:0?[1-9]|[12]\d|3[01])\/(?:\d{4}|\d{2})(?!\d)`,
+  String.raw`(?<!\d)(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?!\d)`,
+].map((source) => new RegExp(source, "g"));
+// A duration with its unit, or a bare +N that no further digits follow (+1 416-555-0143 is a phone).
+const DURATION = new RegExp(String.raw`\+\d{1,3} ?(?:minutes?|mins?|hours?|hrs?|h|m)(?![A-Za-z])|\+\d{1,3}(?!\d|${JOIN}\d)`, "gi");
+const LABELLED = new RegExp(
+  String.raw`(?<![A-Za-z])(?:PRO|BOL|B\/L|P\.?O\.?|ref(?:erence)?|order|shipment|invoice)(?![A-Za-z])(?: ?(?:#|:|-|no\.?|num(?:ber)?|nbr)(?![A-Za-z]))* ?[#:]? ?(?:[A-Za-z]{1,4}-?)?\d+(?!\d|${JOIN}\d)`,
   "gi",
 );
-const digits = (text: string) => text.replace(/\D/g, "").length;
+const RUN = new RegExp(String.raw`\d(?:${JOIN}?\d)*`, "g");
+const ARN = /(?<![A-Za-z0-9])arn:/gi;
+
+function blank(text: string, re: RegExp): string {
+  return text.replace(re, (match) => "_".repeat(match.length));
+}
 
 function leaks(body: string, loadId: string): boolean {
   const named: Array<[number, number]> = [];
   for (let at = body.indexOf(loadId); loadId && at !== -1; at = body.indexOf(loadId, at + 1)) named.push([at, at + loadId.length]);
-  for (const match of body.matchAll(LEAK)) {
-    // A + followed by fewer than 10 digits is not a phone number (+15 min, +2 hours).
-    if (match[0].startsWith("+") && digits(match[0]) < 10) continue;
-    const start = match.index;
-    const end = start + match[0].length;
-    if (!named.some(([from, to]) => from <= start && end <= to)) return true;
+  const inName = (start: number, end: number) => named.some(([from, to]) => from <= start && end <= to);
+  let left = body;
+  for (const re of SAFE) left = blank(left, re);
+  left = blank(blank(left, DURATION), LABELLED);
+  for (const match of left.matchAll(ARN)) if (!inName(match.index, match.index + match[0].length)) return true;
+  for (const match of left.matchAll(RUN)) {
+    if (match[0].replace(/\D/g, "").length < 10) continue;
+    if (!inName(match.index, match.index + match[0].length)) return true;
   }
   return false;
 }

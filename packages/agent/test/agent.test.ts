@@ -85,6 +85,36 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     expect(checkClaim({ ...request, body: busy }, basis)).toEqual({ ok: true });
   });
 
+  // Every opening the leak check has misjudged, both ways, and the shapes around them. Fictional
+  // numbers only: 555-01xx phone numbers and made-up account ids.
+  it.each([
+    ["files", "Grace (+15) 2026-10-23 13:05 EDT."],
+    ["files", "Arrived 2026-10-23T13:05:00-04:00, released +2 hours past free time (+15 min grace)."],
+    ["files", "PRO 1234567890 for load LIVE-abc."],
+    ["files", "BOL #123456789012, PO: 123456789012, ref no. 12345678901, order 1234567890, shipment number 1234567890."],
+    ["files", "Invoice 9876543210 covers 10/23/2026 at 1:05 PM, $1,234.56 in all."],
+    ["files", "Released 14:30–14:35 on 2026-10-23, 80 minutes past free time."],
+    ["refuses", "Accounts 111122223333,444455556666 billed."],
+    ["refuses", "Account.111122223333 billed"],
+    ["refuses", "Ref 1.111122223333"],
+    ["refuses", "4165550143,4165550199"],
+    ["refuses", "tel:416-555-0143"],
+    ["refuses", "Phone:(416) 555-0143"],
+    ["refuses", "Call 416-555-0143x12"],
+    ["refuses", "Call 416 5550143."],
+    ["refuses", "Account 1111.2222.3333."],
+    ["refuses", "Call 416–555–0143."],
+    ["refuses", "PRO 416 555 0143."],
+    ["refuses", "Paid $4165550143."],
+    ["refuses", "Grace +1 416-555-0143."],
+    ["refuses", "Account 111122223333 on 2026-10-23 13:05."],
+    ["refuses", "Key arn:aws:kms:us-east-1:x."],
+  ])("%s an opening with: %s", (outcome, text) => {
+    const result = checkClaim({ ...request, body: `${body} ${text}` }, basis);
+    if (outcome === "files") expect(result).toEqual({ ok: true });
+    else expect(result.ok === false && result.reason).toMatch(/AWS resource name, account id or phone number/);
+  });
+
   it("files a load whose id is shaped like a phone number, and still refuses a number beside it", () => {
     const id = "PO-416-555-0143";
     const named = body.replaceAll("LIVE-abc", id);
