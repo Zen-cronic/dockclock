@@ -9,14 +9,15 @@ export const DESK_STACK = "DockClockDesk";
 // before deploying anything, so a missing build never ships a partial deploy silently.
 export const ALLOW_SKIP_DESK = "--allow-skip-desk";
 
-// `cdk deploy` options whose value is the next argument (`--profile example`, `-c key=value`).
-// That value is not a stack name. Any other argument that does not start with "-" is one.
-const VALUE_OPTIONS = new Set([
-  "-a", "--app", "-c", "--context", "-o", "--output", "-p", "--plugin", "-r", "--role-arn", "-t", "--tags",
-  "-m", "--method", "-O", "--outputs-file", "-E", "--build-exclude",
-  "--profile", "--toolkit-stack-name", "--parameters", "--notification-arns", "--change-set-name", "--progress",
-  "--concurrency", "--require-approval", "--ca-bundle-path", "--proxy", "--asset-parallelism",
-]);
+// Whether a bare argument names stacks: one of STACKS, anything with the app's DockClock prefix (a
+// mistyped name goes to the CLI as asked, which reports it, rather than being widened to --all), or
+// a wildcard pattern (DockClock*, *Messaging). Any other bare argument is an option's value
+// (`--region us-east-1`, `--profile example`), so no table of the CLI's value options has to be
+// kept in step with each CDK release. A value that has a wildcard in it (--build-exclude 'x*')
+// counts as a stack pattern: the CLI then asks for the stacks to deploy, and nothing deploys.
+export function namesStacks(arg: string): boolean {
+  return (STACKS as readonly string[]).includes(arg) || /^dockclock/i.test(arg) || /[*?]/.test(arg);
+}
 
 export interface DeployArgs {
   // What goes to `cdk deploy`, as given, without --allow-skip-desk.
@@ -44,21 +45,19 @@ export function readArgs(extra: string[]): DeployArgs {
     }
     out.pass.push(arg);
     if (!arg.startsWith("-")) {
-      out.named = true;
+      if (namesStacks(arg)) out.named = true;
       continue;
     }
     const eq = arg.indexOf("=");
     const flag = eq > 0 ? arg.slice(0, eq) : arg;
     if (flag === "--all") out.named = true;
     if (flag === "-O" || flag === "--outputs-file") out.outputsFile = true;
-    if (eq > 0) {
-      if (flag === "-c" || flag === "--context") addContext(arg.slice(eq + 1));
-      continue;
-    }
-    if (VALUE_OPTIONS.has(flag) && i + 1 < extra.length) {
+    if (flag !== "-c" && flag !== "--context") continue;
+    if (eq > 0) addContext(arg.slice(eq + 1));
+    else if (i + 1 < extra.length) {
       const value = extra[++i]!;
       out.pass.push(value);
-      if (flag === "-c" || flag === "--context") addContext(value);
+      addContext(value);
     }
   }
   return out;

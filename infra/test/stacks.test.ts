@@ -302,6 +302,20 @@ describe("npm run deploy", () => {
     expect(plan(built, ["--profile", "example"]).args).toEqual(["--all", "--profile", "example"]);
   });
 
+  // Stacks are told apart from option values by name, not by a copy of the CLI's option table: the
+  // global --region and --build take values, and --asset-parallelism takes none in aws-cdk 2.1145.
+  it("tells a stack from an option's value by the app's stack names", () => {
+    for (const extra of [["--region", "us-east-1"], ["--build", "npm run build"], ["--telemetry-file", "t.json"], ["--asset-build-concurrency", "2"], ["--unstable", "toolkit-lib-engine"], ["-r", "arn:aws:iam::111122223333:role/x"]]) {
+      expect(plan(built, extra).args, extra.join(" ")).toEqual(["--all", ...extra]);
+      expect(plan(missing, extra).refused, extra.join(" ")).not.toBeNull();
+    }
+    expect(plan(missing, ["--asset-parallelism", "DockClockCore"])).toEqual({ args: ["--asset-parallelism", "DockClockCore"], note: null, refused: null });
+    expect(plan(missing, ["--region", "us-east-1", "DockClockMessaging"]).args).toEqual(["--region", "us-east-1", "DockClockMessaging"]);
+    // A mistyped name goes to the CLI as asked, never widened to every stack.
+    expect(plan(built, ["DockClockMesaging"]).args).toEqual(["DockClockMesaging"]);
+    expect(plan(built, ["*Messaging"]).args).toEqual(["*Messaging"]);
+  });
+
   it("finds the placeholder asked for in every form the app reads", () => {
     const key = DESK_PLACEHOLDER_CONTEXT;
     for (const extra of [["-c", `${key}=1`], ["--context", `${key}=1`], [`--context=${key}=1`], [`-c=${key}=1`]]) {
