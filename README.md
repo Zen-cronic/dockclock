@@ -154,7 +154,7 @@ npm ci
 npm test            # about 390 tests (plus the console's own)
 npm run scorecard   # recomputes the headline above
 ```
-Deploying to your own AWS account (CDK) needs an existing WhatsApp Business Account linked to AWS End User Messaging Social; see `.env.example`.
+Deploying to your own AWS account (CDK) needs an existing WhatsApp Business Account linked to AWS End User Messaging Social; see `.env.example`. `npm run deploy` uses your shell's AWS profile and region, not `.env`'s, so export `AWS_PROFILE` and `AWS_REGION` first.
 
 ## License
 [MIT](LICENSE)

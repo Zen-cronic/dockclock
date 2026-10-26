@@ -327,5 +327,10 @@ describe("npm run deploy", () => {
   it("leaves ../.env out of the CDK CLI's environment", () => {
     const pkg = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8")) as { scripts: Record<string, string> };
     expect(pkg.scripts.deploy).not.toMatch(/env-file/);
+    // So the setup notes send the deploy's AWS profile and region to the shell, not to .env.
+    const example = readFileSync(join(import.meta.dirname, "..", "..", ".env.example"), "utf8");
+    expect(example).toMatch(/npm run\n# deploy does not read them from here[\s\S]*# +export AWS_PROFILE=[^\n]*\nAWS_PROFILE=/);
+    const readme = readFileSync(join(import.meta.dirname, "..", "..", "README.md"), "utf8");
+    expect(readme).toContain("`npm run deploy` uses your shell's AWS profile and region, not `.env`'s, so export `AWS_PROFILE` and `AWS_REGION` first.");
   });
 });
