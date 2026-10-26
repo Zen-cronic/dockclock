@@ -23,7 +23,8 @@ export const DESK_PLACEHOLDER_CONTEXT = "dockclock:deskPlaceholder";
 // placeholder asked for, the result carries an error that the DeskStack records as an annotation:
 // the CDK CLI then refuses to synthesize or deploy the desk. The CLI checks annotations on every
 // stack it was asked for, so `cdk deploy --all` would stop every stack; `npm run deploy` therefore
-// leaves the desk out when there is no build (deploy-stacks.ts), and the other stacks still ship.
+// stops before deploying anything when there is no build, unless --allow-skip-desk ships the other
+// stacks without the desk (deploy-stacks.ts).
 export interface DeskSource {
   path: string;
   error: string | null;

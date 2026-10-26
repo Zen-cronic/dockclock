@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { buildApp } from "../lib/app.js";
 import { CoreStack } from "../lib/core-stack.js";
 import { DESK_PLACEHOLDER_CONTEXT, DeskStack, deskSource } from "../lib/desk-stack.js";
-import { DESK_STACK, STACKS, deployPlan } from "../lib/deploy-stacks.js";
+import { DESK_STACK, STACKS, deployPlan, readArgs } from "../lib/deploy-stacks.js";
 
 const config = {
   account: "111122223333",
@@ -268,22 +268,50 @@ describe("npm run deploy", () => {
     expect(app.node.children.map((c) => c.node.id).sort()).toEqual([...STACKS].sort());
   });
 
+  const plan = (source: { path: string; error: string | null }, extra: string[], files: Record<string, unknown> = {}) => {
+    const p = deployPlan(source, extra, files);
+    return { args: p.args, note: p.note, refused: p.refused };
+  };
+
   it("deploys every stack when the site is built", () => {
-    expect(deployPlan(built, [])).toEqual({ args: ["--all"], note: null });
+    expect(plan(built, [])).toEqual({ args: ["--all"], note: null, refused: null });
   });
 
   // The CLI refuses a whole deploy when one selected stack carries an error, so --all without a
   // site build would stop the Messaging and Agent stacks too.
-  it("leaves only the desk out when the site is not built, and says so", () => {
-    const plan = deployPlan(missing, []);
-    expect(plan.args).toEqual(STACKS.filter((s) => s !== DESK_STACK));
-    expect(plan.args).not.toContain("--all");
-    expect(plan.note).toMatch(/Skipping DockClockDesk: site\/dist\/index.html is missing/);
+  it("deploys nothing and fails without a site build, unless --allow-skip-desk asks for the rest", () => {
+    const refused = plan(missing, []);
+    expect(refused.args).toEqual([]);
+    expect(refused.refused).toMatch(/Not deploying anything: DockClockDesk cannot deploy\. site\/dist\/index.html is missing/);
+    expect(refused.refused).toContain("npm run deploy -- --allow-skip-desk");
+    const skipped = plan(missing, ["--allow-skip-desk", "--profile", "example"]);
+    expect(skipped.refused).toBeNull();
+    expect(skipped.args).toEqual([...STACKS.filter((s) => s !== DESK_STACK), "--profile", "example"]);
+    expect(skipped.args).not.toContain("--allow-skip-desk");
+    expect(skipped.note).toMatch(/Warning: skipping DockClockDesk \(--allow-skip-desk\)\. site\/dist\/index.html is missing/);
   });
 
-  it("deploys the stacks named on the command line as asked, and the placeholder when asked for", () => {
-    expect(deployPlan(missing, ["DockClockMessaging"])).toEqual({ args: ["DockClockMessaging"], note: null });
-    expect(deployPlan(missing, ["DockClockDesk"])).toEqual({ args: ["DockClockDesk"], note: null });
-    expect(deployPlan(missing, ["-c", `${DESK_PLACEHOLDER_CONTEXT}=1`])).toEqual({ args: ["--all", "-c", `${DESK_PLACEHOLDER_CONTEXT}=1`], note: null });
+  it("deploys the stacks named on the command line as asked, wildcards included", () => {
+    expect(plan(missing, ["DockClockMessaging"])).toEqual({ args: ["DockClockMessaging"], note: null, refused: null });
+    expect(plan(missing, ["DockClockDesk"])).toEqual({ args: ["DockClockDesk"], note: null, refused: null });
+    expect(plan(missing, ["DockClock*"])).toEqual({ args: ["DockClock*"], note: null, refused: null });
+    expect(plan(missing, ["--all"]).args).toEqual(["--all"]);
+    expect(plan(built, ["--hotswap", "DockClockAgent"]).args).toEqual(["--hotswap", "DockClockAgent"]);
+    // An option's value is not a stack name.
+    expect(plan(missing, ["--profile", "example"]).refused).not.toBeNull();
+    expect(plan(built, ["--profile", "example"]).args).toEqual(["--all", "--profile", "example"]);
+  });
+
+  it("finds the placeholder asked for in every form the app reads", () => {
+    const key = DESK_PLACEHOLDER_CONTEXT;
+    for (const extra of [["-c", `${key}=1`], ["--context", `${key}=1`], [`--context=${key}=1`], [`-c=${key}=1`]]) {
+      expect(plan(missing, extra), extra.join(" ")).toEqual({ args: ["--all", ...extra], note: null, refused: null });
+    }
+    expect(plan(missing, [], { [key]: "1" }).args).toEqual(["--all"]);
+    expect(plan(missing, [], { [key]: 1 }).args).toEqual(["--all"]);
+    expect(plan(missing, ["-c", `${key}=0`]).refused).not.toBeNull();
+    // The command line wins over the files.
+    expect(plan(missing, ["-c", `${key}=0`], { [key]: "1" }).refused).not.toBeNull();
+    expect(readArgs(["-c", "a=b", "--context=c=d=e"]).context).toEqual({ a: "b", c: "d=e" });
   });
 });
