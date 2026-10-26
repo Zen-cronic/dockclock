@@ -168,14 +168,17 @@ export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: str
   if (!base) return <p className="small">This load has no recorded facts to change.</p>;
   // Only the facts this contract can turn on; a rule it doesn't have stays in the list on the right.
   const all = whatIfs(load).filter((w) => w.applies);
+  // Locked: no switch is applied, not even one preset through `initial`, since a what-if can replace
+  // the unreadable time with a readable one and show a verdict beside the note that none can be given.
   const locked = timestampUnreadable(base);
+  const applied = locked ? new Set<string>() : on;
   let changed = base;
-  for (const w of all) if (on.has(w.id)) changed = w.apply(changed);
+  for (const w of all) if (applied.has(w.id)) changed = w.apply(changed);
   const recorded = run(base);
   const computed = run(changed);
   const ask = baseline(changed);
   const reasons = computed.reasons.filter((r) => r !== "CAP_APPLIED");
-  const any = on.size > 0;
+  const any = applied.size > 0;
   const toggle = (id: string, v: boolean) => {
     const next = new Set(on);
     if (v) next.add(id);
@@ -188,7 +191,7 @@ export function WhatIfPanel({ load, initial }: { load: LoadDetail; initial?: str
       <div className="whatif-sw">
         {all.map((w) => (
           <label className="switch" key={w.id}>
-            <input type="checkbox" role="switch" checked={on.has(w.id)} disabled={locked} onChange={(e) => toggle(w.id, e.target.checked)} />
+            <input type="checkbox" role="switch" checked={applied.has(w.id)} disabled={locked} onChange={(e) => toggle(w.id, e.target.checked)} />
             {w.label}
             <span className="hint">{w.hint}</span>
           </label>
@@ -227,8 +230,9 @@ export function QuickWhatIf({ load, ids }: { load: LoadDetail; ids: string[] }) 
   const shown = whatIfs(load).filter((w) => w.applies && ids.includes(w.id));
   if (!base || shown.length === 0) return <p className="small">This load has no recorded facts to change.</p>;
   const locked = timestampUnreadable(base);
+  const applied = locked ? new Set<string>() : on;
   let changed = base;
-  for (const w of shown) if (on.has(w.id)) changed = w.apply(changed);
+  for (const w of shown) if (applied.has(w.id)) changed = w.apply(changed);
   const computed = run(changed);
   const reasons = computed.reasons.filter((r) => r !== "CAP_APPLIED");
   const toggle = (id: string, v: boolean) => {
@@ -243,14 +247,14 @@ export function QuickWhatIf({ load, ids }: { load: LoadDetail; ids: string[] }) 
       <div className="quick-sw">
         {shown.map((w) => (
           <label className="switch" key={w.id}>
-            <input type="checkbox" role="switch" checked={on.has(w.id)} disabled={locked} onChange={(e) => toggle(w.id, e.target.checked)} />
+            <input type="checkbox" role="switch" checked={applied.has(w.id)} disabled={locked} onChange={(e) => toggle(w.id, e.target.checked)} />
             {w.label}
             <span className="hint">{w.hint}</span>
           </label>
         ))}
       </div>
-      <Outcome recorded={run(base)} computed={on.size ? computed : null} />
-      {on.size > 0 && reasons.length > 0 && <p className="whatif-why"><Mark ok={false} />{sentence(REASON_WORDS[reasons[0]!])}.</p>}
+      <Outcome recorded={run(base)} computed={applied.size ? computed : null} />
+      {applied.size > 0 && reasons.length > 0 && <p className="whatif-why"><Mark ok={false} />{sentence(REASON_WORDS[reasons[0]!])}.</p>}
     </>
   );
 }

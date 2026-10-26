@@ -310,6 +310,23 @@ describe("release tap and pin", async () => {
     expect(html).toMatch(/disabled=""/);
     expect(() => renderToStaticMarkup(createElement(QuickWhatIf, { load: d, ids: ["early", "pinLate"] }))).not.toThrow();
   });
+
+  // The early release would put a readable release time in place of the unreadable one and show a
+  // verdict beside the note that none can be given: a locked panel applies no switch at all.
+  it("applies no preset switch while a recorded time does not parse", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { UNREADABLE_NOTE, WhatIfPanel } = await import("../src/ui/WhatIfPanel.js");
+    const v = structuredClone(body.data);
+    v.verdict!.engineInput.released!.at = "not a time";
+    delete v.verdict!.engineInput.releasePinAt;
+    const d = detailFromApi(v, "fixture");
+    expect(whatIfs(d).find((w) => w.id === "early")?.applies).toBe(true);
+    const html = renderToStaticMarkup(createElement(WhatIfPanel, { load: d, initial: ["early"] }));
+    expect(html).toContain(UNREADABLE_NOTE.replace("can't", "can&#x27;t"));
+    expect(html).toContain("Flip a switch to see what the contract decides.");
+    expect(html).not.toMatch(/checked=""/);
+  });
 });
 
 // The tamper switch moves what stopped the clock: the Released tap on a version 2 pack, the pin on v1.
