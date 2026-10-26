@@ -248,6 +248,23 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     expect(kept().filter((r) => r.status === "not_sent")).toEqual([]);
   });
 
+  // The gates answer first: a recipient they stop gets their final not-sent row, kept, even while
+  // the stored PDF cannot be read; only a recipient they let through finds the read failing.
+  it("answers a gated recipient with the gate, not with a PDF read that failed", async () => {
+    s3.on(GetObjectCommand).rejects(fail("SlowDown"));
+    optedOut.add("phone:driver");
+    expect(await sendClaimReceipts(load)).toEqual([
+      { audience: "dispatcher", channel: "whatsapp", sent: false, skipped: NOT_SENT.pdfUnreadable },
+      { audience: "driver", channel: "whatsapp", sent: false },
+    ]);
+    expect(records().map((r) => [r.audience, r.notSentReason])).toEqual([["dispatcher", NOT_SENT.pdfUnreadable], ["driver", NOT_SENT.optedOut]]);
+    // The opted-out driver's answer is final; the dispatcher's read can be tried again.
+    expect([...reserved]).toEqual(["receiptDriverAt"]);
+    // Read once up front and once for the dispatcher; never for the driver the gates stopped.
+    expect(s3.commandCalls(GetObjectCommand)).toHaveLength(2);
+    expect(records()[1]!.message).toEqual({ kind: "document", text: expect.stringContaining("Claim summary for load L1"), document: { filename: "detention-claim-L1.pdf" } });
+  });
+
   it("treats a throw during the WhatsApp document send as unconfirmed: no not-sent row, the reservation stays", async () => {
     messaging.on(SendWhatsAppMessageCommand).rejects(fail("TimeoutError"));
     expect(await sendClaimReceipts(load)).toEqual([

@@ -29,10 +29,11 @@ import { keys } from "./keys.js";
 //   number that does not parse, no DISPATCHER_PHONE), and a WhatsApp send the provider refused
 //   outright (sender.ts refusedOutright: an access-denied or validation answer on the first try;
 //   nothing went). A retry finds the recipient handled.
-// - A passing failure before the send call (the PDF cannot be read from S3, the upload to WhatsApp
-//   fails, a table read throws) records a not-sent row and releases the reservation, so a retry can
-//   still send. The released reservation remembers that row, and the retry deletes it, so the
-//   conversation keeps one row per recipient: the latest attempt's.
+// - A passing failure before the send call (the PDF cannot be read from S3 for a recipient the gates
+//   let through, the upload to WhatsApp fails, a table read throws) records a not-sent row and
+//   releases the reservation, so a retry can still send. The released reservation remembers that
+//   row, and the retry deletes it, so the conversation keeps one row per recipient: the latest
+//   attempt's.
 // - Once the send call has started, any other failure may have sent the message (a timeout after
 //   delivery, a throttle or 5xx after a retried attempt): the reservation stays and nothing is
 //   recorded as not sent (SEND_UNCONFIRMED), on either channel.
@@ -205,7 +206,7 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
 
   // The file's hash, read once for every WhatsApp recipient and kept only once read. No stored PDF is
   // a final answer for each recipient; a read that fails is a passing failure, tried again for the
-  // next recipient (and on a retry). The RCS link needs no file.
+  // next recipient the gates let through (and on a retry). The RCS link needs no file.
   const pdfKey = claim.pdfKey;
   let sha256: string | undefined;
   const hash = async (key: string): Promise<string> => {
@@ -236,7 +237,9 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
       await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: caption, document: { filename } }, audience, NOT_SENT.noPdf);
       return { audience, channel: "whatsapp", sent: false, skipped: NOT_SENT.noPdf };
     }
-    const id = await sendDocument(target, { bucket: env.bucket(), key: pdfKey, filename, caption, sha256: await hash(pdfKey), upload }, RECEIPT_PURPOSE, load.loadId, { audience, progress });
+    // The hash is read only for a recipient the gates let through (sendDocument): a failed read for
+    // one they stop never replaces the gate's answer.
+    const id = await sendDocument(target, { bucket: env.bucket(), key: pdfKey, filename, caption, sha256: sha256 ?? (() => hash(pdfKey)), upload }, RECEIPT_PURPOSE, load.loadId, { audience, progress });
     return { audience, channel: "whatsapp", sent: id !== null };
   };
 

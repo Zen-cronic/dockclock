@@ -273,14 +273,16 @@ export async function send(target: Target, body: Body, purpose: string, loadId: 
 }
 
 // A file in S3 to send as a WhatsApp document: the object, the name the recipient sees, a caption,
-// and the SHA-256 of the bytes (kept with the send record so the console can show it). `upload`
-// lets a caller sending one file to several people upload it once and reuse the media id.
+// and the SHA-256 of the bytes (kept with the send record so the console can show it). The hash may
+// be a function that reads it, called only once the gates pass, so a read that fails never stands in
+// for a gate's answer. `upload` lets a caller sending one file to several people upload it once and
+// reuse the media id.
 export interface DocumentFile {
   bucket: string;
   key: string;
   filename: string;
   caption: string;
-  sha256: string;
+  sha256: string | (() => Promise<string>);
   upload?: () => Promise<string | undefined>;
 }
 
@@ -297,7 +299,8 @@ export async function uploadMedia(bucket: string, key: string, purpose: string, 
 }
 
 // Sends one file as a WhatsApp document through the same gates as send(): the gates first, so a
-// blocked recipient never causes an upload; then PostWhatsAppMessageMedia reads the object from S3
+// blocked recipient never causes a hash read or an upload (its not-sent row carries the hash only
+// when it is already known); then PostWhatsAppMessageMedia reads the object from S3
 // (with this function's own S3 permission) and returns a media id; then SendWhatsAppMessage sends
 // the document. A recipient the gates stopped is recorded as not sent and gets null. A failed
 // upload throws SendNotStarted (nothing went; the caller records it). A send the provider refused
@@ -307,12 +310,13 @@ export async function uploadMedia(bucket: string, key: string, purpose: string, 
 // at "sending", and nothing is recorded as not sent.
 export async function sendDocument(target: Target, file: DocumentFile, purpose: string, loadId: string, options: SendOptions = {}): Promise<string | null> {
   const audience = options.audience ?? "driver";
-  const shown = { kind: "document" as const, text: file.caption, document: { filename: file.filename, sha256: file.sha256 } };
+  const shownWith = (sha256: string | undefined) => ({ kind: "document" as const, text: file.caption, document: { filename: file.filename, ...(sha256 ? { sha256 } : {}) } });
   const gate = await cleared(target, purpose, loadId, options);
   if ("blocked" in gate) {
-    await recordBlocked(loadId, purpose, "whatsapp", shown, audience, gate.blocked);
+    await recordBlocked(loadId, purpose, "whatsapp", shownWith(typeof file.sha256 === "string" ? file.sha256 : undefined), audience, gate.blocked);
     return null;
   }
+  const shown = shownWith(typeof file.sha256 === "string" ? file.sha256 : await file.sha256());
   const mediaId = file.upload ? await file.upload() : await uploadMedia(file.bucket, file.key, purpose, loadId);
   if (!mediaId) throw new SendNotStarted("media upload failed", NOT_SENT.uploadFailed, false);
   mark(options, "sending");
