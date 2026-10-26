@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import { claimAutoReload, isChunkLoadError, PageError, RELOAD_GAP_MS } from "../src/ui/ErrorBoundary.js";
+import { describe, expect, it, vi } from "vitest";
+import { claimAutoReload, ErrorBoundary, isChunkLoadError, PageError, pathChanged, RELOAD_GAP_MS } from "../src/ui/ErrorBoundary.js";
 
 // A memory sessionStorage, or one that throws as a locked-down browser's does.
 function store(): Pick<Storage, "getItem" | "setItem"> {
@@ -44,5 +44,32 @@ describe("the console's error boundary", () => {
     expect(html).toContain("This page did not load");
     expect(html).toContain("DockClock was updated while this tab was open.");
     expect(html).toMatch(/<button[^>]*>Reload<\/button>/);
+  });
+
+  // React.lazy keeps a failed import's rejection: after a chunk failure only a full page load of the
+  // new path can load it, while any other error clears and the new route draws in place.
+  it("loads the new path in full after a failed chunk, and redraws in place after any other error", () => {
+    const chunk = new TypeError("Failed to fetch dynamically imported module: https://x/assets/Judges-abc.js");
+    expect(pathChanged(null)).toBe("none");
+    expect(pathChanged(chunk)).toBe("load");
+    expect(pathChanged(new TypeError("Cannot read properties of undefined"))).toBe("redraw");
+
+    const reload = vi.fn();
+    vi.stubGlobal("window", { location: { reload } });
+    try {
+      const moved = (error: unknown) => {
+        const boundary = new ErrorBoundary({ children: null, resetKey: "/judges" });
+        boundary.state = { error };
+        const setState = vi.spyOn(boundary, "setState").mockImplementation(() => undefined);
+        boundary.componentDidUpdate({ children: null, resetKey: "/loads" });
+        return setState;
+      };
+      expect(moved(chunk)).not.toHaveBeenCalled();
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(moved(new Error("draw failed"))).toHaveBeenCalledWith({ error: null });
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

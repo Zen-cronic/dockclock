@@ -3,7 +3,10 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 // The top-level error boundary around every route. The console's chunks load on demand, so a
 // redeploy that pruned the old hashed files makes the next dynamic import fail: then the page
 // reloads once on its own to fetch the new build. Any other error, or a second failure soon after,
-// shows a short message and a Reload button instead of a blank page.
+// shows a short message and a Reload button instead of a blank page. React.lazy keeps a failed
+// import's rejection, so after a chunk failure no amount of moving between routes loads it again:
+// moving elsewhere then loads that page in full (a reload of the new address), while after any
+// other error it draws the new route in place.
 
 const RELOAD_KEY = "dockclock:chunk-reload-at";
 // A second chunk failure within this long of an automatic reload is not retried on its own.
@@ -42,8 +45,16 @@ function sessionStore(): Store | null {
 
 interface Props {
   children: ReactNode;
-  // A new value (the path) clears a shown error, so moving elsewhere tries again.
+  // A new value (the path) means the reader moved elsewhere: see pathChanged.
   resetKey?: string;
+}
+
+// What moving to a new path does with a shown error: nothing without one, a full page load of the
+// new path after a failed chunk (its lazy component would rethrow the cached failure), and a fresh
+// draw in place after any other error.
+export function pathChanged(error: unknown): "none" | "load" | "redraw" {
+  if (error === null) return "none";
+  return isChunkLoadError(error) ? "load" : "redraw";
 }
 
 export class ErrorBoundary extends Component<Props, { error: unknown }> {
@@ -59,7 +70,10 @@ export class ErrorBoundary extends Component<Props, { error: unknown }> {
   }
 
   override componentDidUpdate(prev: Props) {
-    if (this.state.error !== null && prev.resetKey !== this.props.resetKey) this.setState({ error: null });
+    if (prev.resetKey === this.props.resetKey) return;
+    const next = pathChanged(this.state.error);
+    if (next === "load") window.location.reload();
+    else if (next === "redraw") this.setState({ error: null });
   }
 
   override render() {
