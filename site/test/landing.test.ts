@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { matchRoutes, type RouteObject } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { routeTree, type RouteName } from "../src/routes/table.js";
+import { ROUTE_NAMES, routeNameAt, routeTree, type RouteName } from "../src/routes/table.js";
 import { readFileSync } from "node:fs";
 import type { LoadView } from "../src/api.js";
 import { HERO_LOAD, buildStory, heroStory } from "../src/landing/story.js";
@@ -10,8 +10,7 @@ import { Provenance, StaticHero, Storyboard } from "../src/landing/HeroPlayer.js
 import { WaitScene } from "../src/landing/WaitScene.js";
 import { stayProofWords } from "../src/copy/provenance.js";
 
-const names: RouteName[] = ["landing", "shell", "overview", "messages", "loads", "load", "judges", "fallback"];
-const tree = routeTree(Object.fromEntries(names.map((n) => [n, n])) as Record<RouteName, string>);
+const tree = routeTree(Object.fromEntries(ROUTE_NAMES.map((n) => [n, n])) as Record<RouteName, string>);
 // typed loosely: RouteObject and the matcher's route type disagree under exactOptionalPropertyTypes
 const match = (path: string) => matchRoutes(tree as never[], path) as Array<{ route: RouteObject }> | null;
 const leaf = (path: string) => match(path)?.at(-1)?.route.element;
@@ -33,8 +32,18 @@ describe("routes", () => {
     expect(match("/judges")?.[0]?.route.element).toBe("shell");
   });
 
-  it("sends an unknown path to the fallback inside the shell", () => {
+  it("sends an unknown path to the fallback without the shell", () => {
     expect(leaf("/nope")).toBe("fallback");
+    expect(leaf("/loads/LIVE-x/evidence/extra")).toBe("fallback");
+    expect(match("/nope")?.map((m) => m.route.element)).toEqual(["fallback"]);
+  });
+
+  it("names the route a path renders, so its chunk loads with the shell's", () => {
+    expect(routeNameAt("/loads/LIVE-mvlb0qzq")).toBe("load");
+    expect(routeNameAt("/judges/proved")).toBe("judges");
+    expect(routeNameAt("/overview")).toBe("overview");
+    expect(routeNameAt("/")).toBe("landing");
+    expect(routeNameAt("/nope")).toBe("fallback");
   });
 });
 
