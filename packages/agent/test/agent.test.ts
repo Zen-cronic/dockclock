@@ -58,6 +58,41 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     }
   });
 
+  // Fictional numbers only: 555-01xx phone numbers and made-up account ids.
+  it.each([
+    "Call +1 416-555-0143.",
+    "Call +1 (416) 555-0143.",
+    "Call +1.416.555.0143.",
+    "Call (416) 555-0143.",
+    "Call (416)555-0143.",
+    "Call 416-555-0143.",
+    "Call 416.555.0143.",
+    "Call 416 555 0143.",
+    "Call 1-416-555-0143.",
+    "Call 4165550143.",
+    "Account 9999-0143-9999.",
+    "Account 9999 0143 9999.",
+    "Key ARN:aws:kms:us-east-1:x.",
+    "Key Arn:Aws:kms:x.",
+    "Key arn:aws-us-gov:kms:x.",
+  ])("refuses a formatted leak: %s", (leak) => {
+    const leaked = checkClaim({ ...request, body: `${body} ${leak}` }, basis);
+    expect(leaked.ok === false && leaked.reason).toMatch(/AWS resource name, account id or phone number/);
+  });
+
+  it("files an opening with money, dates, times and durations", () => {
+    const busy = "Detention claim for load LIVE-abc: arrived 2026-10-23 13:05 EDT (10/23/2026, 1:05 PM), released 14:30-14:35, 80 minutes past free time (+15 min grace). Amount owed: $80.00 of $1,234.56 billed.";
+    expect(checkClaim({ ...request, body: busy }, basis)).toEqual({ ok: true });
+  });
+
+  it("files a load whose id is shaped like a phone number, and still refuses a number beside it", () => {
+    const id = "PO-416-555-0143";
+    const named = body.replaceAll("LIVE-abc", id);
+    const poBasis = { ...basis, loadId: id };
+    expect(checkClaim({ ...request, loadId: id, body: named }, poBasis)).toEqual({ ok: true });
+    expect(checkClaim({ ...request, loadId: id, body: `${named} Call (416) 555-0199.` }, poBasis).ok).toBe(false);
+  });
+
   it("refuses unsealed, non-billable, unapproved or already-sent loads", () => {
     expect(checkClaim(request, { ...basis, phase: "documented" }).ok).toBe(false);
     expect(checkClaim(request, { ...basis, verdict: "NEEDS_HUMAN" }).ok).toBe(false);
