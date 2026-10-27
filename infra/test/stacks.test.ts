@@ -333,7 +333,8 @@ describe("npm run deploy", () => {
 
   // A bare argument that is no option's value names stacks, matching or not: a mistyped name or a
   // pattern that matches nothing goes to the CLI as asked, which reports it, never widened to every
-  // stack. Everything after -- is a stack pattern too (the CLI then reads no stack at all and stops).
+  // stack. Anything after a second -- counts as named too, so it is never widened either; the CLI
+  // reads no stack there and stops before deploying.
   it.each([
     ["DockClockCore"],
     ["DockClock*"],

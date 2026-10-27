@@ -81,7 +81,9 @@ export interface DeployArgs {
   // What goes to `cdk deploy`, as given, without --allow-skip-desk.
   pass: string[];
   // Stacks were chosen on the command line: --all, or a bare argument that is no option's value
-  // (a name or a wildcard pattern, whether or not it matches a stack, or anything after --).
+  // (a name or a wildcard pattern, whether or not it matches a stack). Anything after -- counts too,
+  // so it is never widened to every stack, though the CLI reads none of it as a stack: it goes to
+  // the parser's leftover arguments, and with no stack named the CLI stops before deploying.
   named: boolean;
   // Bare arguments right after an option neither this script nor the CLI's table knows: the CLI
   // reads each as that option's value, but it may have been meant as a stack.
@@ -96,7 +98,8 @@ export interface DeployArgs {
 // Reads the command line as the CDK CLI's parser does, the option-value rule first: the bare
 // argument right after an option that takes a value is that value, even when it looks like a stack
 // (--build-exclude 'DockClock*'), and true or false right after a boolean is its value. Every other
-// bare argument is a stack pattern, and so is everything after --.
+// bare argument is a stack pattern. Everything after -- is read as naming stacks, so nothing after
+// it is widened to every stack; the CLI itself reads no stack there (see DeployArgs.named).
 export function readArgs(extra: string[], options: CliOptions | null = cliOptions()): DeployArgs {
   const out: DeployArgs = { pass: [], named: false, unsure: [], context: {}, allowSkipDesk: false, outputsFile: false };
   const addContext = (pair: string | undefined) => {

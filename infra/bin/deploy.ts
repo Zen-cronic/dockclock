@@ -7,8 +7,9 @@ import { parseEnv } from "node:util";
 import { DESK_PLACEHOLDER_ENV, deskSource } from "../lib/desk-stack.js";
 import { deployCommand, deployPlan, mergeOutputs } from "../lib/deploy-stacks.js";
 
-// npm run deploy: every stack, or the stacks named after `--` (see deploy-stacks.ts for when the desk
-// is left out, and --allow-skip-desk). Other arguments go to `cdk deploy` as given.
+// npm run deploy: every stack, or the stacks named after npm's own `--`, as in
+// `npm run deploy -- DockClockAgent` (see deploy-stacks.ts for when the desk is left out, and
+// --allow-skip-desk). Other arguments go to `cdk deploy` as given.
 //
 // The CDK CLI runs with this shell's own environment, so its AWS profile and region are the shell's.
 // ../.env is read by the CDK app alone (cdk.json's app command), as before this wrapper existed;
