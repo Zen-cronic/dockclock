@@ -134,14 +134,18 @@ export function windowOpen(lastAt: string | null, now = Date.now()): boolean {
   return Number.isFinite(at) && now - at < WINDOW_MS - WINDOW_MARGIN_MS;
 }
 
+// DISPATCHER_PHONE in E.164, or null when it is missing or does not parse.
+function dispatcherE164(): string | null {
+  try {
+    return env.dispatcherPhone() || null;
+  } catch {
+    return null;
+  }
+}
+
 // A missing or unparseable DISPATCHER_PHONE is a setting no retry can fix.
 async function dispatcherTarget(): Promise<Target> {
-  let e164 = "";
-  try {
-    e164 = env.dispatcherPhone();
-  } catch {
-    // missing: handled below
-  }
+  const e164 = dispatcherE164();
   if (!e164) throw new SendNotStarted("DISPATCHER_PHONE is missing or not a phone number", NOT_SENT.noDispatcher, true);
   const address = { kind: "phone" as const, e164 };
   return { address, driverKey: await driverKey(address) };
@@ -150,13 +154,8 @@ async function dispatcherTarget(): Promise<Target> {
 // Whether DISPATCHER_PHONE and the driver's address are one WhatsApp recipient (sameRecipient). A
 // missing or unparseable setting is no one.
 function dispatcherIsDriver(address: Address): boolean {
-  let e164 = "";
-  try {
-    e164 = env.dispatcherPhone();
-  } catch {
-    // missing: no one
-  }
-  return e164 !== "" && sameRecipient({ kind: "phone", e164 }, address);
+  const e164 = dispatcherE164();
+  return e164 !== null && sameRecipient({ kind: "phone", e164 }, address);
 }
 
 // The PDF's SHA-256 (the same hash the console shows for the claim email's attachment): the one
