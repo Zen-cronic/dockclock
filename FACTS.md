@@ -23,6 +23,9 @@ Status key:
 | $5,103.95 unreimbursed detention per truckload driver per year | ATRI 2024 (survey estimate) | sourced |
 | About $204,000 a year for a carrier with 40 truckload drivers | 40 × $5,103.95, derived from ATRI 2024 | derived |
 | Carriers skip billing because they expect refusal and fear damaging the account | ATRI 2024 | sourced |
+| 17% of OOIDA members said they collect no detention pay at all (2023) | OOIDA, *2023 Detention Time Survey*, https://www.ooida.com/wp-content/uploads/2024/02/2023-Detention-Time-Survey-FINAL.pdf: "Overall, 17 percent of members stated that they do not collect any detention time pay" (253 respondents) | sourced |
+| Detention is linked to $1.1 to $1.3 billion a year in lost earnings for for-hire truckload drivers | US DOT Office of Inspector General, *Estimates Show Commercial Driver Detention Increases Crash Risks and Costs, but Current Data Limit Further Analysis*, ST2018019 (2018-01-31), https://www.oig.dot.gov/library-item/36237 (read 2026-10-26); estimate from 2013 data | sourced |
+| 15 more minutes of average dwell time (total time at a facility) raises the expected crash rate by 6.2% | Same OIG report and page | sourced |
 | Claims are denied for missing or late notice, an expired window, no signed BOL times, late arrival, no shipper confirmation | Reason codes in `packages/clause-engine/src/evaluate.ts`, modelled on published terms cited per clause in `clauses.ts` | tested |
 
 ## What works today
@@ -31,6 +34,7 @@ Status key:
 | Dispatch template, Arrived → location request → pin, Released → pin, camera-only BOL Flow, photo stored and hashed, KMS-signed pack under Object Lock | Live load `LIVE-mve0rrez` (2026-10-18). The pack signature verifies with the KMS public key, and the photo's sha256 matches the pack | live (phone) |
 | The whole loop from a real phone: Arrived and a pin, the notice delivered before free time ended, the Released tap that stopped the clock after 14 min 53 s and a second pin that confirmed it, the camera-only Flow, a photo the agent read, sealed BILLABLE $9.88, the dispatcher's real Approve tap, and the agent's claim email 11.5 s after the tap with the PDF summary, which also went back on WhatsApp. The Flow times were the pre-filled ones, so they do not count as independent proof; the photo's times do | Load `LIVE-mvpoqheg` (2026-10-26, the judge-demo yard, which accepts any location; 5 minutes free, $60 an hour): arrival pin 16:05:35 EDT, free time ended 16:10:35, notice sent 16:06:43 and delivered 16:06:44, Released tap 16:20:28, release pin 16:20:42, Flow times 16:05 and 16:20 (pre-filled), photo of a fictional bill of lading read as in 4:05 PM and out 4:30 PM, receiver signed (out is 10 minutes after the tap, inside the 15-minute tolerance), approval tapped 16:22:22, claim sent 16:22:33.9 and delivered to our test mailbox 16:22:34.7; the read API's recorded responses in `site/fixtures/api/loads/LIVE-mvpoqheg.json` | live (phone) |
 | The earlier real-phone run (10-23): the same loop to a filed claim, sealed BILLABLE $17.28, claim email 11.7 s after the Approve tap. Its photo could not be read and was marked not legible | Load `LIVE-mvlb0qzq` (2026-10-23, the judge-demo yard): approval tapped 14:56:55 EDT, claim sent 14:57:07 EDT and delivered to our test mailbox; `site/fixtures/api/loads/LIVE-mvlb0qzq.json`. Before the Released-tap rule, its clock stopped at the release pin | live (phone) |
+| A real-phone load whose pins were outside the facility was refused: sealed NEEDS_HUMAN with $0 and no claim, reason PIN_OUTSIDE_GEOFENCE, arrival pin 4620 m and release pin 4619 m outside the facility polygon | Load `LIVE-mvlaajde` (2026-10-23, run kind phone, demo workspace); the read API at `/api/loads/LIVE-mvlaajde`, read 2026-10-27 00:40 EDT: `verdict.signals` "4620 m outside facility polygon" and "4619 m outside facility polygon", `claim` null | live (phone) |
 | Templates approved in en_US, es_MX and fr_CA | `list-whatsapp-message-templates` read 2026-10-18 18:20 EDT: all 9 DockClock templates (3 names × 3 languages) APPROVED. Only en_US has been sent live | live (integration) |
 | Duplicate, out-of-order and stale taps are refused | `services/test/lifecycle.test.ts`; `npm run smoke:lifecycle` on the deployed stack | tested + live (integration) |
 | A failed send is replayed, not lost | `services/test/ingest.test.ts` ("replays a send that failed…") | tested |
@@ -95,6 +99,7 @@ Status key:
 | Claim | Status |
 |---|---|
 | Dispute replies | planned |
+| Voice notes transcribed by Amazon Transcribe into the load's timeline (built with tests on branch `feat/voice/voice-notes`; not merged or deployed) | planned |
 | Judges can't try RCS on their own phones: our RCS agent is a Google testing agent that reaches only registered testers, so the console shows RCS from recorded runs | stated limit |
 | Live phone runs of the photo retake and the judge path | planned |
 | A judge-desk replay of a load driven from a real phone (needed for recorded outbound message text) | planned |
