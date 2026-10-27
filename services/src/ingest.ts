@@ -3,7 +3,7 @@ import { TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { RcsMessageContent } from "@aws-sdk/client-pinpoint-sms-voice-v2";
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
 import { releaseTimeOf } from "@dockclock/clause-engine";
-import { facilityById, isoToLocalClock, zoneAbbreviation } from "@dockclock/evidence";
+import { facilityById, isoToLocalClock, localClockOf, zoneAbbreviation } from "@dockclock/evidence";
 import { decodeRcsEvent, isFromTopic, type RcsEvent, type RcsStatusEvent } from "@dockclock/rcs";
 import {
   decodeEvent,
@@ -142,6 +142,7 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
   const facility = facilityById(load.facilityId);
   const language: Language = load.language ?? "en_US";
   const clock = (iso: string | undefined) => (iso ? isoToLocalClock(iso, facility.timeZone) : "");
+  const hint = (iso: string | undefined) => (iso ? (localClockOf(iso, facility.timeZone) ?? "") : "");
   // What the driver reads: the clock time with its zone ("14:25 EDT").
   const zoned = (iso: string | undefined) => (iso ? `${clock(iso)} ${zoneAbbreviation(iso, facility.timeZone)}` : "");
   const target = targetOf(load);
@@ -174,8 +175,9 @@ async function runEffect(load: LoadItem, effect: Effect): Promise<void> {
           releaseFlowMessage(language, load.loadId, load.nonce, facility.name, {
             releasedAt: zoned(releasedAt),
             loadLabel: `${load.loadId} · ${facility.name}`,
-            arrivedHint: clock(load.arrived?.serverAt),
-            releasedHint: clock(releasedAt),
+            // The Flow's time fields take a hint as it is: none for a time that does not parse.
+            arrivedHint: hint(load.arrived?.serverAt),
+            releasedHint: hint(releasedAt),
           }),
         () => rcsBolRequest(language, facility.name, zoned(releasedAt)),
       );

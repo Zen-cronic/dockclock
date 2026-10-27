@@ -5,8 +5,8 @@ import {
   buildPack,
   corroborate,
   facilityById,
-  isoToLocalClock,
   KmsSigner,
+  localClockOf,
   localClockToIso,
   normalizeClock,
   packDigest,
@@ -79,7 +79,8 @@ function bolCapture(bol: BolRecord | null, load: LoadItem, timeZone: string): Bo
       confirmedByDriver: false,
     };
   }
-  const prefilled = (pinAt: string | undefined) => (pinAt ? isoToLocalClock(pinAt, timeZone) : null);
+  // What the Flow pre-filled: nothing for a pin time that does not parse (ingest sends no hint then).
+  const prefilled = (pinAt: string | undefined) => (pinAt ? localClockOf(pinAt, timeZone) : null);
   return {
     channel: bol.channel ?? load.channel,
     messageId: bol.messageId,

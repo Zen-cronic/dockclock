@@ -147,3 +147,35 @@ describe("a queued prompt replayed after the load moved on", () => {
     expect(dynamo.commandCalls(UpdateCommand).some((c) => c.args[0].input.UpdateExpression === "REMOVE outbox.#k")).toBe(true);
   });
 });
+
+// A pin time that does not parse gets no hint in the release Flow: the "--:--" a person reads would
+// be pre-filled into the Flow's time field as if it were a time.
+describe("the release Flow's pre-filled times", () => {
+  it("sends no hint for a pin time that does not parse, and the readable one as HH:MM", async () => {
+    const { SendWhatsAppMessageCommand, SocialMessagingClient } = await import("@aws-sdk/client-socialmessaging");
+    const { GetSecretValueCommand, SecretsManagerClient } = await import("@aws-sdk/client-secrets-manager");
+    const messaging = mockClient(SocialMessagingClient);
+    mockClient(SecretsManagerClient).on(GetSecretValueCommand).resolves({ SecretString: "k" });
+    messaging.on(SendWhatsAppMessageCommand).resolves({ messageId: "out-1" });
+    vi.stubEnv("RELEASE_FLOW_ID", "flow-test");
+    const queued = {
+      ...load,
+      phase: "awaiting_bol",
+      facilityId: "lakeshore-columbus",
+      language: "en_US",
+      channel: "whatsapp",
+      address: { kind: "phone", e164: "+15550100001" },
+      driverKey: "phone:x",
+      nonce: "n1",
+      arrived: { serverAt: "garbage", messageId: "a" },
+      releasedTap: { serverAt: "2026-10-13T17:18:00.000Z", messageId: "t" },
+      outbox: { "a#1": { seq: "a#1", effect: { type: "send_release_flow" } } },
+    };
+    dynamo.on(GetCommand).resolves({});
+    dynamo.on(GetCommand, { Key: { pk: "LOAD#DEMO-1", sk: "META" } }).resolves({ Item: queued });
+    const { drainOutbox } = await import("../src/ingest.js");
+    expect(await drainOutbox("DEMO-1")).toBe(1);
+    const [sent] = messaging.commandCalls(SendWhatsAppMessageCommand).map((c) => JSON.parse(Buffer.from(c.args[0].input.message as Uint8Array).toString()));
+    expect(sent.interactive.action.parameters.flow_action_payload.data).toMatchObject({ arrived_hint: "", released_hint: "13:18" });
+  });
+});

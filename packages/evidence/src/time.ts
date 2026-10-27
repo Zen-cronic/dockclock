@@ -87,8 +87,16 @@ export function isoToLocalDateTime(iso: string, timeZone: string): string {
   return `${p.year}-${two(p.month)}-${two(p.day)} ${two(p.hour)}:${two(p.minute)} ${zoneAbbreviation(iso, timeZone)}`;
 }
 
-export function isoToLocalClock(iso: string, timeZone: string): string {
-  if (!readable(iso)) return UNREADABLE_CLOCK;
+// The local "HH:MM", or null when the time does not parse. For logic: a pre-filled value to compare
+// a driver's entry with, a hint sent to a form, a time to compare a reading with.
+export function localClockOf(iso: string, timeZone: string): string | null {
+  if (!readable(iso)) return null;
   const p = zoneParts(new Date(iso), timeZone);
   return `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
+}
+
+// The local "HH:MM" for a person to read, with UNREADABLE_CLOCK for a time that does not parse.
+// Never compared or sent as a value: localClockOf is for that.
+export function isoToLocalClock(iso: string, timeZone: string): string {
+  return localClockOf(iso, timeZone) ?? UNREADABLE_CLOCK;
 }

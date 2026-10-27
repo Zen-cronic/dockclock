@@ -57,6 +57,14 @@ describe("sealed evidence is honest about what the driver supplied", () => {
     expect(corroborate(record).confidence).toBe("high");
   });
 
+  // The placeholder shown for an unreadable pin time ("--:--") was compared with the driver's entry
+  // as if the Flow had pre-filled it, so an untouched field counted as an edited, independent time.
+  it("compares the driver's entry with nothing when the pin's time does not parse", () => {
+    const unreadable = { ...base, arrived: { ...base.arrived!, serverAt: "garbage" }, released: { ...base.released!, serverAt: "not a time" } } as LoadItem;
+    expect(toRecord({ ...unreadable, bol: bol({ inTime: null, outTime: "--:--" }) }).bol?.timesEdited).toEqual({ in: false, out: false });
+    expect(toRecord({ ...unreadable, bol: bol({ inTime: "09:55", outTime: "13:16" }) }).bol?.timesEdited).toEqual({ in: true, out: true });
+  });
+
   it("attests every stored page in the pack", () => {
     const record = toRecord({
       ...base,

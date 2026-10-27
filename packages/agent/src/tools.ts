@@ -5,7 +5,7 @@ import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context } from "aws-lambda";
 import { clauseById, releaseTimeOf } from "@dockclock/clause-engine";
-import { facilityById, isoToLocalClock, isoToLocalDateTime, KmsSigner, normalizeClock, registerFacility, sha256Hex, type Facility } from "@dockclock/evidence";
+import { facilityById, isoToLocalDateTime, KmsSigner, localClockOf, normalizeClock, registerFacility, sha256Hex, type Facility } from "@dockclock/evidence";
 import { readBol, type BolReading } from "./bol-reader.js";
 import { checkClaim, toCents, type ClaimRequest } from "./claim.js";
 import { buildClaimMime, claimFactsOf, claimPdfName, claimSubject, type SealedPackView } from "./claim-email.js";
@@ -166,7 +166,7 @@ async function readBillOfLading(input: { loadId: string; page?: number }) {
     new UpdateCommand({ TableName: env("TABLE_NAME"), Key: key(input.loadId, "META"), UpdateExpression: "SET bolReading = :r", ExpressionAttributeValues: { ":r": recorded } }),
   );
   const facility = facilityById(load.facilityId);
-  const pinClock = (iso: string | undefined) => (iso ? isoToLocalClock(iso, facility.timeZone) : null);
+  const pinClock = (iso: string | undefined) => (iso ? localClockOf(iso, facility.timeZone) : null);
   return {
     reading: recorded,
     comparedWithDriverEntries: {
