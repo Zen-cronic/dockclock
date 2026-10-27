@@ -175,6 +175,19 @@ describe("console views of the Released tap", () => {
     expect(v.verdict?.verdict).toBe("NEEDS_HUMAN");
   });
 
+  // NaN < x is false, so a notice whose send time does not parse read "emailed after free time ended".
+  it("says a notice's send time could not be read instead of placing it after free time", () => {
+    const title = (sentAt: string) => {
+      const m = { ...meta(T(17, 20), T(17, 23)), notice: { sentAt, messageId: "ses-1" } };
+      const v = buildLoadView({ items: [m], receipts: {}, signedPack: null, emails: {}, photoTypes: {}, spkiSha256: "spki", now: T(18, 30) });
+      return v.timeline.find((e) => e.title.startsWith("Detention notice emailed"))?.title;
+    };
+    expect(title("garbage")).toBe("Detention notice emailed (the time it was sent could not be read)");
+    // Free time ends at 16:00Z (10:00 EDT appointment, 2 hours).
+    expect(title(T(15, 0))).toBe("Detention notice emailed before free time ended");
+    expect(title(T(16, 30))).toBe("Detention notice emailed after free time ended");
+  });
+
   it("keeps the old release step for a load without a tap", async () => {
     const v = await view(null, T(17, 20));
     expect(v.clock.releasedAt).toBe(T(17, 20));

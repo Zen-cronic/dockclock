@@ -752,7 +752,9 @@ export function buildLoadView(sources: LoadSources): LoadView {
   const notice = obj(p.meta.notice);
   const freeEnds = summary.arrivedAt && timeReadable(summary.arrivedAt) ? detentionStartsAt(p.clause, String(p.meta.appointmentAt), summary.arrivedAt) : null;
   if (str(notice.sentAt)) {
-    const when = freeEnds ? (Date.parse(String(notice.sentAt)) < Date.parse(freeEnds) ? " before free time ended" : " after free time ended") : "";
+    // A send time that does not parse is neither before nor after free time ended.
+    const sentAt = String(notice.sentAt);
+    const when = !timeReadable(sentAt) ? " (the time it was sent could not be read)" : freeEnds ? (Date.parse(sentAt) < Date.parse(freeEnds) ? " before free time ended" : " after free time ended") : "";
     add({ at: String(notice.sentAt), title: `Detention notice emailed${when}`, services: ["EventBridge Scheduler", "Lambda", "SES"], channel: "email", tone: "money", emailId: "notice", provenance: "recorded" });
     if (str(notice.deliveredAt)) add({ at: String(notice.deliveredAt), title: "SES reported the notice delivered", services: ["SES", "SNS", "Lambda"], channel: "email", tone: "ok", emailId: "notice", provenance: "recorded" });
   }
