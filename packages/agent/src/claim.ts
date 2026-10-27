@@ -40,7 +40,8 @@ export function toCents(amountUsd: number): number {
 // An AWS resource name, a phone number or an account id in the opening, written any way at all.
 // The opening is read the way a person reads a number in it, whatever sits between its groups:
 // - it is normalised to NFKC, every decimal digit of any script is read as its ASCII digit (٤١٦ and
-//   ४१६ are 416), and invisible characters and combining marks are deleted;
+//   ४१६ are 416), any other numeral left (❹, ⓸, 〇) counts as a digit too, and invisible characters
+//   and combining marks are deleted;
 // - "arn:" in any case is refused;
 // - the digits are read in runs. A letter ends a run; anything else joins it, so +1 (416) 555-0143,
 //   tel:416-555-0143, 416_555_0143, 416 - 555 - 0143, 4165550143,4165550199 and even a list such
@@ -91,9 +92,14 @@ function asciiDigit(char: string): string {
   return String((point - zero) % 10);
 }
 
-// The opening as it is read: ASCII digits for every decimal digit, with nothing invisible left.
+// The opening as it is read: ASCII digits for every numeral (its value does not matter, only that
+// it is a digit), with nothing invisible left.
 function readable(text: string): string {
-  return text.normalize("NFKC").replace(/\p{Nd}/gu, asciiDigit).replace(INVISIBLE, "");
+  return text
+    .normalize("NFKC")
+    .replace(/\p{Nd}/gu, asciiDigit)
+    .replace(/[\p{No}\p{Nl}]/gu, "0")
+    .replace(INVISIBLE, "");
 }
 
 function occurrences(body: string, needle: string): Array<[number, number]> {

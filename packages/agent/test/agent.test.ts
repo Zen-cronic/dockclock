@@ -177,6 +177,11 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", "Call $416 $555 $0143."],
     ["refuses", "Billed $1,234.56, $2,345.67."],
     ["refuses", "Call 41:65 5:50 +143."],
+    // Numerals that are not decimal digits.
+    ["refuses", "Call ❹❶❻❺❺❺⓿❶❹❸."],
+    ["refuses", "Call ➃➀➅➄➄➄➉➀➃➂."],
+    ["refuses", "Call ⓸⓵⓺⓹⓹⓹⓪⓵⓸⓷."],
+    ["refuses", "Call 416〇555〇0143."],
     // What the agent and the clause engine write, which must still file.
     ["files", "Billed $9.88 ($80.00 cap)."],
     ["files", "From $80.00-$120.00."],
