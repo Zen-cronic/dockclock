@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { DESK_PLACEHOLDER_ENV, deskSource } from "../lib/desk-stack.js";
-import { deployPlan, mergeOutputs } from "../lib/deploy-stacks.js";
+import { deployCommand, deployPlan, mergeOutputs } from "../lib/deploy-stacks.js";
 
 // npm run deploy: every stack, or the stacks named after `--` (see deploy-stacks.ts for when the desk
 // is left out, and --allow-skip-desk). Other arguments go to `cdk deploy` as given.
@@ -55,7 +55,7 @@ const local = join(root, "node_modules", ".bin", "cdk");
 const cdk = process.env.DOCKCLOCK_CDK ?? (existsSync(local) ? local : "cdk");
 const scratch = plan.outputsFile ? null : mkdtempSync(join(tmpdir(), "dockclock-outputs-"));
 const fresh = scratch ? join(scratch, "outputs.json") : null;
-const run = spawnSync(cdk, ["deploy", ...plan.args, "--require-approval", "never", ...(fresh ? ["--outputs-file", fresh] : [])], { stdio: "inherit", cwd: infra });
+const run = spawnSync(cdk, deployCommand(plan.args, ["--require-approval", "never", ...(fresh ? ["--outputs-file", fresh] : [])]), { stdio: "inherit", cwd: infra });
 if (run.error) console.error(`Could not run the CDK CLI (${cdk}): ${run.error.message}`);
 if (run.signal) console.error(`The CDK CLI stopped on ${run.signal}.`);
 

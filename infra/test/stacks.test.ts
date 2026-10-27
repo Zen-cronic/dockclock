@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { buildApp } from "../lib/app.js";
 import { CoreStack } from "../lib/core-stack.js";
 import { DESK_PLACEHOLDER_CONTEXT, DeskStack, deskSource } from "../lib/desk-stack.js";
-import { DESK_STACK, STACKS, deployPlan, mergeOutputs, readArgs } from "../lib/deploy-stacks.js";
+import { DESK_STACK, STACKS, cliOptions, deployCommand, deployPlan, mergeOutputs, optionKind, readArgs } from "../lib/deploy-stacks.js";
 
 const config = {
   account: "111122223333",
@@ -268,8 +268,8 @@ describe("npm run deploy", () => {
     expect(app.node.children.map((c) => c.node.id).sort()).toEqual([...STACKS].sort());
   });
 
-  const plan = (source: { path: string; error: string | null }, extra: string[], files: Record<string, unknown> = {}) => {
-    const p = deployPlan(source, extra, files);
+  const plan = (source: { path: string; error: string | null }, extra: string[], files: Record<string, unknown> = {}, options = cliOptions()) => {
+    const p = deployPlan(source, extra, files, options);
     return { args: p.args, note: p.note, refused: p.refused };
   };
 
@@ -302,56 +302,128 @@ describe("npm run deploy", () => {
     expect(plan(built, ["--profile", "example"]).args).toEqual(["--all", "--profile", "example"]);
   });
 
-  // An option's value is told from a stack by the app's stack names and by the option before it:
-  // the global --region and --build take values, and --asset-parallelism takes none in aws-cdk 2.1145.
-  it("tells a stack from an option's value by the app's stack names and the option before it", () => {
-    const values = [
-      ["--region", "us-east-1"],
-      ["--build", "npm run build"],
-      ["--telemetry-file", "t.json"],
-      ["--asset-build-concurrency", "2"],
-      ["--unstable", "toolkit-lib-engine"],
-      ["-r", "arn:aws:iam::111122223333:role/x"],
-      // Values that start with the app's name are still values.
-      ["--parameters", "DockClockCore:AlertEmail=x"],
-      ["--profile", "dockclock"],
-      ["--toolkit-stack-name", "DockClockToolkit"],
-      ["-O", "dockclock-outputs.json"],
-      ["--outputs-file", "DockClock.json"],
-      ["--build-exclude", "x*"],
-      ["--rollback", "false"],
-    ];
-    for (const extra of values) {
-      expect(plan(built, extra).args, extra.join(" ")).toEqual(["--all", ...extra]);
-      expect(plan(missing, extra).refused, extra.join(" ")).not.toBeNull();
+  // The option-value rule comes first: the bare argument right after an option that takes a value is
+  // that value, even one shaped like a stack name. Options are read from the installed CLI's table:
+  // the global --region and --build take values, --asset-parallelism takes none in aws-cdk 2.1145.
+  it.each([
+    ["--region", "us-east-1"],
+    ["--build", "npm run build"],
+    ["--telemetry-file", "t.json"],
+    ["--asset-build-concurrency", "2"],
+    ["--unstable", "toolkit-lib-engine"],
+    ["-r", "arn:aws:iam::111122223333:role/x"],
+    // Values that start with the app's name, or match its stacks, are still values.
+    ["--parameters", "DockClockCore:AlertEmail=x"],
+    ["--profile", "dockclock"],
+    ["--toolkit-stack-name", "DockClockToolkit"],
+    ["-O", "dockclock-outputs.json"],
+    ["--outputs-file", "DockClock.json"],
+    ["--build-exclude", "x*"],
+    ["--build-exclude", "DockClock*"],
+    ["-E", "DockClockDesk"],
+    ["--app", "cdk.out"],
+    ["-fO", "out.json"],
+    // true or false after a boolean is its value.
+    ["--rollback", "false"],
+    ["-R", "false"],
+  ])("reads %s %s as an option and its value, so no stack is named", (...extra) => {
+    expect(plan(built, extra).args).toEqual(["--all", ...extra]);
+    expect(plan(missing, extra).refused).toMatch(/^Not deploying anything: DockClockDesk cannot deploy/);
+  });
+
+  // A bare argument that is no option's value names stacks, matching or not: a mistyped name or a
+  // pattern that matches nothing goes to the CLI as asked, which reports it, never widened to every
+  // stack. Everything after -- is a stack pattern too (the CLI then reads no stack at all and stops).
+  it.each([
+    ["DockClockCore"],
+    ["DockClock*"],
+    ["--all"],
+    ["--exclusively", "DockClockDesk"],
+    ["-e", "DockClockDesk"],
+    ["--asset-parallelism", "DockClockCore"],
+    ["--hotswap", "DockClockAgent"],
+    ["--region", "us-east-1", "DockClockMessaging"],
+    ["--profile", "dockclock", "DockClockMessaging"],
+    ["--parameters", "DockClockCore:AlertEmail=x", "DockClockCore"],
+    ["--region=us-east-1", "DockClockMessaging"],
+    ["--allow-skip-desk", "DockClockMessaging"],
+    ["DockClockMesaging"],
+    ["*Messaging"],
+    ["*Mesaging"],
+    ["--hotswap", "DockClockMesaging"],
+    // -R is the CLI's hidden alias of --no-rollback and --telemetry an alias of
+    // --version-reporting: both booleans, so the name after them is a stack.
+    ["-R", "DockClockMesaging"],
+    ["-R", "*Mesaging"],
+    ["--telemetry", "DockClockMesaging"],
+    ["--no-rollback", "DockClockMesaging"],
+    ["--no-some-new-flag", "DockClockMesaging"],
+    ["-fR", "DockClockMesaging"],
+    ["-vv", "DockClockMesaging"],
+    ["--app", "cdk.out", "--", "DockClockMesaging"],
+    ["--", "DockClockCore"],
+    ["--", "--allow-skip-desk"],
+    // An unknown option's argument with a stack named beside it, or --all.
+    ["--some-new-flag", "x", "DockClockCore"],
+    ["--all", "--some-new-flag", "x"],
+  ])("deploys %s as asked", (...extra) => {
+    for (const source of [built, missing]) {
+      const p = plan(source, extra);
+      expect(p.refused).toBeNull();
+      expect(p.args).toEqual(extra[0] === "--allow-skip-desk" ? extra.slice(1) : extra);
     }
-    const named = [
-      ["DockClockCore"],
-      ["DockClock*"],
-      ["--all"],
-      ["--exclusively", "DockClockDesk"],
-      ["-e", "DockClockDesk"],
-      ["--asset-parallelism", "DockClockCore"],
-      ["--hotswap", "DockClockAgent"],
-      ["--region", "us-east-1", "DockClockMessaging"],
-      ["--profile", "dockclock", "DockClockMessaging"],
-      ["--parameters", "DockClockCore:AlertEmail=x", "DockClockCore"],
-      ["--region=us-east-1", "DockClockMessaging"],
-      ["--allow-skip-desk", "DockClockMessaging"],
-      // A stack named after an option this script does not know as a boolean still names it.
-      ["--some-new-flag", "DockClockAgent"],
-      // A mistyped name or a pattern that matches nothing goes to the CLI as asked, never widened
-      // to every stack.
-      ["DockClockMesaging"],
-      ["*Messaging"],
-      ["*Mesaging"],
-      ["--hotswap", "DockClockMesaging"],
-    ];
-    for (const extra of named) {
-      const p = plan(missing, extra);
-      expect(p.refused, extra.join(" ")).toBeNull();
-      expect(p.args, extra.join(" ")).toEqual(extra.filter((a) => a !== "--allow-skip-desk"));
+  });
+
+  // The CLI reads the argument after an option it does not know as that option's value, so no stack
+  // is named; widening the run to every stack would deploy what was never asked for.
+  it.each([
+    ["--some-new-flag", "DockClockAgent"],
+    ["--some-new-flag", "x"],
+    ["-X", "DockClockMesaging"],
+    ["-fX", "DockClockCore"],
+    ["--allow-skip-desk", "--some-new-flag", "DockClockAgent"],
+    ["-c", "dockclock:deskPlaceholder=1", "--some-new-flag", "DockClockAgent"],
+  ])("deploys nothing for %s %s, never every stack", (...extra) => {
+    for (const source of [built, missing]) {
+      const p = plan(source, extra);
+      expect(p.args).toEqual([]);
+      expect(p.refused).toMatch(/^Not deploying anything: "[^"]+" follows -[-\w]+, an option the installed CDK CLI does not list.*this run would deploy every stack/);
     }
+  });
+
+  // Without the installed CLI's table every option is unknown but this script's own: an argument
+  // after one is never widened to every stack.
+  it("refuses rather than widens when the CLI's option table cannot be read", () => {
+    expect(cliOptions(join(tmpdir(), "no-such-dir", "cli-type-registry.json"))).toBeNull();
+    const dir = mkdtempSync(join(tmpdir(), "registry-"));
+    writeFileSync(join(dir, "bad.json"), JSON.stringify({ globalOptions: {} }));
+    expect(cliOptions(join(dir, "bad.json"))).toBeNull();
+    writeFileSync(join(dir, "broken.json"), "{");
+    expect(cliOptions(join(dir, "broken.json"))).toBeNull();
+    const refused = plan(built, ["--profile", "example"], {}, null);
+    expect(refused.args).toEqual([]);
+    expect(refused.refused).toMatch(/"example" follows --profile, an option this script cannot check.*cli-type-registry\.json could not be read/);
+    expect(plan(built, ["--profile=example"], {}, null).args).toEqual(["--all", "--profile=example"]);
+    expect(plan(missing, ["-c", `${DESK_PLACEHOLDER_CONTEXT}=1`], {}, null).args).toEqual(["--all", "-c", `${DESK_PLACEHOLDER_CONTEXT}=1`]);
+    expect(plan(built, ["-R", "DockClockMesaging"], {}, null).args).toEqual(["-R", "DockClockMesaging"]);
+  });
+
+  it("reads every option and alias of cdk deploy from the installed CLI", () => {
+    const options = cliOptions();
+    expect(options).not.toBeNull();
+    for (const [flag, kind] of [
+      ["--all", "boolean"], ["-R", "boolean"], ["--telemetry", "boolean"], ["--version-reporting", "boolean"], ["-v", "boolean"], ["--asset-parallelism", "boolean"],
+      ["-e", "boolean"], ["-f", "boolean"], ["--profile", "value"], ["--build-exclude", "value"], ["-E", "value"], ["-O", "value"], ["--parameters", "value"],
+      ["--concurrency", "value"], ["-a", "value"], ["-c", "value"], ["--no-anything", "boolean"], ["-fR", "boolean"], ["-fO", "value"], ["-Of", null], ["--some-new-flag", null],
+    ] as const) expect(optionKind(flag, options), flag).toBe(kind);
+    expect(readArgs(["--", "-O", "x.json", "-c", "a=b"]).outputsFile).toBe(false);
+    expect(readArgs(["--", "-c", "a=b"]).context).toEqual({});
+  });
+
+  // The CLI reads no option after --, so this script's own options go before it.
+  it("puts its own options before --", () => {
+    expect(deployCommand(["--app", "cdk.out", "--", "DockClockCore"], ["--require-approval", "never"])).toEqual(["deploy", "--app", "cdk.out", "--require-approval", "never", "--", "DockClockCore"]);
+    expect(deployCommand(["DockClockCore"], ["--require-approval", "never"])).toEqual(["deploy", "DockClockCore", "--require-approval", "never"]);
   });
 
   it("finds the placeholder asked for in every form the app reads", () => {
