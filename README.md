@@ -1,10 +1,10 @@
 # DockClock
 
-**DockClock gets small trucking fleets paid for the time their trucks wait at the dock. The driver works in WhatsApp, the contract decides what is owed, and an AI agent files the claim once dispatch approves.**
+**DockClock gets small trucking fleets paid for the hours their drivers wait at the dock. The driver works in WhatsApp, the contract decides what is owed, and an AI agent files the claim once dispatch approves.**
 
-> **On 24 test loads, the contracts owe $1,245.00 in detention. DockClock would claim $1,245.00 of it (100%) in 9 claims, all 9 valid, and nothing a contract denies. The common "bill every stop over 2 hours" rule asks for $2,554.18, and $1,314.18 of that (51%) would not be paid: the contract denies it, pays less than was asked, or the carrier can't prove it.**
+> A driver who waits past free time is owed detention, and carriers get paid on only about half (55%) of the detention bills they send. Billing every stop over 2 hours doesn't fix that. On 24 test loads I labelled by hand, that rule asks for $2,554.18, and $1,314.18 of it (51%) wouldn't hold up: the contract denies it, pays less than was asked, or the carrier can't prove it. DockClock files the $1,245.00 those contracts owe, in 9 claims, and nothing they deny.
 >
-> We wrote the 24 loads and their right answers ourselves, from each contract's text. So this checks DockClock against the contracts, not against real payouts. Recompute it with `npm run scorecard` (fixtures frozen at sha256 `d45ae579…`).
+> I wrote the 24 loads and their right answers myself, from each contract's text. So this checks DockClock against the contracts, not against real payouts. Recompute it with `npm run scorecard` (fixtures frozen at sha256 `d45ae579…`).
 
 ## Try it in 3 minutes
 - **In a browser, no login:** open https://d3djuoqhg6b8o2.cloudfront.net/judges and click Start. Seven short steps walk one recorded load. Five of them each take one reason a broker gives for not paying, and show the proof DockClock kept: the arrival and release pins, the notice email, a claim filed on time, a signature you can break yourself, and the contract's rules, where you change one fact and watch it decide again. The screens read the live system; a recorded copy stands in if the API is down.
@@ -28,7 +28,9 @@ Claims are usually refused for a reason the contract spells out. The carrier:
 - arrived late for the appointment, or
 - had no shipper confirmation.
 
-Carriers also skip billing. They expect a refusal and don't want to upset the customer.
+Carriers also skip billing. They expect a refusal and don't want to upset the customer. In a 2023 survey by OOIDA, the owner-operators' association, 17% of members said they collect no detention pay at all ([survey](https://www.ooida.com/wp-content/uploads/2024/02/2023-Detention-Time-Survey-FINAL.pdf)).
+
+The driver pays for the wait too. The US DOT Inspector General estimated that detention is linked to $1.1 to $1.3 billion a year in lost earnings for truckload drivers, and that 15 more minutes of average time at a facility raises the expected crash rate by 6.2% ([report ST2018019](https://www.oig.dot.gov/library-item/36237), 2018, from 2013 data). DockClock doesn't shorten the wait. It makes sure the wait the contract prices gets claimed, with proof.
 
 ## Who is in the story
 | Role | Who | Real or fictional |
@@ -87,6 +89,7 @@ Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md).
 
 ### Shown working on AWS
 - **The whole loop from a real phone.** Load `LIVE-mvpoqheg` (2026-10-26, on the demo yard, which accepts any location) stayed 14 min 53 s at the dock. The notice email was delivered about 4 minutes before free time ended. The Released tap stopped the clock, and a second pin 14 seconds later confirmed it. The agent read the times off the photo of a fictional bill of lading (out 4:30 PM, 10 minutes after the tap, inside the 15-minute tolerance). The contract owed $9.88. The dispatcher tapped Approve on a real phone, and the agent's claim email went out 11.5 seconds later with the PDF summary, which also came back on WhatsApp. An earlier run on 10-23 (load `LIVE-mvlb0qzq`, $17.28) had a photo that could not be read, and DockClock marked it "not legible" instead of guessing.
+- **It refuses on a real phone too.** On load `LIVE-mvlaajde` (2026-10-23) both pins were about 4.6 km outside the facility. The verdict was "needs a person", $0, and no claim went out.
 - **The driver's side on a real phone:** dispatch, Arrived, location pin, Released, second pin, camera-only form, photo stored and hashed, pack signed (load `LIVE-mve0rrez`).
 - **The money loop runs by itself after sealing.** The dispatcher got the approval message on a real phone and tapped **Approve claim**. The agent filed the claim by SES with the signed pack 14 seconds later, and the workflow checked the claim record before it reported success (load `SMOKE-mve8yfv3`; its driver messages were made up).
 - **The detention notice.** EventBridge Scheduler fired before free time ended, SES emailed the broker or shipper, the delivery was recorded, and the sealed pack carries the notice, so clauses that require notice can pay (load `SMOKE-mveb2qnf`: SES reported delivery to our test mailbox 0.7 s after sending).
@@ -98,6 +101,9 @@ Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md).
 ### Built and tested, not yet run live
 - The request for a clearer photo when the first one is unreadable.
 - The judges' DEMO path on WhatsApp, run from a judge's phone.
+
+### Next, not on main
+- Voice notes: a driver's spoken reason for the wait, transcribed by Amazon Transcribe into the load's timeline. Built with tests on a branch; not merged or deployed.
 
 ### Not built
 - Replies to disputes: reading a broker's answer to a claim.
@@ -151,8 +157,12 @@ Per load, that is **3 utility templates (driver dispatch, notice sent, dispatche
 ```bash
 npm ci
 npm test            # about 390 tests (plus the console's own)
-npm run scorecard   # recomputes the headline above
+npm run scorecard   # recomputes the numbers at the top
 ```
+`npm run scorecard` prints this summary, and CI checks it against the frozen fixtures:
+
+> On 24 test loads, the contracts owe $1,245.00 in detention. DockClock would claim $1,245.00 of it (100%) in 9 claims, all 9 valid, and nothing a contract denies. The common "bill every stop over 2 hours" rule asks for $2,554.18, and $1,314.18 of that (51%) would not be paid: the contract denies it, pays less than was asked, or the carrier can't prove it.
+
 Deploying to your own AWS account (CDK) needs an existing WhatsApp Business Account linked to AWS End User Messaging Social; see `.env.example`. `npm run deploy` uses your shell's AWS profile and region, not `.env`'s, so export `AWS_PROFILE` and `AWS_REGION` first.
 
 ## License
