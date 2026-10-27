@@ -3,7 +3,7 @@
 // from dispatch onwards: everything that needs the sealed pack is null until the load is sealed.
 // Every string that came from a stored record is scrubbed; handler.ts still runs findLeaks on the
 // whole response before it is sent.
-import { clauseById, detentionStartsAt, RELEASE_PIN_WINDOW_MINUTES, releasePinCheck, releasePinGapWords, releaseTimeOf, RUN_LABELS, shiftTime, timeReadable, type ClauseSpec } from "@dockclock/clause-engine";
+import { clauseById, detentionStartsAt, latestTime, RELEASE_PIN_WINDOW_MINUTES, releasePinCheck, releasePinGapWords, releaseTimeOf, RUN_LABELS, shiftTime, timeReadable, type ClauseSpec } from "@dockclock/clause-engine";
 import { canonicalJson, checkGeofence, facilityById, isoToLocalClock, zoneAbbreviation, type Facility, type SignedPack } from "@dockclock/evidence";
 import { parseMime, scrub, scrubText, type ParsedEmail } from "@dockclock/sanitize";
 import type { Language } from "../src/messages.js";
@@ -87,12 +87,6 @@ function facilityOf(id: string): Facility & { known: boolean } {
   } catch {
     return { id, name: id, timeZone: "America/New_York", polygon: [], known: false };
   }
-}
-
-// The latest of the times that parse, compared as instants. One that does not parse is left out: as
-// a string, "garbage" sorts after every ISO time and would become the latest.
-function latest(...values: Array<string | null | undefined>): string | null {
-  return values.filter(timeReadable).sort((a, b) => Date.parse(a) - Date.parse(b)).at(-1) ?? null;
 }
 
 // The pieces of a load every view needs, read once.
@@ -233,7 +227,7 @@ export function summaryOf(items: Item[], now: string = new Date().toISOString())
     runKind: p.runKind,
     runLabel: RUN_LABELS[p.runKind],
     createdAt: String(p.meta.createdAt ?? p.meta.appointmentAt),
-    lastActivityAt: latest(...stamps, str(notice.sentAt), str(notice.deliveredAt)) ?? String(p.meta.createdAt),
+    lastActivityAt: latestTime(...stamps, str(notice.sentAt), str(notice.deliveredAt)) ?? String(p.meta.createdAt),
     facility: { id: p.facility.id, name: p.facility.name, timeZone: p.facility.timeZone },
     counterparty: { name: p.clause.counterparty, role: p.clause.role },
     channel: p.meta.channel === "rcs" ? "rcs" : "whatsapp",
@@ -550,7 +544,7 @@ function endedAtOf(p: Parts, arrivedAt: string | null, releasedAt: string | null
   if (!arrivedAt || releasedAt || phaseOf(p.meta) !== "closed") return null;
   const closedAt = str(p.meta.closedAt);
   const waitEnd = p.meta.outcome === "TIMED_OUT_NEEDS_HUMAN" ? shiftTime(arrivedAt, RELEASE_WAIT_MS) : null;
-  const lastRecord = latest(...p.events.map((e) => str(e.serverAt)), ...p.sends.map((s) => str(s.sentAt)), arrivedAt);
+  const lastRecord = latestTime(...p.events.map((e) => str(e.serverAt)), ...p.sends.map((s) => str(s.sentAt)), arrivedAt);
   const end = [closedAt, waitEnd, lastRecord].find(timeReadable);
   if (!end) return null;
   return Date.parse(end) < Date.parse(p.now) ? end : p.now;

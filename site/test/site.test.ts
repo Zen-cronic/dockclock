@@ -586,4 +586,18 @@ describe("a load with a time that does not parse", async () => {
     // Still at the dock with nothing stopped: the clock runs to as of.
     expect(live({ releasedAt: null }, "at_dock")).toContain("cursor live");
   });
+
+  // An older load that ended with no release time ends its clock at its last record. Sorted as
+  // strings, 19:00Z came after 16:30-04:00 (20:30Z), and the clock ended an hour and a half early.
+  it("ends a stopped load's clock at its latest record compared as instants, not as strings", () => {
+    const v = structuredClone(body.data);
+    Object.assign(v.summary, { live: false, status: "closed" });
+    Object.assign(v.clock, { arrivedAt: "2026-10-23T18:00:00.000Z", releasedAt: null, releasePinAt: null, endedAt: null, clockStartAt: null, freeTimeEndsAt: null });
+    v.timeline = [
+      { ...v.timeline[0]!, id: "a", at: "2026-10-23T19:00:00Z" },
+      { ...v.timeline[0]!, id: "b", at: "2026-10-23T16:30:00-04:00" },
+    ];
+    const html = renderToStaticMarkup(createElement(DockClockBand, { load: detailFromApi(v, "fixture") }));
+    expect(html).toContain('aria-label="2:30 hours and minutes at the dock"');
+  });
 });

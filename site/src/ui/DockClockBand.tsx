@@ -1,4 +1,4 @@
-import { timeReadable } from "@dockclock/clause-engine";
+import { latestTime, timeReadable } from "@dockclock/clause-engine";
 import { releaseLine } from "../copy/provenance.js";
 import { clock, hmm } from "../format.js";
 import type { LoadDetail } from "../model/model.js";
@@ -40,7 +40,7 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
   const now = atDockNow && load.asOf && timeReadable(load.asOf) ? load.asOf : null;
   if (now) times.push(Date.parse(now));
   // Neither live nor stopped (an older closed record): the clock ends at its last record, never today.
-  const lastRecord = timeline.map((e) => e.at).sort().at(-1) ?? c.arrivedAt;
+  const lastRecord = latestTime(...timeline.map((e) => e.at)) ?? c.arrivedAt;
   const clockEnd = stopAt ?? now ?? (stopUnreadable ? null : lastRecord);
   // While the truck is still at the dock, keep the end of free time on the track.
   if (now && c.freeTimeEndsAt) times.push(Date.parse(c.freeTimeEndsAt));

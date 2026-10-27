@@ -50,6 +50,13 @@ export function timeReadable(at: unknown): at is string {
   return typeof at === "string" && Number.isFinite(Date.parse(at));
 }
 
+// The latest of the times that parse, compared as instants, or null when none does. One that does
+// not parse is left out, and times are never compared as strings: "garbage" sorts after every ISO
+// time, "13:05:00.5Z" before "13:05:00Z" and "16:30:00-04:00" before "19:00:00Z".
+export function latestTime(...values: unknown[]): string | null {
+  return values.filter(timeReadable).sort((a, b) => Date.parse(a) - Date.parse(b)).at(-1) ?? null;
+}
+
 // The time `ms` later (earlier when negative), or null when the stored time does not parse: date
 // arithmetic on an unreadable time would throw a RangeError on toISOString().
 export function shiftTime(at: unknown, ms: number): string | null {

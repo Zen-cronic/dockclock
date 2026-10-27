@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clockEndOf, RELEASE_PIN_WINDOW_MINUTES, releasePinCheck, releasePinGapMinutes, releasePinGapWords, releaseTimeOf, shiftTime, timeReadable } from "../src/index.js";
+import { clockEndOf, latestTime, RELEASE_PIN_WINDOW_MINUTES, releasePinCheck, releasePinGapMinutes, releasePinGapWords, releaseTimeOf, shiftTime, timeReadable } from "../src/index.js";
 
 const TAP = "2026-10-23T18:32:59.000Z";
 const PIN = "2026-10-23T18:40:00.000Z";
@@ -49,6 +49,14 @@ describe("the release time", () => {
     expect(timeReadable(undefined)).toBe(false);
     // The words never print NaN.
     expect(releasePinGapWords(TAP, "not a time")).not.toMatch(/NaN/);
+  });
+
+  it("finds the latest time as an instant, never as a string, and passes over one that does not parse", () => {
+    expect(latestTime("2026-10-23T19:00:00Z", "2026-10-23T16:30:00-04:00")).toBe("2026-10-23T16:30:00-04:00");
+    expect(latestTime("2026-10-23T13:05:00Z", "2026-10-23T13:05:00.5Z")).toBe("2026-10-23T13:05:00.5Z");
+    expect(latestTime(TAP, "garbage", null, undefined, "")).toBe(TAP);
+    expect(latestTime("garbage", null)).toBeNull();
+    expect(latestTime()).toBeNull();
   });
 
   it("shifts a readable time and gives null for one that does not parse, never a RangeError", () => {
