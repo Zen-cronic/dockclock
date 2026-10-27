@@ -1,5 +1,6 @@
 // The agent-workflow graph for one load, built only from its records: driver messages, the notice,
 // the seal, every agent run (refusals included), the approval and the claim email.
+import { shiftTime } from "@dockclock/clause-engine";
 import { approvalWords, stoppedStep } from "../copy/provenance.js";
 import type { LoadDetail } from "./model.js";
 
@@ -14,6 +15,10 @@ export interface FlowNode {
   outcome?: string;
   raw?: unknown;
 }
+
+// A step drawn just before or after a recorded one keeps the recorded time when it does not parse:
+// the order then falls back to the string, and nothing throws.
+const beside = (at: string, ms: number) => shiftTime(at, ms) ?? at;
 
 export function flowNodes(d: LoadDetail): FlowNode[] {
   const nodes: FlowNode[] = [];
@@ -36,7 +41,7 @@ export function flowNodes(d: LoadDetail): FlowNode[] {
   const sealed = d.pack ? { at: d.pack.sealedAt, packId: d.pack.packId, digest: d.pack.digestSha256 } : d.packSummary ? { at: d.packSummary.sealedAt, packId: d.packSummary.packId, digest: d.packSummary.digestSha256 } : null;
   const noPaper = stoppedStep(d, "paperwork");
   if (noPaper && sealed)
-    nodes.push({ id: "paperwork", at: new Date(Date.parse(sealed.at) - 1).toISOString(), title: "No bill-of-lading photo", services: noPaper.services, tone: "skipped", icon: "doc", outcome: "pins only", raw: noPaper });
+    nodes.push({ id: "paperwork", at: beside(sealed.at, -1), title: "No bill-of-lading photo", services: noPaper.services, tone: "skipped", icon: "doc", outcome: "pins only", raw: noPaper });
   if (sealed)
     nodes.push({ id: "seal", at: sealed.at, title: `Sealed: ${d.verdict?.verdict === "BILLABLE" ? "owed" : (d.verdict?.verdict ?? "").toLowerCase().replace("_", " ")}`, services: ["Step Functions", "Lambda", "KMS", "S3 Object Lock"], tone: "money", icon: "lock", outcome: "signed", raw: { packId: sealed.packId, digest: sealed.digest } });
   if (d.approval?.requestedAt)
@@ -60,7 +65,7 @@ export function flowNodes(d: LoadDetail): FlowNode[] {
     nodes.push({ id: "no-answer", at, title: "No answer from dispatch", services: ["Lambda", "SES"], tone: "refused", icon: "clock", outcome: "timed out", raw: noAnswer });
     const noClaim = stoppedStep(d, "claim");
     if (noClaim && d.emails.every((x) => x.purpose !== "claim"))
-      nodes.push({ id: "no-claim", at: new Date(Date.parse(at) + 1).toISOString(), title: "Claim not filed", services: noClaim.services, tone: "skipped", icon: "agent", outcome: "no approval", raw: noClaim });
+      nodes.push({ id: "no-claim", at: beside(at, 1), title: "Claim not filed", services: noClaim.services, tone: "skipped", icon: "agent", outcome: "no approval", raw: noClaim });
   }
   for (const e of d.emails.filter((x) => x.purpose === "claim"))
     nodes.push({ id: e.id, at: e.sentAt, title: "Claim emailed", services: ["SES"], tone: "ok", icon: "mail", outcome: e.deliveredAt ? "delivered" : "sent", raw: e });

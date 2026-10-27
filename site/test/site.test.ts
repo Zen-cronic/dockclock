@@ -329,6 +329,60 @@ describe("release tap and pin", async () => {
   });
 });
 
+// Every time on a load set to one that does not parse, on every recorded API load and replay: the
+// site model and the load page's parts must still build and draw, so a caller added later that
+// does date arithmetic or formatting on a stored time without a guard fails here first.
+describe("a load whose every time does not parse", async () => {
+  const { createElement } = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { DockClockBand } = await import("../src/ui/DockClockBand.js");
+  const { SignedFields } = await import("../src/routes/Judges.js");
+  const { LoadHeader } = await import("../src/routes/LoadDetail.js");
+  const { Timeline } = await import("../src/ui/Timeline.js");
+  const { AgentFlow } = await import("../src/ui/AgentFlow.js");
+  const { ConversationView } = await import("../src/ui/ConversationView.js");
+  const { EmailView } = await import("../src/ui/EmailView.js");
+  const { WhatIfPanel } = await import("../src/ui/WhatIfPanel.js");
+  const { EvidencePanel } = await import("../src/ui/EvidencePanel.js");
+  const ISO = /^\d{4}-\d{2}-\d{2}T/;
+  const unreadable = <T,>(value: T): T => {
+    if (typeof value === "string") return (ISO.test(value) ? "not a time" : value) as T;
+    if (Array.isArray(value)) return value.map(unreadable) as T;
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, unreadable(v)])) as T;
+    return value;
+  };
+  const draw = (d: ReturnType<typeof detailFromApi>) => {
+    const tz = d.timeZone;
+    const parts = [
+      createElement(DockClockBand, { load: d }),
+      createElement(DockClockBand, { load: d, cursor: "not a time", compact: true }),
+      createElement(SignedFields, { load: d }),
+      createElement(LoadHeader, { load: d }),
+      createElement(Timeline, { items: d.timeline, timeZone: tz, onOpen: () => undefined }),
+      createElement(AgentFlow, { nodes: flowNodes(d), timeZone: tz }),
+      createElement(ConversationView, { messages: d.messages, timeZone: tz, party: "driver" }),
+      createElement(ConversationView, { messages: d.messages, timeZone: tz, party: "dispatcher" }),
+      createElement(WhatIfPanel, { load: d }),
+      ...d.emails.map((email) => createElement(EmailView, { email, timeZone: tz })),
+      ...(d.pack ? [createElement(EvidencePanel, { pack: d.pack, timeZone: tz, photos: d.photos })] : []),
+    ];
+    for (const el of parts) expect(renderToStaticMarkup(el)).not.toMatch(/NaN|Invalid Date/);
+  };
+
+  it.each(fxLoads)("builds and draws %s", (file) => {
+    const body = JSON.parse(readFileSync(new URL(file, fxDir), "utf8")) as { data?: LoadView };
+    if (!body.data) return;
+    const d = detailFromApi(unreadable(body.data), "fixture");
+    expect(() => flowNodes(d)).not.toThrow();
+    draw(d);
+  });
+
+  it.each(readdirSync(new URL("../replay/", import.meta.url)).filter((f) => f.endsWith(".json")))("builds and draws the replay %s", (file) => {
+    const replay = JSON.parse(readFileSync(new URL(`../replay/${file}`, import.meta.url), "utf8")) as ReplaySnapshot;
+    draw(detailFromReplay(unreadable(replay), "replay"));
+  });
+});
+
 // The tamper switch moves what stopped the clock: the Released tap on a version 2 pack, the pin on v1.
 describe("evidence tamper", async () => {
   const { EvidencePanel, releaseMovable, tampered } = await import("../src/ui/EvidencePanel.js");
