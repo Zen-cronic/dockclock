@@ -3,7 +3,7 @@ import { clauseById, evaluate } from "@dockclock/clause-engine";
 import { buildPack, corroborate, facilityById, LocalSigner, sealPack, toLoadEvidence, type LoadRecord, type SignedPack } from "@dockclock/evidence";
 import { describe, expect, it } from "vitest";
 import { checkEngineInput, engineInputOf, inboundTitle, releaseTapOf, type Item } from "../api/describe.js";
-import { buildLoadView } from "../api/view.js";
+import { buildLoadView, summaryOf } from "../api/view.js";
 import { escalationEmail } from "../src/escalate.js";
 import type { LoadItem } from "../src/store.js";
 
@@ -186,6 +186,20 @@ describe("console views of the Released tap", () => {
     // Free time ends at 16:00Z (10:00 EDT appointment, 2 hours).
     expect(title(T(15, 0))).toBe("Detention notice emailed before free time ended");
     expect(title(T(16, 30))).toBe("Detention notice emailed after free time ended");
+  });
+
+  // As a string, "garbage" sorted after every ISO time, became the last record, and a closed load
+  // that was never released ended "now" instead of at its last readable record.
+  it("ends a closed, unreleased load at its last readable record, passing over a time that does not parse", () => {
+    const m: Item = { ...meta(null, T(17, 23)), phase: "closed" };
+    delete m.released;
+    const items = [m, { pk: m.pk, sk: "EVENT#a#w1", type: "text", serverAt: T(15, 0), detail: {} }, { pk: m.pk, sk: "EVENT#b#w2", type: "location", serverAt: "garbage", detail: {} }];
+    const v = buildLoadView({ items, receipts: {}, signedPack: null, emails: {}, photoTypes: {}, spkiSha256: "spki", now: T(18, 30) });
+    expect(v.clock.endedAt).toBe(T(15, 0));
+    expect(summaryOf(items, T(18, 30)).lastActivityAt).toBe(T(15, 0));
+    // A close time that does not parse is passed over too.
+    const closed = buildLoadView({ items: [{ ...m, closedAt: "not a time" }, ...items.slice(1)], receipts: {}, signedPack: null, emails: {}, photoTypes: {}, spkiSha256: "spki", now: T(18, 30) });
+    expect(closed.clock.endedAt).toBe(T(15, 0));
   });
 
   it("keeps the old release step for a load without a tap", async () => {

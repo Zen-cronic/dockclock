@@ -3,7 +3,7 @@
 // from dispatch onwards: everything that needs the sealed pack is null until the load is sealed.
 // Every string that came from a stored record is scrubbed; handler.ts still runs findLeaks on the
 // whole response before it is sent.
-import { clauseById, detentionStartsAt, RELEASE_PIN_WINDOW_MINUTES, releasePinCheck, releasePinGapWords, releaseTimeOf, RUN_LABELS, timeReadable, type ClauseSpec } from "@dockclock/clause-engine";
+import { clauseById, detentionStartsAt, RELEASE_PIN_WINDOW_MINUTES, releasePinCheck, releasePinGapWords, releaseTimeOf, RUN_LABELS, shiftTime, timeReadable, type ClauseSpec } from "@dockclock/clause-engine";
 import { canonicalJson, checkGeofence, facilityById, isoToLocalClock, zoneAbbreviation, type Facility, type SignedPack } from "@dockclock/evidence";
 import { parseMime, scrub, scrubText, type ParsedEmail } from "@dockclock/sanitize";
 import type { Language } from "../src/messages.js";
@@ -89,8 +89,10 @@ function facilityOf(id: string): Facility & { known: boolean } {
   }
 }
 
+// The latest of the times that parse, compared as instants. One that does not parse is left out: as
+// a string, "garbage" sorts after every ISO time and would become the latest.
 function latest(...values: Array<string | null | undefined>): string | null {
-  return values.filter((v): v is string => typeof v === "string").sort().at(-1) ?? null;
+  return values.filter(timeReadable).sort((a, b) => Date.parse(a) - Date.parse(b)).at(-1) ?? null;
 }
 
 // The pieces of a load every view needs, read once.
@@ -542,14 +544,16 @@ const RELEASE_WAIT_MS = 3 * 86_400_000;
 
 // When a closed load that arrived and was never released stopped: the close time the workflow
 // wrote, or on loads closed before it was kept, the end of the release wait for a timed-out load
-// and the last record otherwise. Never later than now.
+// and the last record otherwise. Never later than now. Times that do not parse are passed over;
+// with none readable the end is unknown (null).
 function endedAtOf(p: Parts, arrivedAt: string | null, releasedAt: string | null): string | null {
   if (!arrivedAt || releasedAt || phaseOf(p.meta) !== "closed") return null;
   const closedAt = str(p.meta.closedAt);
-  const waitEnd = p.meta.outcome === "TIMED_OUT_NEEDS_HUMAN" && timeReadable(arrivedAt) ? new Date(Date.parse(arrivedAt) + RELEASE_WAIT_MS).toISOString() : null;
+  const waitEnd = p.meta.outcome === "TIMED_OUT_NEEDS_HUMAN" ? shiftTime(arrivedAt, RELEASE_WAIT_MS) : null;
   const lastRecord = latest(...p.events.map((e) => str(e.serverAt)), ...p.sends.map((s) => str(s.sentAt)), arrivedAt);
-  const end = closedAt ?? waitEnd ?? lastRecord ?? arrivedAt;
-  return end < p.now ? end : p.now;
+  const end = [closedAt, waitEnd, lastRecord].find(timeReadable);
+  if (!end) return null;
+  return Date.parse(end) < Date.parse(p.now) ? end : p.now;
 }
 
 function clockOf(p: Parts, now: string, signed: SignedPack | null): LiveClock {
