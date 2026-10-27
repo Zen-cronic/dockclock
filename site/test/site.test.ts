@@ -422,7 +422,9 @@ describe("evidence tamper", async () => {
   it("says no release time was recorded when the pack has none", async () => {
     const { createElement } = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
-    const pack = { ...snap.pack, pack: { ...snap.pack.pack, events: { ...(snap.pack.pack.events as object), releasedTap: null, released: undefined } } };
+    // Left out rather than set to undefined, which exactOptionalPropertyTypes does not allow.
+    const events = Object.fromEntries(Object.entries(snap.pack.pack.events as object).filter(([key]) => key !== "released"));
+    const pack = { ...snap.pack, pack: { ...snap.pack.pack, events: { ...events, releasedTap: null } } };
     expect(releaseLocked(pack.pack)).toBe("no release time recorded");
     const html = renderToStaticMarkup(createElement(EvidencePanel, { pack, timeZone: "America/New_York", photos: [] }));
     expect(html).toContain("no release time recorded");
