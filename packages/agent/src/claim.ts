@@ -137,7 +137,8 @@ export function checkClaim(request: ClaimRequest, basis: SealedClaimBasis): Clai
   }
   if (!request.body.includes(amount)) return refuse(`the email must state the contract amount ${amount}`);
   if (!request.body.includes(basis.loadId)) return refuse("the email must name the load id");
-  if (leaks(request.body, basis.loadId)) return refuse("the opening may not hold an AWS resource name, account id or phone number");
+  // The cheap length check first, so an over-long opening is never normalised and scanned.
   if (request.body.length < SUMMARY_MIN || request.body.length > SUMMARY_MAX) return refuse(`the opening must be ${SUMMARY_MIN}-${SUMMARY_MAX} characters (one or two sentences)`);
+  if (leaks(request.body, basis.loadId)) return refuse("the opening may not hold an AWS resource name, account id or phone number");
   return { ok: true };
 }

@@ -170,6 +170,12 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     expect(checkClaim({ ...request, loadId: "LIVE-mvpoqheg", amountCents: 988, body: opening }, live)).toEqual({ ok: true });
   });
 
+  it("refuses an over-long opening by its length before reading it for leaks", () => {
+    const long = `${body} Call 416-555-0143. ${"x".repeat(200_000)}`;
+    const result = checkClaim({ ...request, body: long }, basis);
+    expect(result.ok === false && result.reason).toMatch(/opening must be 80-600 characters/);
+  });
+
   it("refuses unsealed, non-billable, unapproved or already-sent loads", () => {
     expect(checkClaim(request, { ...basis, phase: "documented" }).ok).toBe(false);
     expect(checkClaim(request, { ...basis, verdict: "NEEDS_HUMAN" }).ok).toBe(false);
