@@ -23,6 +23,8 @@ export const TEMPLATE_NOTICE_SENT = "dockclock_notice_sent";
 // Sent this long before the clause's own lead time, so a slow delivery still meets the deadline.
 export const NOTICE_MARGIN_MINUTES = 10;
 const MINUTE = 60_000;
+// Why no notice is scheduled or sent for an arrival time that does not parse.
+const ARRIVAL_UNREADABLE = "The arrival time could not be read, so free time could not be counted.";
 
 // When the notice goes out: the clause's lead time (none means "before detention starts") plus the
 // margin, before the detention clock starts. Never in the past. Null when the arrival time does not
@@ -94,7 +96,9 @@ async function schedule(loadId: string, functionArn: string): Promise<{ schedule
   if (!load?.arrived) return { scheduledFor: null };
   const times = noticeTime(load, load.arrived.serverAt);
   if (!times) {
-    log("notice_not_scheduled", { loadId, reason: "arrival time does not parse" });
+    // Said on the load, as a skipped send is, so the console shows why no notice went out.
+    await ddb.send(new UpdateCommand({ TableName: env.table(), Key: keys.load(loadId), UpdateExpression: "SET notice = if_not_exists(notice, :n)", ExpressionAttributeValues: { ":n": { skipped: ARRIVAL_UNREADABLE } } }));
+    log("notice_not_scheduled", { loadId, reason: ARRIVAL_UNREADABLE });
     return { scheduledFor: null };
   }
   const { sendAt } = times;
@@ -141,7 +145,7 @@ async function sendNotice(loadId: string): Promise<{ sent: boolean }> {
   if (load.notice?.sentAt) return { sent: false };
   const clause = clauseById(load.clauseId);
   const times = noticeTime(load, load.arrived.serverAt);
-  if (!times) return skip("The arrival time could not be read, so free time could not be counted.");
+  if (!times) return skip(ARRIVAL_UNREADABLE);
   const { detentionStartAt } = times;
   const replyTo = process.env.DISPATCH_EMAIL;
   const { subject, text, html } = noticeEmail(load, detentionStartAt, env.claimsFromEmail(), replyTo);

@@ -117,6 +117,9 @@ describe("detention notice", () => {
     load = { ...freshLoad(), arrived: { serverAt: "garbage", messageId: "wamid.pin" } };
     expect(await handler({ kind: "schedule", loadId: "4471" }, context)).toEqual({ scheduledFor: null });
     expect(scheduler.commandCalls(CreateScheduleCommand)).toHaveLength(0);
+    // The load says why, so the console's notice step is skipped with a reason, not left blank.
+    const notScheduled = dynamo.commandCalls(UpdateCommand).find((c) => c.args[0].input.UpdateExpression === "SET notice = if_not_exists(notice, :n)");
+    expect(notScheduled?.args[0].input.ExpressionAttributeValues?.[":n"]).toEqual({ skipped: expect.stringMatching(/arrival time could not be read/) });
     expect(await handler({ kind: "send", loadId: "4471" }, context)).toEqual({ sent: false });
     expect(ses.commandCalls(SendEmailCommand)).toHaveLength(0);
     const skipped = dynamo.commandCalls(UpdateCommand).find((c) => c.args[0].input.UpdateExpression === "SET notice.skipped = :w");
