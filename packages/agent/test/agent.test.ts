@@ -37,59 +37,58 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     expect(result.ok === false && result.reason).toMatch(reason);
   });
 
-  it("files a load whose id holds a 12-digit run, and still refuses an account id beside it", () => {
-    const id = "PO-123456789012";
-    const named = body.replaceAll("LIVE-abc", id);
-    const poBasis = { ...basis, loadId: id };
-    expect(checkClaim({ ...request, loadId: id, body: named }, poBasis)).toEqual({ ok: true });
-    const leaked = checkClaim({ ...request, loadId: id, body: `${named} Account 111122223333.` }, poBasis);
-    expect(leaked.ok === false && leaked.reason).toMatch(/account id/);
-  });
-
-  it("refuses an account id or phone number that a short numeric load id would split", () => {
-    // Fictional: a 555-01xx number and a made-up account id, each holding the load id.
-    const id = "0143";
-    const named = body.replaceAll("LIVE-abc", id);
-    const shortBasis = { ...basis, loadId: id };
-    expect(checkClaim({ ...request, loadId: id, body: named }, shortBasis)).toEqual({ ok: true });
-    for (const leak of ["Account 999901439999.", "Call +14165550143.", "Key arn:aws:kms:x/0143."]) {
-      const leaked = checkClaim({ ...request, loadId: id, body: `${named} ${leak}` }, shortBasis);
-      expect(leaked.ok, leak).toBe(false);
-    }
-  });
-
-  // Fictional numbers only: 555-01xx phone numbers and made-up account ids.
+  // A load id may hold a long digit run itself: a run wholly inside an occurrence of the load id is
+  // the load's name, one that only overlaps it is not. Fictional: 555-01xx numbers and made-up ids.
   it.each([
-    "Call +1 416-555-0143.",
-    "Call +1 (416) 555-0143.",
-    "Call +1.416.555.0143.",
-    "Call (416) 555-0143.",
-    "Call (416)555-0143.",
-    "Call 416-555-0143.",
-    "Call 416.555.0143.",
-    "Call 416 555 0143.",
-    "Call 1-416-555-0143.",
-    "Call 4165550143.",
-    "Account 9999-0143-9999.",
-    "Account 9999 0143 9999.",
-    "Key ARN:aws:kms:us-east-1:x.",
-    "Key Arn:Aws:kms:x.",
-    "Key arn:aws-us-gov:kms:x.",
-  ])("refuses a formatted leak: %s", (leak) => {
-    const leaked = checkClaim({ ...request, body: `${body} ${leak}` }, basis);
-    expect(leaked.ok === false && leaked.reason).toMatch(/AWS resource name, account id or phone number/);
-  });
-
-  it("files an opening with money, dates, times and durations", () => {
-    const busy = "Detention claim for load LIVE-abc: arrived 2026-10-23 13:05 EDT (10/23/2026, 1:05 PM), released 14:30-14:35, 80 minutes past free time (+15 min grace). Amount owed: $80.00 of $1,234.56 billed.";
-    expect(checkClaim({ ...request, body: busy }, basis)).toEqual({ ok: true });
+    ["files", "PO-123456789012", ""],
+    ["refuses", "PO-123456789012", "Account 111122223333."],
+    ["files", "PO-416-555-0143", ""],
+    ["refuses", "PO-416-555-0143", "Call (416) 555-0199."],
+    ["files", "0143", ""],
+    ["refuses", "0143", "Account 999901439999."],
+    ["refuses", "0143", "Account ٩٩٩٩٠١٤٣٩٩٩٩."],
+    ["refuses", "0143", "Call +14165550143."],
+    ["refuses", "0143", "Call 416-555-0143."],
+    ["refuses", "0143", "Call 416\u2063555\u20630143."],
+    ["refuses", "0143", "Key arn:aws:kms:x/0143."],
+  ])("%s load %s with: %s", (outcome, id, text) => {
+    const named = `${body.replaceAll("LIVE-abc", id)} ${text}`.trim();
+    const result = checkClaim({ ...request, loadId: id, body: named }, { ...basis, loadId: id });
+    if (outcome === "files") expect(result).toEqual({ ok: true });
+    else expect(result.ok === false && result.reason).toMatch(/AWS resource name, account id or phone number/);
   });
 
   // Every opening the leak check has misjudged, both ways, and the shapes around them. Fictional
-  // numbers only: 555-01xx phone numbers and made-up account ids. A test name shows each separator
-  // that is not a plain space by its code point.
+  // numbers only: 555-01xx phone numbers and made-up account ids. A test name shows each character
+  // that is not printable ASCII by its code point.
   const shown = (text: string) => text.replace(/[^\x20-\x7e]/g, (c) => `<U+${c.codePointAt(0)!.toString(16).padStart(4, "0")}>`);
+  // Characters a reader does not see, or reads as punctuation, between two digit groups.
+  const joiners = [
+    "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e", "\u2066", "\u2067", "\u2068", "\u2069", "\u2061", "\u2062",
+    "\u2063", "\u2064", "\u034f", "\ufe0f", "\u3164", "\u02b9", "_", ":", "+", "*", "'", "~", "|", "#", "=",
+  ];
   it.each([
+    ["files", "Amount owed: $9.88."],
+    ["files", "Rate $60/h after +15 min grace, $30 cap, $1,234.56 billed, $1,234,567.89 in all."],
+    ["files", "Arrived 10/23/2026 1:05 PM, released 2026-10-23 14:35:00.123."],
+    // Shapes the leak check refused from the start.
+    ["refuses", "Call +14165550100."],
+    ["refuses", "Call +1 416-555-0143."],
+    ["refuses", "Call +1 (416) 555-0143."],
+    ["refuses", "Call +1.416.555.0143."],
+    ["refuses", "Call (416) 555-0143."],
+    ["refuses", "Call (416)555-0143."],
+    ["refuses", "Call 416-555-0143."],
+    ["refuses", "Call 416.555.0143."],
+    ["refuses", "Call 416 555 0143."],
+    ["refuses", "Call 1-416-555-0143."],
+    ["refuses", "Call 4165550143."],
+    ["refuses", "Account 9999-0143-9999."],
+    ["refuses", "Account 9999 0143 9999."],
+    ["refuses", "Key arn:aws:kms:us-east-1:111122223333:key/x."],
+    ["refuses", "Key ARN:aws:kms:us-east-1:x."],
+    ["refuses", "Key Arn:Aws:kms:x."],
+    ["refuses", "Key arn:aws-us-gov:kms:x."],
     ["files", "Grace (+15) 2026-10-23 13:05 EDT."],
     ["files", "Arrived 2026-10-23T13:05:00-04:00, released +2 hours past free time (+15 min grace)."],
     ["files", "Released 14:30–14:35 on 2026-10-23, 80 minutes past free time."],
@@ -145,6 +144,20 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     // Fractional seconds past three digits are not a clock time.
     ["refuses", "Arrived at 13:05:00.111122223333 EDT"],
     ["refuses", "Arrived at 13:05.4165550143 EDT"],
+    // Groups joined by an invisible character or by punctuation, digits of another script, and a
+    // dollar sign in front of a number that is not money.
+    ...joiners.map((c) => ["refuses", `Call 416${c}555${c}0143.`]),
+    ["refuses", "Call ٤١٦٥٥٥٠١٤٣."],
+    ["refuses", "Call ४१६५५५०१४३."],
+    ["refuses", "Call 416-५५५-0143."],
+    ["refuses", "Call $416-555-0143."],
+    ["refuses", "Call $416 555 0143."],
+    ["refuses", "Account $1111 2222 3333."],
+    ["refuses", "Ref $4,165,550,143."],
+    ["refuses", "Call 41655501 $43."],
+    ["refuses", "Call 4165550 +143."],
+    // A list joins too: only a letter ends a run.
+    ["refuses", "Call 416, 555, 0143."],
   ])("%s an opening with: %s", (outcome, text) => {
     const result = checkClaim({ ...request, body: `${body} ${text}` }, basis);
     if (outcome === "files") expect(result, shown(text)).toEqual({ ok: true });
@@ -155,14 +168,6 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     const opening = "We are claiming detention for load LIVE-mvpoqheg at Judge demo yard (any location counts) under the rate confirmation in the amount of $9.88.";
     const live = { ...basis, loadId: "LIVE-mvpoqheg", amountCents: 988 };
     expect(checkClaim({ ...request, loadId: "LIVE-mvpoqheg", amountCents: 988, body: opening }, live)).toEqual({ ok: true });
-  });
-
-  it("files a load whose id is shaped like a phone number, and still refuses a number beside it", () => {
-    const id = "PO-416-555-0143";
-    const named = body.replaceAll("LIVE-abc", id);
-    const poBasis = { ...basis, loadId: id };
-    expect(checkClaim({ ...request, loadId: id, body: named }, poBasis)).toEqual({ ok: true });
-    expect(checkClaim({ ...request, loadId: id, body: `${named} Call (416) 555-0199.` }, poBasis).ok).toBe(false);
   });
 
   it("refuses unsealed, non-billable, unapproved or already-sent loads", () => {
