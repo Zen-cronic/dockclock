@@ -43,10 +43,11 @@ export function toCents(amountUsd: number): number {
 //   ४१६ are 416), any other numeral left (❹, ⓸, 〇) counts as a digit too, and invisible characters
 //   and combining marks are deleted;
 // - "arn:" in any case is refused;
-// - the digits are read in runs. A letter ends a run; anything else joins it, so +1 (416) 555-0143,
-//   tel:416-555-0143, 416_555_0143, 416 - 555 - 0143, 4165550143,4165550199 and even a list such
-//   as 416, 555, 0143 are each one run. A modifier letter (ʹ, ˈ, ー) reads as punctuation between
-//   digits, so it joins a run too;
+// - the digits are read in runs. Only an ASCII word ends a run. Punctuation, spaces, symbols,
+//   letters of other scripts (ǀ, ㅡ, 一) and a single ASCII letter set tight between two digits
+//   (416x555x0143) all join it, and such a letter that looks like a digit (416-555-O143) counts as
+//   one. So +1 (416) 555-0143, tel:416-555-0143, 416_555_0143, 416 - 555 - 0143,
+//   4165550143,4165550199 and a list such as 416, 555, 0143 are each one run;
 // - a run of 10 or more digits is refused unless every digit in it belongs to a known-safe token,
 //   and no two of those tokens are of the same kind. The tokens: an occurrence of the load id, the
 //   contract amount as the opening must state it ($1234.56), money ($80.00, $1,234.56, $30, $60/h),
@@ -121,13 +122,11 @@ function leaks(opening: string, id: string, amount: string): boolean {
   for (const [kind, re] of SAFE) for (const m of body.matchAll(re)) mark(kind, m.index, m.index + m[0].length);
   for (const [from, to] of occurrences(body, readable(amount))) mark("amount", from, to);
   for (const [from, to] of named) mark("load", from, to);
-  // The digits and the letters, in order; everything else joins the digits around it.
+  // The digits and the ASCII letters, in order; everything else joins the digits around it.
   const kept: Array<{ at: number; digit: boolean }> = [];
-  for (let at = 0; at < body.length; ) {
-    const char = String.fromCodePoint(body.codePointAt(at)!);
-    if (/\d/.test(char)) kept.push({ at, digit: true });
-    else if (/\p{L}/u.test(char) && !/\p{Lm}/u.test(char)) kept.push({ at, digit: false });
-    at += char.length;
+  for (let at = 0; at < body.length; at++) {
+    if (/\d/.test(body[at]!)) kept.push({ at, digit: true });
+    else if (/[A-Za-z]/.test(body[at]!)) kept.push({ at, digit: false });
   }
   const refused = (run: number[]) => {
     if (run.length < 10) return false;
@@ -137,9 +136,19 @@ function leaks(opening: string, id: string, amount: string): boolean {
     return new Set(kinds).size !== kinds.length;
   };
   let run: number[] = [];
-  for (const { at, digit } of kept) {
+  for (let i = 0; i < kept.length; i++) {
+    const { at, digit } = kept[i]!;
     if (digit) {
       run.push(at);
+      continue;
+    }
+    // A single letter set tight between two digits, with no space on either side (416x555x0143,
+    // 416-555-O143, the T of 2026-10-23T13:05), joins them, and one that looks like a digit (O, o,
+    // I, l) counts as one. A word, or a letter set off by a space (2 h 13 m), ends the run.
+    const before = kept[i - 1];
+    const after = kept[i + 1];
+    if (before?.digit && after?.digit && !/\s/.test(body.slice(before.at + 1, after.at))) {
+      if (/[OoIl]/.test(body[at]!)) run.push(at);
       continue;
     }
     if (refused(run)) return true;

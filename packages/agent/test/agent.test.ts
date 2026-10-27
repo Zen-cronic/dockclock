@@ -182,6 +182,16 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", "Call ➃➀➅➄➄➄➉➀➃➂."],
     ["refuses", "Call ⓸⓵⓺⓹⓹⓹⓪⓵⓸⓷."],
     ["refuses", "Call 416〇555〇0143."],
+    // Letters of other scripts, and a lone letter set tight between two groups.
+    ["refuses", "Call 416ǀ555ǀ0143."],
+    ["refuses", "Call 416ㅡ555ㅡ0143."],
+    ["refuses", "Call 416一555一0143."],
+    ["refuses", "Call 416ꞏ555ꞏ0143."],
+    ["refuses", "Call 416ᐧ555ᐧ0143."],
+    ["refuses", "Call 416x555x0143."],
+    ["refuses", "Call 416-555-O143."],
+    ["refuses", "Call 4l6-555-0l43."],
+    ["refuses", "Call 416-555-0I43."],
     // What the agent and the clause engine write, which must still file.
     ["files", "Billed $9.88 ($80.00 cap)."],
     ["files", "From $80.00-$120.00."],
@@ -192,6 +202,7 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["files", "Arrived 10/23/2026 13:05 and released 10/23/2026 14:35."],
     ["files", "Detention 80 min (+15 min grace) = $80.00."],
     ["files", "Wait 2 h 13 m (13:05–15:18)."],
+    ["files", "Loaded 5 x 12 pallets."],
   ])("%s an opening with: %s", (outcome, text) => {
     const result = checkClaim({ ...request, body: `${body} ${text}` }, basis);
     if (outcome === "files") expect(result, shown(text)).toEqual({ ok: true });
