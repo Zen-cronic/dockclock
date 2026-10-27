@@ -4,12 +4,33 @@ import { headline, scorecard } from "../src/index.js";
 import type { FixtureLoad } from "../src/fixtures.js";
 import { LOADS_PATH } from "../src/cli/paths.js";
 
-// README line one is a claim; this keeps it equal to what the frozen fixtures actually produce.
+// The README quotes the scorecard twice: the lead (its first blockquote) in its own words, and the
+// summary `npm run scorecard` prints. Both are claims; these keep them equal to what the frozen
+// fixtures actually produce.
 describe("README headline", () => {
-  it("matches the scorecard recomputed from the frozen fixtures", () => {
-    const fixtures = JSON.parse(readFileSync(LOADS_PATH, "utf8")) as FixtureLoad[];
-    const readme = readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
-    expect(readme).toContain(headline(scorecard(fixtures)));
+  const fixtures = () => JSON.parse(readFileSync(LOADS_PATH, "utf8")) as FixtureLoad[];
+  const readme = readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
+  const usd = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  it("quotes the summary the scorecard prints from the frozen fixtures", () => {
+    expect(readme).toContain(headline(scorecard(fixtures())));
+  });
+
+  it("states the scorecard's numbers in the lead, the README's first blockquote", () => {
+    const card = scorecard(fixtures());
+    const lead = readme.split("\n").find((line) => line.startsWith("> "));
+    expect(lead).toBeDefined();
+    const { baseline, dockclock } = card;
+    expect(lead).toContain(`On ${card.loads} test loads`);
+    expect(lead).toContain(`that rule asks for ${usd(baseline.claimedUsd)}, and ${usd(baseline.uncollectibleUsd)} of it (${Math.round((baseline.uncollectibleUsd / baseline.claimedUsd) * 100)}%)`);
+    expect(lead).toContain(`DockClock files the ${usd(card.contractPayableUsd)} those contracts owe, in ${dockclock.filed} claims, and nothing they deny.`);
+    // Everything it files is owed and valid, which is what "files what the contracts owe" says.
+    expect(dockclock.claimedUsd).toBe(card.contractPayableUsd);
+    expect(dockclock.filedValid).toBe(dockclock.filed);
+    expect(dockclock.falseHolds).toBe(0);
+    // The one number the lead takes from outside the fixtures is sourced in FACTS.
+    expect(lead).toContain("(55%) of the detention bills they send");
+    expect(readFileSync(new URL("../../../FACTS.md", import.meta.url), "utf8")).toMatch(/\| US truckload carriers are paid on 55% of detention invoices \| ATRI[^|]*\| sourced \|/);
   });
 });
 

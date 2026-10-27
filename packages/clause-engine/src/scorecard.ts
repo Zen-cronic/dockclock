@@ -105,8 +105,9 @@ function percent(part: number, whole: number): string {
   return whole === 0 ? "0%" : `${Math.round((part / whole) * 100)}%`;
 }
 
-// README line one. Leads with money owed, not with how many claims were filed, and never says
-// "all" or "nothing a contract denies", or leaves out a held-back owed claim, unless the numbers say so.
+// The summary `npm run scorecard` prints, which the README quotes. Leads with money owed, not with
+// how many claims were filed, and never says "all" or "nothing a contract denies", or leaves out a
+// held-back owed claim, unless the numbers say so.
 export function headline(card: Scorecard): string {
   const d = card.dockclock;
   const b = card.baseline;
