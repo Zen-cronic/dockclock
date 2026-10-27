@@ -10,7 +10,11 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 
 describe("Flow form values", () => {
   it("are never the display clock's placeholder", () => {
-    const files = ["scripts", join("services", "src")].flatMap((dir) => readdirSync(join(root, dir)).filter((f) => f.endsWith(".ts")).map((f) => join(dir, f)));
+    const files = ["scripts", join("services", "src")].flatMap((dir) =>
+      readdirSync(join(root, dir), { recursive: true, encoding: "utf8" })
+        .filter((f) => f.endsWith(".ts"))
+        .map((f) => join(dir, f)),
+    );
     expect(files.length).toBeGreaterThan(10);
     const misuses = files.flatMap((file) => {
       const text = readFileSync(join(root, file), "utf8");

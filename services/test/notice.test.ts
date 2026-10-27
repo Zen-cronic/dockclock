@@ -126,6 +126,14 @@ describe("detention notice", () => {
     expect(skipped?.args[0].input.ExpressionAttributeValues?.[":w"]).toMatch(/arrival time could not be read/);
   });
 
+  // Recording why is best effort: a failed write never fails the workflow step.
+  it("still schedules nothing, without throwing, when the reason cannot be written", async () => {
+    load = { ...freshLoad(), arrived: { serverAt: "garbage", messageId: "wamid.pin" } };
+    dynamo.on(UpdateCommand).rejects(Object.assign(new Error("throttled"), { name: "ProvisionedThroughputExceededException" }));
+    expect(await handler({ kind: "schedule", loadId: "4471" }, context)).toEqual({ scheduledFor: null });
+    expect(scheduler.commandCalls(CreateScheduleCommand)).toHaveLength(0);
+  });
+
   it("states the check-in, when free time ends and the clause's rate", () => {
     const { subject, text } = noticeEmail(load as unknown as LoadItem, "2026-10-17T20:00:00.000Z", "DockClock Claims <claims@example.com>", "dispatch@example.com");
     expect(subject).toBe("Detention notice: Load 4471 at Lakeshore DC, Columbus OH, free time ends 16:00 EDT");

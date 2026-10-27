@@ -96,8 +96,13 @@ async function schedule(loadId: string, functionArn: string): Promise<{ schedule
   if (!load?.arrived) return { scheduledFor: null };
   const times = noticeTime(load, load.arrived.serverAt);
   if (!times) {
-    // Said on the load, as a skipped send is, so the console shows why no notice went out.
-    await ddb.send(new UpdateCommand({ TableName: env.table(), Key: keys.load(loadId), UpdateExpression: "SET notice = if_not_exists(notice, :n)", ExpressionAttributeValues: { ":n": { skipped: ARRIVAL_UNREADABLE } } }));
+    // Said on the load, as a skipped send is, so the console shows why no notice went out. Best
+    // effort: a failed write only leaves the console without the reason, so it never fails the step.
+    try {
+      await ddb.send(new UpdateCommand({ TableName: env.table(), Key: keys.load(loadId), UpdateExpression: "SET notice = if_not_exists(notice, :n)", ExpressionAttributeValues: { ":n": { skipped: ARRIVAL_UNREADABLE } } }));
+    } catch (error) {
+      log("notice_skip_record_failed", { loadId, error: (error as Error).name });
+    }
     log("notice_not_scheduled", { loadId, reason: ARRIVAL_UNREADABLE });
     return { scheduledFor: null };
   }

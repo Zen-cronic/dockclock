@@ -615,4 +615,14 @@ describe("a load with a time that does not parse", async () => {
     const html = renderToStaticMarkup(createElement(DockClockBand, { load: detailFromApi(v, "fixture") }));
     expect(html).toContain('aria-label="2:30 hours and minutes at the dock"');
   });
+
+  // As the read API does (endedAtOf), the arrival counts as a record: a clock never ends before it.
+  it("never ends a stopped load's clock before its arrival", () => {
+    const v = structuredClone(body.data);
+    Object.assign(v.summary, { live: false, status: "closed" });
+    Object.assign(v.clock, { arrivedAt: "2026-10-23T18:00:00.000Z", releasedAt: null, releasePinAt: null, endedAt: null, clockStartAt: null, freeTimeEndsAt: null });
+    v.timeline = [{ ...v.timeline[0]!, id: "a", at: "2026-10-23T17:00:00Z" }];
+    const html = renderToStaticMarkup(createElement(DockClockBand, { load: detailFromApi(v, "fixture") }));
+    expect(html).toContain('aria-label="0:00 hours and minutes at the dock"');
+  });
 });
