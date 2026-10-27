@@ -9,7 +9,7 @@ import { GetObjectCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
-import { facilityById, isoToLocalClock, KmsSigner, verifyPack, type SignedPack } from "@dockclock/evidence";
+import { facilityById, KmsSigner, localClockOf, verifyPack, type SignedPack } from "@dockclock/evidence";
 
 const outputs = JSON.parse(readFileSync(new URL("../.cdk-outputs.json", import.meta.url), "utf8")).DockClockMessaging as Record<string, string>;
 const out = (key: string) => {
@@ -107,8 +107,8 @@ const flowReply = {
         // (a couple of minutes off the arrival pin and the Released tap), which the clause engine can
         // bill. Otherwise the times are the ones the Flow pre-filled (arrival pin, Released tap), left
         // unchanged.
-        in_time: isoToLocalClock(new Date(now - (signedBol ? 245 : 247) * 60_000).toISOString(), zone),
-        out_time: isoToLocalClock(new Date(now - (signedBol ? 31 : 30) * 60_000).toISOString(), zone),
+        in_time: localClockOf(new Date(now - (signedBol ? 245 : 247) * 60_000).toISOString(), zone),
+        out_time: localClockOf(new Date(now - (signedBol ? 31 : 30) * 60_000).toISOString(), zone),
         ...(signedBol ? { receiver_signed: true } : {}),
         delay_reason: "dock_not_ready",
         consignee: "Smoke Receiver",

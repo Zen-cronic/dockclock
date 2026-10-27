@@ -15,7 +15,7 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
-import { isoToLocalClock, JUDGE_DEMO_FACILITY } from "@dockclock/evidence";
+import { JUDGE_DEMO_FACILITY, localClockOf } from "@dockclock/evidence";
 
 const outputs = JSON.parse(readFileSync(new URL("../.cdk-outputs.json", import.meta.url), "utf8")).DockClockMessaging as Record<string, string>;
 const out = (key: string) => {
@@ -125,8 +125,8 @@ if (channel === "rcs") {
           response_json: JSON.stringify({
             flow_token: `dc1.release.${loadId}.${nonce}`,
             bol_photo: [{ id: "smoke-missing-media", mime_type: "image/jpeg", sha256: "none" }],
-            in_time: isoToLocalClock(new Date(arrivedAt + 60_000).toISOString(), zone),
-            out_time: isoToLocalClock(new Date(releasedAt - 60_000).toISOString(), zone),
+            in_time: localClockOf(new Date(arrivedAt + 60_000).toISOString(), zone),
+            out_time: localClockOf(new Date(releasedAt - 60_000).toISOString(), zone),
             receiver_signed: true,
             delay_reason: "dock_not_ready",
             consignee: "Demo Receiving Co.",
