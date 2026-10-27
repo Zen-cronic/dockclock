@@ -302,18 +302,56 @@ describe("npm run deploy", () => {
     expect(plan(built, ["--profile", "example"]).args).toEqual(["--all", "--profile", "example"]);
   });
 
-  // Stacks are told apart from option values by name, not by a copy of the CLI's option table: the
-  // global --region and --build take values, and --asset-parallelism takes none in aws-cdk 2.1145.
-  it("tells a stack from an option's value by the app's stack names", () => {
-    for (const extra of [["--region", "us-east-1"], ["--build", "npm run build"], ["--telemetry-file", "t.json"], ["--asset-build-concurrency", "2"], ["--unstable", "toolkit-lib-engine"], ["-r", "arn:aws:iam::111122223333:role/x"]]) {
+  // An option's value is told from a stack by the app's stack names and by the option before it:
+  // the global --region and --build take values, and --asset-parallelism takes none in aws-cdk 2.1145.
+  it("tells a stack from an option's value by the app's stack names and the option before it", () => {
+    const values = [
+      ["--region", "us-east-1"],
+      ["--build", "npm run build"],
+      ["--telemetry-file", "t.json"],
+      ["--asset-build-concurrency", "2"],
+      ["--unstable", "toolkit-lib-engine"],
+      ["-r", "arn:aws:iam::111122223333:role/x"],
+      // Values that start with the app's name are still values.
+      ["--parameters", "DockClockCore:AlertEmail=x"],
+      ["--profile", "dockclock"],
+      ["--toolkit-stack-name", "DockClockToolkit"],
+      ["-O", "dockclock-outputs.json"],
+      ["--outputs-file", "DockClock.json"],
+      ["--build-exclude", "x*"],
+      ["--rollback", "false"],
+    ];
+    for (const extra of values) {
       expect(plan(built, extra).args, extra.join(" ")).toEqual(["--all", ...extra]);
       expect(plan(missing, extra).refused, extra.join(" ")).not.toBeNull();
     }
-    expect(plan(missing, ["--asset-parallelism", "DockClockCore"])).toEqual({ args: ["--asset-parallelism", "DockClockCore"], note: null, refused: null });
-    expect(plan(missing, ["--region", "us-east-1", "DockClockMessaging"]).args).toEqual(["--region", "us-east-1", "DockClockMessaging"]);
-    // A mistyped name goes to the CLI as asked, never widened to every stack.
-    expect(plan(built, ["DockClockMesaging"]).args).toEqual(["DockClockMesaging"]);
-    expect(plan(built, ["*Messaging"]).args).toEqual(["*Messaging"]);
+    const named = [
+      ["DockClockCore"],
+      ["DockClock*"],
+      ["--all"],
+      ["--exclusively", "DockClockDesk"],
+      ["-e", "DockClockDesk"],
+      ["--asset-parallelism", "DockClockCore"],
+      ["--hotswap", "DockClockAgent"],
+      ["--region", "us-east-1", "DockClockMessaging"],
+      ["--profile", "dockclock", "DockClockMessaging"],
+      ["--parameters", "DockClockCore:AlertEmail=x", "DockClockCore"],
+      ["--region=us-east-1", "DockClockMessaging"],
+      ["--allow-skip-desk", "DockClockMessaging"],
+      // A stack named after an option this script does not know as a boolean still names it.
+      ["--some-new-flag", "DockClockAgent"],
+      // A mistyped name or a pattern that matches nothing goes to the CLI as asked, never widened
+      // to every stack.
+      ["DockClockMesaging"],
+      ["*Messaging"],
+      ["*Mesaging"],
+      ["--hotswap", "DockClockMesaging"],
+    ];
+    for (const extra of named) {
+      const p = plan(missing, extra);
+      expect(p.refused, extra.join(" ")).toBeNull();
+      expect(p.args, extra.join(" ")).toEqual(extra.filter((a) => a !== "--allow-skip-desk"));
+    }
   });
 
   it("finds the placeholder asked for in every form the app reads", () => {

@@ -9,14 +9,40 @@ export const DESK_STACK = "DockClockDesk";
 // before deploying anything, so a missing build never ships a partial deploy silently.
 export const ALLOW_SKIP_DESK = "--allow-skip-desk";
 
-// Whether a bare argument names stacks: one of STACKS, anything with the app's DockClock prefix (a
-// mistyped name goes to the CLI as asked, which reports it, rather than being widened to --all), or
-// a wildcard pattern (DockClock*, *Messaging). Any other bare argument is an option's value
-// (`--region us-east-1`, `--profile example`), so no table of the CLI's value options has to be
-// kept in step with each CDK release. A value that has a wildcard in it (--build-exclude 'x*')
-// counts as a stack pattern: the CLI then asks for the stacks to deploy, and nothing deploys.
-export function namesStacks(arg: string): boolean {
-  return (STACKS as readonly string[]).includes(arg) || /^dockclock/i.test(arg) || /[*?]/.test(arg);
+// The CDK CLI's boolean options (aws-cdk 2.1145, deploy and global), any --no-x, and this script's
+// own --allow-skip-desk. Every other option takes a value, so the bare argument right after it (with
+// no "=") is that value: --profile dockclock, --toolkit-stack-name DockClockToolkit, -O
+// dockclock-outputs.json. A boolean missing here costs nothing when the stack after it is named
+// exactly: an app stack name always names stacks.
+const BOOLEAN_OPTIONS = new Set([
+  "--all", "--exclusively", "-e", "--execute", "--import-existing-resources", "--force", "-f", "--previous-parameters", "--rollback",
+  "--hotswap", "--hotswap-fallback", "--watch", "--logs", "--asset-parallelism", "--asset-prebuild", "--ignore-no-stacks", "--revert-drift",
+  "--express", "--trace", "--strict", "--lookups", "--ignore-errors", "--json", "-j", "--verbose", "-v", "--debug", "--debug-app",
+  "--debug-cli", "--ec2creds", "-i", "--version-reporting", "--path-metadata", "--asset-metadata", "--staging", "--notices", "--color",
+  "--ci", "--yes", "-y", ALLOW_SKIP_DESK,
+]);
+
+export function booleanOption(flag: string): boolean {
+  return BOOLEAN_OPTIONS.has(flag) || flag.startsWith("--no-") || /^-v+$/.test(flag);
+}
+
+// Whether a pattern selects one of the app's stacks: its exact name, or a wildcard (*, ?) that
+// matches one.
+export function matchesStack(arg: string): boolean {
+  if (!/[*?]/.test(arg)) return (STACKS as readonly string[]).includes(arg);
+  const re = new RegExp(`^${arg.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
+  return STACKS.some((stack) => re.test(stack));
+}
+
+// Whether a bare argument names stacks, given the option before it (null when there is none, or it
+// carried its value after "="). One that matches an app stack always does. Otherwise the argument
+// right after an option that takes a value is that value, and so is true or false after a boolean.
+// Any other bare argument is a positional, which the CLI reads as a stack pattern: a mistyped name
+// goes to the CLI as asked, which reports it, and is never widened to --all.
+export function namesStacks(arg: string, after: string | null = null): boolean {
+  if (matchesStack(arg)) return true;
+  if (after === null) return true;
+  return booleanOption(after) && arg !== "true" && arg !== "false";
 }
 
 export interface DeployArgs {
@@ -44,8 +70,9 @@ export function readArgs(extra: string[]): DeployArgs {
       continue;
     }
     out.pass.push(arg);
+    const before = i > 0 ? extra[i - 1]! : "";
     if (!arg.startsWith("-")) {
-      if (namesStacks(arg)) out.named = true;
+      if (namesStacks(arg, before.startsWith("-") && !before.includes("=") ? before : null)) out.named = true;
       continue;
     }
     const eq = arg.indexOf("=");
