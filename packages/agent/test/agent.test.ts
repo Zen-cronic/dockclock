@@ -96,6 +96,7 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["files", "BOL #123456789012, PO: 123456789012, ref no. 12345678901, order 1234567890, shipment number 1234567890."],
     ["files", "Invoice 9876543210 covers 10/23/2026 at 1:05 PM, $1,234.56 in all."],
     ["files", "Released 14:30–14:35 on 2026-10-23, 80 minutes past free time."],
+    ["files", "Arrived at 13:05:00.123 EDT, released at 14:35:00.5 EDT."],
     ["refuses", "Accounts 111122223333,444455556666 billed."],
     ["refuses", "Account.111122223333 billed"],
     ["refuses", "Ref 1.111122223333"],
@@ -128,6 +129,9 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", "Call 416\u200b555\u200b0143."],
     ["refuses", "Call 416·555·0143."],
     ["refuses", "Call ４１６５５５０１４３."],
+    // Fractional seconds past three digits are not a clock time.
+    ["refuses", "Arrived at 13:05:00.111122223333 EDT"],
+    ["refuses", "Arrived at 13:05.4165550143 EDT"],
   ])("%s an opening with: %s", (outcome, text) => {
     const result = checkClaim({ ...request, body: `${body} ${text}` }, basis);
     if (outcome === "files") expect(result, shown(text)).toEqual({ ok: true });

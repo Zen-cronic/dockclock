@@ -39,10 +39,10 @@ export function toCents(amountUsd: number): number {
 
 // An AWS resource name, a phone number or an account id in the opening, written any common way.
 // Known-safe tokens are taken out first, then anything left that could be one is refused:
-// - safe: money ($80.00, $1,234.56), dates (2026-10-23, 10/23/2026), clock times (13:05, 1:05 PM),
-//   durations (+15, +15 min, +2 hours) and a labelled freight reference written as one unbroken
-//   number (PRO 1234567890, BOL #123456789012, PO: 123456789012, ref no. 12345678901, an order,
-//   shipment or invoice number);
+// - safe: money ($80.00, $1,234.56), dates (2026-10-23, 10/23/2026), clock times (13:05, 1:05 PM,
+//   13:05:00.123), durations (+15, +15 min, +2 hours) and a labelled freight reference written as
+//   one unbroken number (PRO 1234567890, BOL #123456789012, PO: 123456789012, ref no. 12345678901,
+//   an order, shipment or invoice number);
 // - refused: "arn:" in any case, and any remaining run of 10 or more digits, however its groups are
 //   joined: any run of separators between two digit groups joins them (any Unicode space, a tab or
 //   a line break, dots, dashes, slashes, brackets, a comma with no space after it), so +1 (416)
@@ -59,7 +59,8 @@ const SAFE = [
   String.raw`\$ ?(?:\d{1,3}(?:,\d{3})+|\d{1,7})(?:\.\d{1,2})?(?!,?\d|\.\d)`,
   String.raw`(?<!\d)(?:19|20)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d)`,
   String.raw`(?<!\d)(?:0?[1-9]|1[0-2])\/(?:0?[1-9]|[12]\d|3[01])\/(?:\d{4}|\d{2})(?!\d)`,
-  String.raw`(?<!\d)(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?!\d)`,
+  // A clock time, with seconds and up to three fractional digits: more digits are not a time.
+  String.raw`(?<!\d)(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?!\d)`,
 ].map((source) => new RegExp(source, "g"));
 // A duration with its unit, or a bare +N that no further digits follow (+1 416-555-0143 is a phone).
 const DURATION = new RegExp(String.raw`\+\d{1,3} ?(?:minutes?|mins?|hours?|hrs?|h|m)(?![A-Za-z])|\+\d{1,3}(?!\d|${JOIN}\d)`, "gi");
