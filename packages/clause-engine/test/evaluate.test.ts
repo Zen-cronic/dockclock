@@ -55,6 +55,13 @@ describe("baseline", () => {
     expect(short && baselineClaim(short.evidence).filed).toBe(false);
     expect(long && baselineClaim(long.evidence).amountUsd).toBe(100);
   });
+
+  it("bills nothing, never $NaN, when the arrival or release time does not parse", () => {
+    const long = fixtures.find((f) => f.evidence.loadId === "L2")!.evidence;
+    for (const evidence of [{ ...long, arrived: { ...long.arrived!, at: "not a time" } }, { ...long, released: { ...long.released!, at: "garbage" } }]) {
+      expect(baselineClaim(evidence)).toEqual({ loadId: "L2", filed: false, amountUsd: 0 });
+    }
+  });
 });
 
 describe("scorecard", () => {

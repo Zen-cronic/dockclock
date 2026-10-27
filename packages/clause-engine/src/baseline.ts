@@ -15,7 +15,8 @@ export function baselineClaim(load: LoadEvidence): BaselineClaim {
   if (!load.arrived || !load.released) return { loadId: load.loadId, filed: false, amountUsd: 0 };
   const dwell = (Date.parse(load.released.at) - Date.parse(load.arrived.at)) / 60_000;
   const over = dwell - BASELINE_FREE_MINUTES;
-  if (over <= 0) return { loadId: load.loadId, filed: false, amountUsd: 0 };
+  // A time that does not parse gives no dwell to bill (NaN is not <= 0).
+  if (!Number.isFinite(over) || over <= 0) return { loadId: load.loadId, filed: false, amountUsd: 0 };
   const amountUsd = Math.round(((over / 60) * BASELINE_RATE_PER_HOUR_USD) * 100) / 100;
   return { loadId: load.loadId, filed: true, amountUsd };
 }
