@@ -3,7 +3,7 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import { GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { Context, SNSEvent } from "aws-lambda";
-import { clauseById, detentionStartsAt } from "@dockclock/clause-engine";
+import { clauseById, detentionStartsAt, timeReadable } from "@dockclock/clause-engine";
 import { acceptsAnyLocation, checkGeofence, facilityById, isoToLocalClock, isoToLocalDateTime, zoneAbbreviation } from "@dockclock/evidence";
 import { buildMime, FICTIONAL_NOTE, loadPageUrl, pinSource, renderHtml, renderText, signatureLines, type Letter } from "@dockclock/mail";
 import { ddb, getLoad, type LoadItem } from "./store.js";
@@ -25,8 +25,10 @@ export const NOTICE_MARGIN_MINUTES = 10;
 const MINUTE = 60_000;
 
 // When the notice goes out: the clause's lead time (none means "before detention starts") plus the
-// margin, before the detention clock starts. Never in the past.
-export function noticeTime(load: Pick<LoadItem, "clauseId" | "appointmentAt">, arrivedAt: string, now = Date.now()): { sendAt: string; detentionStartAt: string } {
+// margin, before the detention clock starts. Never in the past. Null when the arrival time does not
+// parse: no free time can be counted from it (the engine holds such a load for a person).
+export function noticeTime(load: Pick<LoadItem, "clauseId" | "appointmentAt">, arrivedAt: string, now = Date.now()): { sendAt: string; detentionStartAt: string } | null {
+  if (!timeReadable(arrivedAt)) return null;
   const clause = clauseById(load.clauseId);
   const detentionStartAt = detentionStartsAt(clause, load.appointmentAt, arrivedAt);
   const lead = (clause.noticeLeadMinutes ?? 0) + NOTICE_MARGIN_MINUTES;
@@ -90,7 +92,12 @@ function noticeSentTemplate(language: Language, loadId: string, freeTimeEnds: st
 async function schedule(loadId: string, functionArn: string): Promise<{ scheduledFor: string | null }> {
   const load = await getLoad(loadId);
   if (!load?.arrived) return { scheduledFor: null };
-  const { sendAt } = noticeTime(load, load.arrived.serverAt);
+  const times = noticeTime(load, load.arrived.serverAt);
+  if (!times) {
+    log("notice_not_scheduled", { loadId, reason: "arrival time does not parse" });
+    return { scheduledFor: null };
+  }
+  const { sendAt } = times;
   try {
     await scheduler.send(
       new CreateScheduleCommand({
@@ -133,7 +140,9 @@ async function sendNotice(loadId: string): Promise<{ sent: boolean }> {
   if (load.phase === "sealed" || load.phase === "closed") return skip(`load ${load.phase}`);
   if (load.notice?.sentAt) return { sent: false };
   const clause = clauseById(load.clauseId);
-  const { detentionStartAt } = noticeTime(load, load.arrived.serverAt);
+  const times = noticeTime(load, load.arrived.serverAt);
+  if (!times) return skip("The arrival time could not be read, so free time could not be counted.");
+  const { detentionStartAt } = times;
   const replyTo = process.env.DISPATCH_EMAIL;
   const { subject, text, html } = noticeEmail(load, detentionStartAt, env.claimsFromEmail(), replyTo);
   const sentAt = new Date().toISOString();

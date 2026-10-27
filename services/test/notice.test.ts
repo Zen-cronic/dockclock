@@ -94,21 +94,33 @@ describe("detention notice", () => {
   it("goes out the clause's lead time plus a margin before free time ends", () => {
     // Atlas counts free time from the 18:00 appointment (the truck was early): detention at 20:00,
     // a 30-minute lead and a 10-minute margin put the notice at 19:20.
-    const { sendAt, detentionStartAt } = noticeTime(load as unknown as LoadItem, "2026-10-17T17:40:00.000Z", Date.parse("2026-10-17T17:41:00.000Z"));
+    const { sendAt, detentionStartAt } = noticeTime(load as unknown as LoadItem, "2026-10-17T17:40:00.000Z", Date.parse("2026-10-17T17:41:00.000Z"))!;
     expect(detentionStartAt).toBe("2026-10-17T20:00:00.000Z");
     expect(sendAt).toBe("2026-10-17T19:20:00.000Z");
   });
 
   it("goes out within a minute of arrival on the judge demo, before its 5 minutes of free time end", () => {
     const arrivedAt = "2026-10-18T21:00:00.000Z";
-    const { sendAt, detentionStartAt } = noticeTime({ clauseId: "judge-demo", appointmentAt: arrivedAt }, arrivedAt, Date.parse(arrivedAt));
+    const { sendAt, detentionStartAt } = noticeTime({ clauseId: "judge-demo", appointmentAt: arrivedAt }, arrivedAt, Date.parse(arrivedAt))!;
     expect(sendAt).toBe("2026-10-18T21:01:00.000Z");
     expect(Date.parse(sendAt)).toBeLessThan(Date.parse(detentionStartAt));
   });
 
   it("is never scheduled in the past", () => {
     const now = Date.parse("2026-10-17T19:50:00.000Z");
-    expect(noticeTime(load as unknown as LoadItem, "2026-10-17T17:40:00.000Z", now).sendAt).toBe("2026-10-17T19:51:00.000Z");
+    expect(noticeTime(load as unknown as LoadItem, "2026-10-17T17:40:00.000Z", now)?.sendAt).toBe("2026-10-17T19:51:00.000Z");
+  });
+
+  // detentionStartsAt() threw a RangeError on an arrival time that does not parse, failing the step.
+  it("schedules nothing for an arrival time that does not parse, and sends nothing from an old schedule", async () => {
+    expect(noticeTime(load as unknown as LoadItem, "garbage")).toBeNull();
+    load = { ...freshLoad(), arrived: { serverAt: "garbage", messageId: "wamid.pin" } };
+    expect(await handler({ kind: "schedule", loadId: "4471" }, context)).toEqual({ scheduledFor: null });
+    expect(scheduler.commandCalls(CreateScheduleCommand)).toHaveLength(0);
+    expect(await handler({ kind: "send", loadId: "4471" }, context)).toEqual({ sent: false });
+    expect(ses.commandCalls(SendEmailCommand)).toHaveLength(0);
+    const skipped = dynamo.commandCalls(UpdateCommand).find((c) => c.args[0].input.UpdateExpression === "SET notice.skipped = :w");
+    expect(skipped?.args[0].input.ExpressionAttributeValues?.[":w"]).toMatch(/arrival time could not be read/);
   });
 
   it("states the check-in, when free time ends and the clause's rate", () => {
