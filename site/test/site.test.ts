@@ -385,7 +385,7 @@ describe("a load whose every time does not parse", async () => {
 
 // The tamper switch moves what stopped the clock: the Released tap on a version 2 pack, the pin on v1.
 describe("evidence tamper", async () => {
-  const { EvidencePanel, releaseMovable, tampered } = await import("../src/ui/EvidencePanel.js");
+  const { EvidencePanel, releaseLocked, releaseMovable, tampered } = await import("../src/ui/EvidencePanel.js");
   const at = (h: number, m: number) => `2026-10-23T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00.000Z`;
   const on = { amount: false, release: true, check: false };
 
@@ -416,6 +416,19 @@ describe("evidence tamper", async () => {
       expect(html).not.toMatch(/NaN|Invalid/);
     }
     expect(releaseMovable({ events: { released: { serverAt: at(18, 57) } } })).toBe(true);
+  });
+
+  // A pack with no release time at all said "time not readable" too.
+  it("says no release time was recorded when the pack has none", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const pack = { ...snap.pack, pack: { ...snap.pack.pack, events: { ...(snap.pack.pack.events as object), releasedTap: null, released: undefined } } };
+    expect(releaseLocked(pack.pack)).toBe("no release time recorded");
+    const html = renderToStaticMarkup(createElement(EvidencePanel, { pack, timeZone: "America/New_York", photos: [] }));
+    expect(html).toContain("no release time recorded");
+    expect(html).not.toContain("time not readable");
+    expect(releaseLocked({ events: { released: { serverAt: "garbage" } } })).toBe("time not readable");
+    expect(releaseLocked({ events: { released: { serverAt: at(18, 57) } } })).toBeNull();
   });
 });
 

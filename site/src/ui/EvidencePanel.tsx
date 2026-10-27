@@ -47,6 +47,12 @@ export function releaseMovable(pack: PackShape): boolean {
   return timeReadable(releaseTimeOf(pack.events));
 }
 
+// Why the Release switch is off, or null when it can move the release time.
+export function releaseLocked(pack: PackShape): string | null {
+  if (releaseMovable(pack)) return null;
+  return releaseTimeOf(pack.events) ? "time not readable" : "no release time recorded";
+}
+
 let keyCache: string | null = null;
 async function publicKey(path: string): Promise<string> {
   if (keyCache) return keyCache;
@@ -161,12 +167,13 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
         )}
         <div style={{ height: 16 }} />
         {TAMPERS.map(([k, label, hint]) => {
-          const off = k === "release" && !releaseMovable(orig);
+          const locked = k === "release" ? releaseLocked(orig) : null;
+          const off = locked !== null;
           return (
             <label className="switch" key={k}>
               <input type="checkbox" role="switch" checked={t[k] && !off} disabled={off} onChange={(e) => setT({ ...t, [k]: e.target.checked })} />
               {label}
-              <span className="hint">{off ? "time not readable" : hint}</span>
+              <span className="hint">{locked ?? hint}</span>
             </label>
           );
         })}
