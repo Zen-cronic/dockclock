@@ -92,11 +92,12 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
   it.each([
     ["files", "Grace (+15) 2026-10-23 13:05 EDT."],
     ["files", "Arrived 2026-10-23T13:05:00-04:00, released +2 hours past free time (+15 min grace)."],
-    ["files", "PRO 1234567890 for load LIVE-abc."],
-    ["files", "BOL #123456789012, PO: 123456789012, ref no. 12345678901, order 1234567890, shipment number 1234567890."],
-    ["files", "Invoice 9876543210 covers 10/23/2026 at 1:05 PM, $1,234.56 in all."],
     ["files", "Released 14:30–14:35 on 2026-10-23, 80 minutes past free time."],
     ["files", "Arrived at 13:05:00.123 EDT, released at 14:35:00.5 EDT."],
+    // A freight reference short enough that it cannot be a phone number or an account id.
+    ["files", "PRO 123456789 for load LIVE-abc."],
+    ["files", "BOL #12345678, PO: 123456789, ref no. 1234567, order 12345, shipment number 123456789."],
+    ["files", "Doors 12, 13 and 14, 3 trucks, 2 hours, $1,234.56 on 10/23/2026 at 1:05 PM."],
     ["refuses", "Accounts 111122223333,444455556666 billed."],
     ["refuses", "Account.111122223333 billed"],
     ["refuses", "Ref 1.111122223333"],
@@ -129,6 +130,18 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", "Call 416\u200b555\u200b0143."],
     ["refuses", "Call 416·555·0143."],
     ["refuses", "Call ４１６５５５０１４３."],
+    // A labelled freight reference long enough to be a phone number or an account id.
+    ["refuses", "PO 4165550143"],
+    ["refuses", "shipment-4165550143"],
+    ["refuses", "order 111122223333"],
+    ["refuses", "Please reference order 111122223333"],
+    ["refuses", "PRO 1234567890 for load LIVE-abc."],
+    ["refuses", "BOL #123456789012"],
+    ["refuses", "PO: 123456789012"],
+    ["refuses", "ref no. 12345678901"],
+    ["refuses", "shipment number 1234567890"],
+    ["refuses", "Invoice 9876543210 covers 10/23/2026 at 1:05 PM, $1,234.56 in all."],
+    ["refuses", "PO ABC-4165550143"],
     // Fractional seconds past three digits are not a clock time.
     ["refuses", "Arrived at 13:05:00.111122223333 EDT"],
     ["refuses", "Arrived at 13:05.4165550143 EDT"],
@@ -136,6 +149,12 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     const result = checkClaim({ ...request, body: `${body} ${text}` }, basis);
     if (outcome === "files") expect(result, shown(text)).toEqual({ ok: true });
     else expect(result.ok === false && result.reason, shown(text)).toMatch(/AWS resource name, account id or phone number/);
+  });
+
+  it("files the opening the live agent wrote for LIVE-mvpoqheg", () => {
+    const opening = "We are claiming detention for load LIVE-mvpoqheg at Judge demo yard (any location counts) under the rate confirmation in the amount of $9.88.";
+    const live = { ...basis, loadId: "LIVE-mvpoqheg", amountCents: 988 };
+    expect(checkClaim({ ...request, loadId: "LIVE-mvpoqheg", amountCents: 988, body: opening }, live)).toEqual({ ok: true });
   });
 
   it("files a load whose id is shaped like a phone number, and still refuses a number beside it", () => {

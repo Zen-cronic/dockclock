@@ -40,14 +40,16 @@ export function toCents(amountUsd: number): number {
 // An AWS resource name, a phone number or an account id in the opening, written any common way.
 // Known-safe tokens are taken out first, then anything left that could be one is refused:
 // - safe: money ($80.00, $1,234.56), dates (2026-10-23, 10/23/2026), clock times (13:05, 1:05 PM,
-//   13:05:00.123), durations (+15, +15 min, +2 hours) and a labelled freight reference written as
-//   one unbroken number (PRO 1234567890, BOL #123456789012, PO: 123456789012, ref no. 12345678901,
-//   an order, shipment or invoice number);
+//   13:05:00.123) and durations (+15, +15 min, +2 hours);
 // - refused: "arn:" in any case, and any remaining run of 10 or more digits, however its groups are
 //   joined: any run of separators between two digit groups joins them (any Unicode space, a tab or
 //   a line break, dots, dashes, slashes, brackets, a comma with no space after it), so +1 (416)
 //   555-0143, tel:416-555-0143, 416 - 555 - 0143, 1111.2222.3333 and 4165550143,4165550199 are each
 //   one run. A comma followed by a space ends a run, as in a list.
+// A freight reference gets no exemption, labelled or not: PRO 1234567890, PO 4165550143 and order
+// 111122223333 are refused, since a number that long can be a phone number or an account id
+// whatever word comes before it. A reference of up to 9 digits passes like any short number. The
+// opening the agent writes names the load, the facility and the amount, never a reference number.
 // A safe token is blanked, never deleted, so the digits on either side of it are not joined. A run
 // that lies wholly inside an occurrence of the load id is allowed (PO-123456789012 is not an account
 // id); one that only overlaps it (Account 999901439999 on load 0143) still counts. The check reads
@@ -64,10 +66,6 @@ const SAFE = [
 ].map((source) => new RegExp(source, "g"));
 // A duration with its unit, or a bare +N that no further digits follow (+1 416-555-0143 is a phone).
 const DURATION = new RegExp(String.raw`\+\d{1,3} ?(?:minutes?|mins?|hours?|hrs?|h|m)(?![A-Za-z])|\+\d{1,3}(?!\d|${JOIN}\d)`, "gi");
-const LABELLED = new RegExp(
-  String.raw`(?<![A-Za-z])(?:PRO|BOL|B\/L|P\.?O\.?|ref(?:erence)?|order|shipment|invoice)(?![A-Za-z])(?: ?(?:#|:|-|no\.?|num(?:ber)?|nbr)(?![A-Za-z]))* ?[#:]? ?(?:[A-Za-z]{1,4}-?)?\d+(?!\d|${JOIN}\d)`,
-  "gi",
-);
 const RUN = new RegExp(String.raw`\d(?:(?:${JOIN})?\d)*`, "g");
 const ARN = /(?<![A-Za-z0-9])arn:/gi;
 
@@ -83,7 +81,7 @@ function leaks(opening: string, id: string): boolean {
   const inName = (start: number, end: number) => named.some(([from, to]) => from <= start && end <= to);
   let left = body;
   for (const re of SAFE) left = blank(left, re);
-  left = blank(blank(left, DURATION), LABELLED);
+  left = blank(left, DURATION);
   for (const match of left.matchAll(ARN)) if (!inName(match.index, match.index + match[0].length)) return true;
   for (const match of left.matchAll(RUN)) {
     if (match[0].replace(/\D/g, "").length < 10) continue;
