@@ -218,13 +218,15 @@ async function cleared(target: Target, purpose: string, loadId: string, options:
 
 // A message the gates stopped is still recorded under its load, marked not sent with the reason,
 // so a test load's conversation shows what DockClock would have said. Best effort, like recordSend.
-// Returns the row's key, or null when nothing was written.
-export async function recordBlocked(loadId: string, purpose: string, channel: Channel, message: SentMessage, audience: Audience, reason: string): Promise<{ pk: string; sk: string } | null> {
+// Returns the row's key, or null when nothing was written; a progress passed in is marked recorded
+// once the row is written.
+export async function recordBlocked(loadId: string, purpose: string, channel: Channel, message: SentMessage, audience: Audience, reason: string, progress?: SendProgress): Promise<{ pk: string; sk: string } | null> {
   if (loadId === "-") return null;
   try {
     const messageId = `not-sent-${randomBytes(6).toString("hex")}`;
     const item = sendRecord({ loadId, messageId, channel, purpose, audience, sentAt: new Date().toISOString(), message, notSentReason: reason });
     await ddb.send(new PutCommand({ TableName: env.table(), Item: item }));
+    if (progress) progress.recorded = true;
     return { pk: item.pk, sk: item.sk };
   } catch (error) {
     log("send_record_failed", { purpose, loadId, error: (error as Error).name });
@@ -263,7 +265,7 @@ async function recordSend(messageId: string, loadId: string, purpose: string, ch
 export async function send(target: Target, body: Body, purpose: string, loadId: string, options: SendOptions = {}): Promise<string | null> {
   const gate = await cleared(target, purpose, loadId, options);
   if ("blocked" in gate) {
-    noteRecorded(options, (await recordBlocked(loadId, purpose, "whatsapp", renderWhatsApp(body), options.audience ?? "driver", gate.blocked)) !== null);
+    await recordBlocked(loadId, purpose, "whatsapp", renderWhatsApp(body), options.audience ?? "driver", gate.blocked, options.progress);
     return null;
   }
   const address = gate.address;
@@ -323,7 +325,7 @@ export async function sendDocument(target: Target, file: DocumentFile, purpose: 
   const shownWith = (sha256: string | undefined) => ({ kind: "document" as const, text: file.caption, document: { filename: file.filename, ...(sha256 ? { sha256 } : {}) } });
   const gate = await cleared(target, purpose, loadId, options);
   if ("blocked" in gate) {
-    noteRecorded(options, (await recordBlocked(loadId, purpose, "whatsapp", shownWith(typeof file.sha256 === "string" ? file.sha256 : undefined), audience, gate.blocked)) !== null);
+    await recordBlocked(loadId, purpose, "whatsapp", shownWith(typeof file.sha256 === "string" ? file.sha256 : undefined), audience, gate.blocked, options.progress);
     return null;
   }
   const shown = shownWith(typeof file.sha256 === "string" ? file.sha256 : await file.sha256());
@@ -366,7 +368,7 @@ export async function sendRcs(target: Target, content: RcsMessageContent, purpos
   if (!rcs) throw new SendNotStarted("RCS is not configured (RCS_AGENT_ID, RCS_TOPIC_ARN)", NOT_SENT.rcsOff, true);
   const gate = await cleared(target, purpose, loadId, options);
   if ("blocked" in gate) {
-    noteRecorded(options, (await recordBlocked(loadId, purpose, "rcs", renderRcs(content), options.audience ?? "driver", gate.blocked)) !== null);
+    await recordBlocked(loadId, purpose, "rcs", renderRcs(content), options.audience ?? "driver", gate.blocked, options.progress);
     return null;
   }
   const address = gate.address;

@@ -304,7 +304,7 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
   const document = async (target: Target, language: Language, audience: Audience, progress: SendProgress): Promise<ReceiptResult> => {
     const caption = RECEIPT_TEXT[language].caption(load.loadId, amount);
     if (!pdfKey) {
-      progress.recorded = (await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: caption, document: { filename } }, audience, NOT_SENT.noPdf)) !== null;
+      await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: caption, document: { filename } }, audience, NOT_SENT.noPdf, progress);
       return { audience, channel: "whatsapp", sent: false, skipped: NOT_SENT.noPdf };
     }
     // The hash is read only for a recipient the gates let through (sendDocument): a failed read for
@@ -314,7 +314,7 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
   };
 
   const notSent = async (progress: SendProgress, audience: Audience, language: Language, reason: string): Promise<ReceiptResult> => {
-    progress.recorded = (await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", documentShown(language), audience, reason)) !== null;
+    await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", documentShown(language), audience, reason, progress);
     return { audience, channel: "whatsapp", sent: false, skipped: reason };
   };
 

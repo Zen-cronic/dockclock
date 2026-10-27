@@ -1,8 +1,8 @@
 import { SendWhatsAppMessageCommand, SocialMessagingClient } from "@aws-sdk/client-socialmessaging";
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { send, textMessage } from "../src/sender.js";
+import { recordBlocked, send, textMessage, type SendProgress } from "../src/sender.js";
 
 const messaging = mockClient(SocialMessagingClient);
 const dynamo = mockClient(DynamoDBDocumentClient);
@@ -52,5 +52,22 @@ describe("send", () => {
     const update = dynamo.commandCalls(UpdateCommand)[0]?.args[0].input;
     expect(update?.Key).toEqual({ pk: "MSG#out-1", sk: "RECEIPT" });
     expect(update?.UpdateExpression).toContain("if_not_exists(acceptedAt");
+  });
+
+  // A caller replacing an earlier not-sent row reads progress.recorded before deleting that row.
+  it("marks a stopped send recorded only once its not-sent row is written", async () => {
+    dynamo.on(PutCommand).resolves({});
+    const written: SendProgress = { stage: "gates" };
+    expect(await send(allowed, textMessage("hi"), "test", "L1", { progress: written })).toBeNull();
+    expect(written.recorded).toBe(true);
+    const direct: SendProgress = { stage: "gates" };
+    expect(await recordBlocked("L1", "test", "whatsapp", { kind: "text", text: "hi" }, "driver", "test", direct)).not.toBeNull();
+    expect(direct.recorded).toBe(true);
+    dynamo.on(PutCommand).rejects(new Error("throttled"));
+    const failed: SendProgress = { stage: "gates" };
+    expect(await send(allowed, textMessage("hi"), "test", "L1", { progress: failed })).toBeNull();
+    expect(failed.recorded).toBeUndefined();
+    expect(await recordBlocked("L1", "test", "whatsapp", { kind: "text", text: "hi" }, "driver", "test", failed)).toBeNull();
+    expect(failed.recorded).toBeUndefined();
   });
 });
