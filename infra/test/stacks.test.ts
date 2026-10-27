@@ -421,6 +421,17 @@ describe("npm run deploy", () => {
     expect(readArgs(["--", "-c", "a=b"]).context).toEqual({});
   });
 
+  // The CLI's parser reads a camelCase option as its kebab-case name.
+  it("reads a camelCase option as the CLI does", () => {
+    expect(readArgs(["--outputsFile", "o.json", "DockClockCore"]).outputsFile).toBe(true);
+    expect(readArgs(["--outputsFile=o.json"]).outputsFile).toBe(true);
+    expect(readArgs(["--outputsFile", "o.json"]).named).toBe(false);
+    expect(readArgs(["--outputsFile", "o.json"]).unsure).toEqual([]);
+    expect(readArgs(["--buildExclude", "DockClock*"]).named).toBe(false);
+    expect(readArgs(["--ignoreErrors", "DockClockCore"]).named).toBe(true);
+    expect(deployPlan({ path: "", error: null }, ["--outputsFile", "o.json"], {}).outputsFile).toBe(true);
+  });
+
   // The CLI reads no option after --, so this script's own options go before it.
   it("puts its own options before --", () => {
     expect(deployCommand(["--app", "cdk.out", "--", "DockClockCore"], ["--require-approval", "never"])).toEqual(["deploy", "--app", "cdk.out", "--require-approval", "never", "--", "DockClockCore"]);

@@ -95,6 +95,9 @@ export interface DeployArgs {
   outputsFile: boolean;
 }
 
+// The CLI's parser reads --outputsFile as --outputs-file, so an option is looked up in that form.
+const kebab = (flag: string) => (flag.startsWith("--") ? `--${flag.slice(2).replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}` : flag);
+
 // Reads the command line as the CDK CLI's parser does, the option-value rule first: the bare
 // argument right after an option that takes a value is that value, even when it looks like a stack
 // (--build-exclude 'DockClock*'), and true or false right after a boolean is its value. Every other
@@ -123,7 +126,7 @@ export function readArgs(extra: string[], options: CliOptions | null = cliOption
       continue;
     }
     const eq = arg.indexOf("=");
-    const flag = eq > 0 ? arg.slice(0, eq) : arg;
+    const flag = kebab(eq > 0 ? arg.slice(0, eq) : arg);
     const isContext = flag === "-c" || flag === "--context";
     if (flag === "--all") out.named = true;
     if (flag === "-O" || flag === "--outputs-file") out.outputsFile = true;
