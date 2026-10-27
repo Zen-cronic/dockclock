@@ -42,7 +42,8 @@ export function toCents(amountUsd: number): number {
 // - it is normalised to NFKC, every decimal digit of any script is read as its ASCII digit (٤١٦ and
 //   ४१६ are 416), any other numeral left (❹, ⓸, 〇) counts as a digit too, and invisible characters
 //   and combining marks are deleted;
-// - "arn:" in any case is refused;
+// - "arn:" in any case is refused, and so is "arn" then up to three other characters then "aws"
+//   (arn∶aws, arn :aws), unless an ASCII letter comes right before it (warn, barn);
 // - the digits are read in runs. Only an ASCII word ends a run. Punctuation, spaces, symbols,
 //   letters of other scripts (ǀ, ㅡ, 一) and a single ASCII letter set tight between two digits
 //   (416x555x0143) all join it, and such a letter that looks like a digit (416-555-O143) counts as
@@ -81,7 +82,7 @@ const SAFE: Array<[TokenKind, RegExp]> = (
     ["money", String.raw`\$ ?(?:\d{1,3}(?:,\d{3}){1,2}|\d{1,7})(?:\.\d{2})?(?![\d,.]\d)`],
   ] as const
 ).map(([kind, source]) => [kind, new RegExp(source, "giu")]);
-const ARN = /(?<![\p{L}\d])arn:/giu;
+const ARN = /(?<![A-Za-z])arn(?::|[^A-Za-z\d]{1,3}aws(?![A-Za-z]))/giu;
 
 // The ASCII digit for a decimal digit of any script. Unicode encodes each script's digits as one
 // run of 0 to 9 (some runs hold several sets of ten), so the digit is its distance from the run's

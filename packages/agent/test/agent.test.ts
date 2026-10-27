@@ -192,6 +192,11 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", "Call 416-555-O143."],
     ["refuses", "Call 4l6-555-0l43."],
     ["refuses", "Call 416-555-0I43."],
+    // An ARN behind a colon that is not ASCII, a space, or a digit.
+    ["refuses", "Key arn∶aws∶s3∶∶∶evidence-bucket."],
+    ["refuses", "Key arnː aws:s3:::evidence-bucket."],
+    ["refuses", "Key arn :aws:s3:::evidence-bucket."],
+    ["refuses", "Key 1arn:aws:s3:::evidence-bucket."],
     // What the agent and the clause engine write, which must still file.
     ["files", "Billed $9.88 ($80.00 cap)."],
     ["files", "From $80.00-$120.00."],
@@ -203,6 +208,7 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["files", "Detention 80 min (+15 min grace) = $80.00."],
     ["files", "Wait 2 h 13 m (13:05–15:18)."],
     ["files", "Loaded 5 x 12 pallets."],
+    ["files", "The driver will warn dispatch."],
   ])("%s an opening with: %s", (outcome, text) => {
     const result = checkClaim({ ...request, body: `${body} ${text}` }, basis);
     if (outcome === "files") expect(result, shown(text)).toEqual({ ok: true });
