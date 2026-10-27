@@ -51,8 +51,15 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", "0143", "Call 416-555-0143."],
     ["refuses", "0143", "Call 416\u2063555\u20630143."],
     ["refuses", "0143", "Key arn:aws:kms:x/0143."],
-  ])("%s load %s with: %s", (outcome, id, text) => {
-    const named = `${body.replaceAll("LIVE-abc", id)} ${text}`.trim();
+    // A numeric load id beside the amount: the load and the amount are one token each.
+    ["files", "PO-4471982", "", "load PO-4471982: $80.00"],
+    ["files", "4471982", "", "load 4471982 ($80.00)"],
+    ["files", "PO-123456789012", "", "load PO-123456789012, $80.00,"],
+    ["refuses", "4471982", "", "load 4471982 ($80.00) 555"],
+    ["refuses", "0143", "", "load 0143 0143 0143 ($80.00)"],
+  ])("%s load %s with: %s %s", (outcome, id, text, opening = "") => {
+    const base = opening ? body.replace("load LIVE-abc", opening).replace(" Amount owed: $80.00.", "") : body;
+    const named = `${base.replaceAll("LIVE-abc", id)} ${text}`.trim();
     const result = checkClaim({ ...request, loadId: id, body: named }, { ...basis, loadId: id });
     if (outcome === "files") expect(result).toEqual({ ok: true });
     else expect(result.ok === false && result.reason).toMatch(/AWS resource name, account id or phone number/);
@@ -91,7 +98,8 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", "Key arn:aws-us-gov:kms:x."],
     ["files", "Grace (+15) 2026-10-23 13:05 EDT."],
     ["files", "Arrived 2026-10-23T13:05:00-04:00, released +2 hours past free time (+15 min grace)."],
-    ["files", "Released 14:30–14:35 on 2026-10-23, 80 minutes past free time."],
+    // A bare number beside a date joins it: the agent never writes times or minutes in the opening.
+    ["refuses", "Released 14:30–14:35 on 2026-10-23, 80 minutes past free time."],
     ["files", "Arrived at 13:05:00.123 EDT, released at 14:35:00.5 EDT."],
     // A freight reference short enough that it cannot be a phone number or an account id.
     ["files", "PRO 123456789 for load LIVE-abc."],
@@ -158,10 +166,43 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", "Call 4165550 +143."],
     // A list joins too: only a letter ends a run.
     ["refuses", "Call 416, 555, 0143."],
+    // A safe token beside a bare group does not end the run, nor do several tokens of one kind.
+    ["refuses", "Call 416-555-01:43."],
+    ["refuses", "Call 416 555 01:43."],
+    ["refuses", "Account 1111-22:33-4444."],
+    ["refuses", "Account 11112222 3:33 3."],
+    ["refuses", "Call 416-555-1/1/43."],
+    ["refuses", "Account 1111 2026-10-23 99."],
+    ["refuses", "Call 4:16 5:55 01:43."],
+    ["refuses", "Call $416 $555 $0143."],
+    ["refuses", "Billed $1,234.56, $2,345.67."],
+    ["refuses", "Call 41:65 5:50 +143."],
+    // What the agent and the clause engine write, which must still file.
+    ["files", "Billed $9.88 ($80.00 cap)."],
+    ["files", "From $80.00-$120.00."],
+    ["files", "Arrived 2026-10-23 13:05, released 2026-10-23 14:35."],
+    ["files", "Window 13:05-14:35 on 10/23/2026."],
+    ["files", "Arrived 2026-10-23T13:05:00.000-04:00."],
+    ["files", "Arrived Oct 23, 2026 at 1:05 PM."],
+    ["files", "Arrived 10/23/2026 13:05 and released 10/23/2026 14:35."],
+    ["files", "Detention 80 min (+15 min grace) = $80.00."],
+    ["files", "Wait 2 h 13 m (13:05–15:18)."],
   ])("%s an opening with: %s", (outcome, text) => {
     const result = checkClaim({ ...request, body: `${body} ${text}` }, basis);
     if (outcome === "files") expect(result, shown(text)).toEqual({ ok: true });
     else expect(result.ok === false && result.reason, shown(text)).toMatch(/AWS resource name, account id or phone number/);
+  });
+
+  // formatUsd writes no thousands separator, so an amount of $1,000 or more is $1234.56 in the opening.
+  it.each([
+    ["files", "We are claiming detention for load LIVE-abc at Lakeshore DC under the rate confirmation in the amount of $1234.56."],
+    ["files", "We are claiming detention for load LIVE-abc at Lakeshore DC under the rate confirmation: $1234.56 ($60.00/h)."],
+    ["files", "We are claiming detention for load LIVE-abc at Lakeshore DC under the rate confirmation in the amount of $1234.56 ($1,234.56)."],
+    ["refuses", "We are claiming detention for load LIVE-abc at Lakeshore DC under the rate confirmation: $1234.56, 4165."],
+  ])("%s a four-figure amount: %s", (outcome, opening) => {
+    const result = checkClaim({ ...request, amountCents: 123456, body: opening }, { ...basis, amountCents: 123456 });
+    if (outcome === "files") expect(result).toEqual({ ok: true });
+    else expect(result.ok === false && result.reason).toMatch(/AWS resource name, account id or phone number/);
   });
 
   it("files the opening the live agent wrote for LIVE-mvpoqheg", () => {
