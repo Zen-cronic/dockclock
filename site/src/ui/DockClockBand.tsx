@@ -9,7 +9,8 @@ import { IconPause, IconPlay } from "./icons.js";
 // Said under the band when a recorded time does not parse and the release line does not say so.
 export const UNREADABLE_BAND_NOTE = "A recorded time could not be read, so it is left off the clock and a person reviews the load";
 
-const readableOrNull = (iso: string | null | undefined) => (timeReadable(iso) ? iso : null);
+// The clock's recorded times, each drawn only when it parses.
+const CLOCK_TIMES = ["arrivedAt", "releasedAt", "releasePinAt", "endedAt", "clockStartAt", "freeTimeEndsAt"] as const;
 
 // The phases in which a truck can still be at the dock, so the clock may run to "as of".
 const AT_DOCK_PHASES = new Set(["waiting_for_arrival", "at_dock"]);
@@ -18,16 +19,9 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
   // A stored time that does not parse is left off the track (as if not recorded) and said in the
   // note, never drawn at NaN% or formatted (a RangeError would replace the whole console).
   const recorded = load.clock;
-  const c = {
-    ...recorded,
-    arrivedAt: readableOrNull(recorded.arrivedAt),
-    releasedAt: readableOrNull(recorded.releasedAt),
-    releasePinAt: readableOrNull(recorded.releasePinAt),
-    endedAt: readableOrNull(recorded.endedAt),
-    clockStartAt: readableOrNull(recorded.clockStartAt),
-    freeTimeEndsAt: readableOrNull(recorded.freeTimeEndsAt),
-  };
-  const unreadable = (["arrivedAt", "releasedAt", "releasePinAt", "endedAt", "clockStartAt", "freeTimeEndsAt"] as const).some((k) => recorded[k] !== null && recorded[k] !== undefined && c[k] === null);
+  const readable = Object.fromEntries(CLOCK_TIMES.map((k) => [k, timeReadable(recorded[k]) ? recorded[k] : null])) as Record<(typeof CLOCK_TIMES)[number], string | null>;
+  const c = { ...recorded, ...readable };
+  const unreadable = CLOCK_TIMES.some((k) => recorded[k] != null && c[k] === null);
   const tz = load.timeZone;
   const timeline = load.timeline.filter((e) => timeReadable(e.at));
   const times = timeline.map((e) => Date.parse(e.at));
