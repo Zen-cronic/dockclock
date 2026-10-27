@@ -128,6 +128,7 @@ export function releaseLine(c: Pick<LoadDetail["clock"], "releasedAt" | "release
     return `${stopped}; pin ${early ? "early" : "late"} at ${clock(c.releasePinAt, timeZone)} (${gap} the tap, limit ${RELEASE_PIN_WINDOW_MINUTES}), so a person reviews the load`;
   }
   if (c.releasedAt) return null;
-  if (c.endedAt) return `Clock stopped at ${clock(c.endedAt, timeZone)}: the load ended without a release`;
+  // A close time that does not parse says nothing here; the band's unreadable note speaks for it.
+  if (c.endedAt) return timeReadable(c.endedAt) ? `Clock stopped at ${clock(c.endedAt, timeZone)}: the load ended without a release` : null;
   return null;
 }

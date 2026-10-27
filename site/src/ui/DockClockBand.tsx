@@ -11,6 +11,9 @@ export const UNREADABLE_BAND_NOTE = "A recorded time could not be read, so it is
 
 const readableOrNull = (iso: string | null | undefined) => (timeReadable(iso) ? iso : null);
 
+// The phases in which a truck can still be at the dock, so the clock may run to "as of".
+const AT_DOCK_PHASES = new Set(["waiting_for_arrival", "at_dock"]);
+
 export function DockClockBand({ load, cursor, playing, onPlay, title, legend, compact }: { load: LoadDetail; cursor?: string | null; playing?: boolean; onPlay?: () => void; title?: string; legend?: boolean; compact?: boolean }) {
   // A stored time that does not parse is left off the track (as if not recorded) and said in the
   // note, never drawn at NaN% or formatted (a RangeError would replace the whole console).
@@ -34,12 +37,17 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
   // ended without a release. Nothing past it is billed.
   const stopAt = c.releasedAt ?? c.endedAt ?? null;
   const ended = !c.releasedAt && Boolean(c.endedAt);
-  // A load still at the dock: the clock runs to "as of", and the track ends there.
-  const now = !stopAt && load.asOf && timeReadable(load.asOf) ? load.asOf : null;
+  // A release or close that was recorded but does not parse: the truck has left, but when is not
+  // known, so no stop is drawn, nothing is counted and the note says a person reviews the load.
+  const stopUnreadable = !stopAt && (Boolean(recorded.releasedAt) || Boolean(recorded.endedAt));
+  // A load still at the dock: the clock runs to "as of", and the track ends there. A load past the
+  // dock (sealing, awaiting approval, closed) never runs to "as of".
+  const atDockNow = !stopAt && !stopUnreadable && AT_DOCK_PHASES.has(load.summary.phase);
+  const now = atDockNow && load.asOf && timeReadable(load.asOf) ? load.asOf : null;
   if (now) times.push(Date.parse(now));
   // Neither live nor stopped (an older closed record): the clock ends at its last record, never today.
   const lastRecord = timeline.map((e) => e.at).sort().at(-1) ?? c.arrivedAt;
-  const clockEnd = stopAt ?? now ?? lastRecord;
+  const clockEnd = stopAt ?? now ?? (stopUnreadable ? null : lastRecord);
   // While the truck is still at the dock, keep the end of free time on the track.
   if (now && c.freeTimeEndsAt) times.push(Date.parse(c.freeTimeEndsAt));
   if (c.arrivedAt) {
@@ -77,8 +85,8 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
   const limit = cursor && timeReadable(cursor) ? Date.parse(cursor) : Number.POSITIVE_INFINITY;
   const upTo = (iso: string | null) => Math.min(Date.parse(iso ?? new Date(limit === Infinity ? Date.now() : limit).toISOString()), limit);
   const width = (from: string, to: string) => Math.max(0, pct(new Date(Math.min(Date.parse(to), limit)).toISOString()) - pct(from));
-  const atDock = c.arrivedAt ? Math.max(0, (upTo(clockEnd) - Date.parse(c.arrivedAt)) / 60_000) : 0;
-  const billable = c.freeTimeEndsAt ? Math.max(0, (upTo(clockEnd) - Date.parse(c.freeTimeEndsAt)) / 60_000) : 0;
+  const atDock = c.arrivedAt && clockEnd ? Math.max(0, (upTo(clockEnd) - Date.parse(c.arrivedAt)) / 60_000) : 0;
+  const billable = c.freeTimeEndsAt && clockEnd ? Math.max(0, (upTo(clockEnd) - Date.parse(c.freeTimeEndsAt)) / 60_000) : 0;
   const release = releaseLine(recorded, tz) ?? (unreadable ? UNREADABLE_BAND_NOTE : null);
   const early = c.arrivedAt && c.clockStartAt && Date.parse(c.arrivedAt) < Date.parse(c.clockStartAt);
   return (

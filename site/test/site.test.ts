@@ -506,4 +506,29 @@ describe("a load with a time that does not parse", async () => {
     Object.assign(arrival.clock, { arrivedAt: "garbage" });
     expect(renderToStaticMarkup(createElement(DockClockBand, { load: detailFromApi(arrival, "fixture") }))).toContain(UNREADABLE_BAND_NOTE);
   });
+
+  // A load that left the dock but whose release (or close) time does not parse was drawn as still at
+  // the dock, its clock running to "as of".
+  it("never runs the clock to as of for a load past the dock whose stop time does not parse", () => {
+    const asOf = "2026-10-30T12:00:00.000Z";
+    const live = (clock: Partial<LoadView["clock"]>, status: LoadView["summary"]["status"]) => {
+      const v = structuredClone(body.data);
+      Object.assign(v.summary, { live: true, status });
+      Object.assign(v.clock, { asOf, releasePinAt: null, endedAt: null, ...clock });
+      return renderToStaticMarkup(createElement(DockClockBand, { load: detailFromApi(v, "fixture") }));
+    };
+    for (const [clock, status] of [
+      [{ releasedAt: "not a time" }, "awaiting_approval"],
+      [{ releasedAt: "not a time" }, "at_dock"],
+      [{ releasedAt: null, endedAt: "garbage" }, "closed"],
+      [{ releasedAt: null }, "sealing"],
+    ] as const) {
+      const html = live(clock, status);
+      expect(html, JSON.stringify(clock)).not.toContain("cursor live");
+      expect(html, JSON.stringify(clock)).not.toMatch(/NaN|Invalid|ended without a release/);
+      if (clock.releasedAt !== null || "endedAt" in clock) expect(html, JSON.stringify(clock)).toContain(UNREADABLE_BAND_NOTE);
+    }
+    // Still at the dock with nothing stopped: the clock runs to as of.
+    expect(live({ releasedAt: null }, "at_dock")).toContain("cursor live");
+  });
 });
