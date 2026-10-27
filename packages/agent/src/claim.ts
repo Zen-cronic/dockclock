@@ -44,12 +44,16 @@ export function toCents(amountUsd: number): number {
 //   number (PRO 1234567890, BOL #123456789012, PO: 123456789012, ref no. 12345678901, an order,
 //   shipment or invoice number);
 // - refused: "arn:" in any case, and any remaining run of 10 or more digits, however its groups are
-//   joined (spaces, dots, dashes, slashes, brackets, a comma with no space): +1 (416) 555-0143,
-//   tel:416-555-0143, 1111.2222.3333, 4165550143,4165550199.
+//   joined: any run of separators between two digit groups joins them (any Unicode space, a tab or
+//   a line break, dots, dashes, slashes, brackets, a comma with no space after it), so +1 (416)
+//   555-0143, tel:416-555-0143, 416 - 555 - 0143, 1111.2222.3333 and 4165550143,4165550199 are each
+//   one run. A comma followed by a space ends a run, as in a list.
 // A safe token is blanked, never deleted, so the digits on either side of it are not joined. A run
 // that lies wholly inside an occurrence of the load id is allowed (PO-123456789012 is not an account
-// id); one that only overlaps it (Account 999901439999 on load 0143) still counts.
-const JOIN = String.raw`(?:\) ?| ?\(|[ .\-/\u00a0\u2010-\u2015]|,(?=\d))`;
+// id); one that only overlaps it (Account 999901439999 on load 0143) still counts. The check reads
+// the opening in NFKC form, so full-width or styled digits count as digits.
+const SEPARATOR = String.raw`[\s.\-/()\[\]\u00ad\u00b7\u200b-\u200d\u2010-\u2015\u2022\u2027\u2060\u2212\u2219\ufe58\ufe63\uff0d]`;
+const JOIN = String.raw`(?:${SEPARATOR}|,(?=\d))+`;
 const SAFE = [
   // Money: $80, $80.00, $1,234.56. A run that continues past the cents or the groups is not money.
   String.raw`\$ ?(?:\d{1,3}(?:,\d{3})+|\d{1,7})(?:\.\d{1,2})?(?!,?\d|\.\d)`,
@@ -63,14 +67,16 @@ const LABELLED = new RegExp(
   String.raw`(?<![A-Za-z])(?:PRO|BOL|B\/L|P\.?O\.?|ref(?:erence)?|order|shipment|invoice)(?![A-Za-z])(?: ?(?:#|:|-|no\.?|num(?:ber)?|nbr)(?![A-Za-z]))* ?[#:]? ?(?:[A-Za-z]{1,4}-?)?\d+(?!\d|${JOIN}\d)`,
   "gi",
 );
-const RUN = new RegExp(String.raw`\d(?:${JOIN}?\d)*`, "g");
+const RUN = new RegExp(String.raw`\d(?:(?:${JOIN})?\d)*`, "g");
 const ARN = /(?<![A-Za-z0-9])arn:/gi;
 
 function blank(text: string, re: RegExp): string {
   return text.replace(re, (match) => "_".repeat(match.length));
 }
 
-function leaks(body: string, loadId: string): boolean {
+function leaks(opening: string, id: string): boolean {
+  const body = opening.normalize("NFKC");
+  const loadId = id.normalize("NFKC");
   const named: Array<[number, number]> = [];
   for (let at = body.indexOf(loadId); loadId && at !== -1; at = body.indexOf(loadId, at + 1)) named.push([at, at + loadId.length]);
   const inName = (start: number, end: number) => named.some(([from, to]) => from <= start && end <= to);

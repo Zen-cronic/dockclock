@@ -86,7 +86,9 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
   });
 
   // Every opening the leak check has misjudged, both ways, and the shapes around them. Fictional
-  // numbers only: 555-01xx phone numbers and made-up account ids.
+  // numbers only: 555-01xx phone numbers and made-up account ids. A test name shows each separator
+  // that is not a plain space by its code point.
+  const shown = (text: string) => text.replace(/[^\x20-\x7e]/g, (c) => `<U+${c.codePointAt(0)!.toString(16).padStart(4, "0")}>`);
   it.each([
     ["files", "Grace (+15) 2026-10-23 13:05 EDT."],
     ["files", "Arrived 2026-10-23T13:05:00-04:00, released +2 hours past free time (+15 min grace)."],
@@ -109,10 +111,27 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", "Grace +1 416-555-0143."],
     ["refuses", "Account 111122223333 on 2026-10-23 13:05."],
     ["refuses", "Key arn:aws:kms:us-east-1:x."],
+    // Groups joined by more than one separator, or by any Unicode space, a tab or a line break.
+    ["refuses", "Call +1 416 - 555 - 0143."],
+    ["refuses", "+1 416  555  0143"],
+    ["refuses", "416\t555\t0143"],
+    ["refuses", "416\n555\n0143"],
+    ["refuses", "+1\u2009416\u2009555\u20090143"],
+    ["refuses", "416\u202f555\u202f0143"],
+    ["refuses", "416\u00a0555\u00a00143"],
+    ["refuses", "Account 1111\t2222\t3333"],
+    ["refuses", "Call 416 — 555 — 0143."],
+    ["refuses", "Call 416 / 555 / 0143."],
+    ["refuses", "Call [416] 555 0143."],
+    ["refuses", "Call ( 416 ) 555 . 0143."],
+    ["refuses", "Call 416 ,555 ,0143."],
+    ["refuses", "Call 416\u200b555\u200b0143."],
+    ["refuses", "Call 416·555·0143."],
+    ["refuses", "Call ４１６５５５０１４３."],
   ])("%s an opening with: %s", (outcome, text) => {
     const result = checkClaim({ ...request, body: `${body} ${text}` }, basis);
-    if (outcome === "files") expect(result).toEqual({ ok: true });
-    else expect(result.ok === false && result.reason).toMatch(/AWS resource name, account id or phone number/);
+    if (outcome === "files") expect(result, shown(text)).toEqual({ ok: true });
+    else expect(result.ok === false && result.reason, shown(text)).toMatch(/AWS resource name, account id or phone number/);
   });
 
   it("files a load whose id is shaped like a phone number, and still refuses a number beside it", () => {
