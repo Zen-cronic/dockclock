@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { clockEndOf, releaseTimeOf } from "@dockclock/clause-engine";
+import { clockEndOf, releaseTimeOf, shiftTime, timeReadable } from "@dockclock/clause-engine";
 import { clock, dateLong, usd, zoneName } from "../format.js";
 import type { Photo } from "../model/model.js";
 import type { SignedPackInfo } from "../snapshot.js";
@@ -27,12 +27,13 @@ const TAMPERS: Array<[keyof Tamper, string, string]> = [
 ];
 
 // The Release switch moves the time that stopped the clock: the Released tap on a pack that has one
-// (version 2), the release pin on an older pack.
+// (version 2), the release pin on an older pack. A release time that does not parse cannot be moved,
+// so the switch is off for that pack (releaseMovable).
 export function tampered(pack: PackShape, t: Tamper): PackShape {
   const p = structuredClone(pack);
   if (t.amount && p.evaluation) p.evaluation.amountUsd = 9999;
   const end = t.release ? clockEndOf(p.events) : null;
-  const moved = end ? new Date(Date.parse(end.at) + 30 * 60_000).toISOString() : null;
+  const moved = end ? shiftTime(end.at, 30 * 60_000) : null;
   if (moved && end?.by === "released_tap" && p.events?.releasedTap) p.events.releasedTap.serverAt = moved;
   else if (moved && p.events?.released) p.events.released.serverAt = moved;
   if (t.check && p.corroboration?.signals) {
@@ -40,6 +41,10 @@ export function tampered(pack: PackShape, t: Tamper): PackShape {
     p.corroboration.confidence = "high";
   }
   return p;
+}
+
+export function releaseMovable(pack: PackShape): boolean {
+  return timeReadable(releaseTimeOf(pack.events));
 }
 
 let keyCache: string | null = null;
@@ -92,7 +97,7 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
   const signals = (p: PackShape) => `${(p.corroboration?.signals ?? []).filter((s) => s.ok).length} of ${(p.corroboration?.signals ?? []).length}`;
   const diffs: string[] = [];
   if (t.amount) diffs.push(`amount ${usd(orig.evaluation?.amountUsd ?? 0)} → ${usd(9999)}`);
-  if (t.release) diffs.push(`${orig.events?.releasedTap?.serverAt ? "Released tap" : "released"} ${when(releaseTimeOf(orig.events) ?? undefined)} → ${when(releaseTimeOf(now.events) ?? undefined)}`);
+  if (t.release && releaseMovable(orig)) diffs.push(`${orig.events?.releasedTap?.serverAt ? "Released tap" : "released"} ${when(releaseTimeOf(orig.events) ?? undefined)} → ${when(releaseTimeOf(now.events) ?? undefined)}`);
   if (t.check) diffs.push(`checks ${signals(orig)} → ${signals(now)}`);
   return (
     <div className="grid-2">
@@ -155,13 +160,16 @@ export function EvidencePanel({ pack, timeZone, photos }: { pack: SignedPackInfo
           </ul>
         )}
         <div style={{ height: 16 }} />
-        {TAMPERS.map(([k, label, hint]) => (
-          <label className="switch" key={k}>
-            <input type="checkbox" role="switch" checked={t[k]} onChange={(e) => setT({ ...t, [k]: e.target.checked })} />
-            {label}
-            <span className="hint">{hint}</span>
-          </label>
-        ))}
+        {TAMPERS.map(([k, label, hint]) => {
+          const off = k === "release" && !releaseMovable(orig);
+          return (
+            <label className="switch" key={k}>
+              <input type="checkbox" role="switch" checked={t[k] && !off} disabled={off} onChange={(e) => setT({ ...t, [k]: e.target.checked })} />
+              {label}
+              <span className="hint">{off ? "time not readable" : hint}</span>
+            </label>
+          );
+        })}
         <details style={{ marginTop: 16 }}>
           <summary className="small" style={{ cursor: "pointer" }}>Terminal</summary>
           <pre className="json" style={{ marginTop: 8 }}>npm run verify:pack -- {pack.packId}.pack.json</pre>

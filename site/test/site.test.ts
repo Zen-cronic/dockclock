@@ -331,7 +331,7 @@ describe("release tap and pin", async () => {
 
 // The tamper switch moves what stopped the clock: the Released tap on a version 2 pack, the pin on v1.
 describe("evidence tamper", async () => {
-  const { tampered } = await import("../src/ui/EvidencePanel.js");
+  const { EvidencePanel, releaseMovable, tampered } = await import("../src/ui/EvidencePanel.js");
   const at = (h: number, m: number) => `2026-10-23T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00.000Z`;
   const on = { amount: false, release: true, check: false };
 
@@ -346,6 +346,22 @@ describe("evidence tamper", async () => {
   it("moves the release pin on an older pack without a tap", () => {
     const now = tampered({ events: { released: { serverAt: at(18, 57) } } }, on);
     expect(now.events?.released?.serverAt).toBe(at(19, 27));
+  });
+
+  // Moving an unreadable time threw a RangeError while the panel rendered, and the error boundary
+  // replaced the console.
+  it("leaves a release time that does not parse where it is, and turns the switch off", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    for (const events of [{ releasedTap: { serverAt: "garbage" }, released: { serverAt: at(18, 57) } }, { released: { serverAt: "not a time" } }]) {
+      expect(tampered({ events }, on).events).toEqual(events);
+      expect(releaseMovable({ events })).toBe(false);
+      const pack = { ...snap.pack, pack: { ...snap.pack.pack, events: { ...(snap.pack.pack.events as object), releasedTap: null, ...events } } };
+      const html = renderToStaticMarkup(createElement(EvidencePanel, { pack, timeZone: "America/New_York", photos: [] }));
+      expect(html).toContain("time not readable");
+      expect(html).not.toMatch(/NaN|Invalid/);
+    }
+    expect(releaseMovable({ events: { released: { serverAt: at(18, 57) } } })).toBe(true);
   });
 });
 

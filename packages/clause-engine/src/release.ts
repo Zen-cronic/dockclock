@@ -47,6 +47,14 @@ export function timeReadable(at: unknown): at is string {
   return typeof at === "string" && Number.isFinite(Date.parse(at));
 }
 
+// The time `ms` later (earlier when negative), or null when the stored time does not parse: date
+// arithmetic on an unreadable time would throw a RangeError on toISOString().
+export function shiftTime(at: unknown, ms: number): string | null {
+  if (!timeReadable(at)) return null;
+  const shifted = new Date(Date.parse(at) + ms);
+  return Number.isFinite(shifted.getTime()) ? shifted.toISOString() : null;
+}
+
 // How the release pin stands against the Released tap: "confirmed" within the window (either
 // side), "late" outside it, "unreadable" when either time does not parse. An unreadable time is
 // never read as confirmed or as late: the engine sends the load to a person (TIMESTAMP_UNREADABLE).
