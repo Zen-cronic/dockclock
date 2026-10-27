@@ -41,9 +41,10 @@ import { keys } from "./keys.js";
 // - A passing failure before the send call (the PDF cannot be read from S3 for a recipient the gates
 //   let through, the upload to WhatsApp fails, a table read throws) records a not-sent row and
 //   releases the reservation, so a retry can still send. The released reservation remembers that
-//   row. The retry deletes it only once it has recorded its own outcome (sent, or not sent), so the
-//   conversation keeps one row per recipient: the latest recorded attempt's. A retry that ends
-//   unconfirmed, or stops part way, leaves the earlier row in place.
+//   row. The retry deletes it only once its own not-sent row is written, or once its message went
+//   (a not-sent row is then no longer true), so the conversation keeps one row per recipient: the
+//   latest recorded attempt's. A retry that ends unconfirmed, stops part way, or fails to write its
+//   own not-sent row leaves the earlier row in place.
 // - Once the send call has started, any other failure may have sent the message (a timeout after
 //   delivery, a throttle or 5xx after a retried attempt): the reservation stays and nothing is
 //   recorded as not sent (SEND_UNCONFIRMED), on either channel.
@@ -304,7 +305,7 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
   const document = async (target: Target, language: Language, audience: Audience, progress: SendProgress): Promise<ReceiptResult> => {
     const caption = RECEIPT_TEXT[language].caption(load.loadId, amount);
     if (!pdfKey) {
-      await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: caption, document: { filename } }, audience, NOT_SENT.noPdf);
+      progress.recorded = (await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", { kind: "document", text: caption, document: { filename } }, audience, NOT_SENT.noPdf)) !== null;
       return { audience, channel: "whatsapp", sent: false, skipped: NOT_SENT.noPdf };
     }
     // The hash is read only for a recipient the gates let through (sendDocument): a failed read for
@@ -313,8 +314,8 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
     return { audience, channel: "whatsapp", sent: id !== null };
   };
 
-  const notSent = async (audience: Audience, language: Language, reason: string): Promise<ReceiptResult> => {
-    await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", documentShown(language), audience, reason);
+  const notSent = async (progress: SendProgress, audience: Audience, language: Language, reason: string): Promise<ReceiptResult> => {
+    progress.recorded = (await recordBlocked(load.loadId, RECEIPT_PURPOSE, "whatsapp", documentShown(language), audience, reason)) !== null;
     return { audience, channel: "whatsapp", sent: false, skipped: reason };
   };
 
@@ -362,11 +363,13 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
       reserved = true;
       left = taken.left;
       const result = await run(progress);
-      // Every answer has recorded its own row (sent, or not sent with the reason; best effort); a
-      // skipped RCS link (null) recorded none, so an earlier row stays.
+      // An answer replaces an earlier attempt's not-sent row once its own row is written (sent, or
+      // not sent with the reason; both best effort). A message that went replaces it either way: a
+      // not-sent row for it would no longer be true. A skipped RCS link (null) recorded nothing, and
+      // a not-sent row that failed to write leaves the earlier one in place.
       if (result) {
         push(result);
-        await dropLeftRows();
+        if (result.sent || progress.recorded) await dropLeftRows();
       }
     } catch (error) {
       const name = (error as Error).name;
@@ -407,10 +410,10 @@ export async function sendClaimReceipts(load: LoadItem): Promise<ReceiptResult[]
   } else {
     // The dispatcher reads the approval template in English (dockclock_dispatch_approval).
     const testLoad = load.synthetic && !load.askDispatcher;
-    const toDispatcher = async (progress: SendProgress) => (testLoad ? notSent("dispatcher", "en_US", NOT_SENT.testLoad) : document(await dispatcherTarget(), "en_US", "dispatcher", progress));
+    const toDispatcher = async (progress: SendProgress) => (testLoad ? notSent(progress, "dispatcher", "en_US", NOT_SENT.testLoad) : document(await dispatcherTarget(), "en_US", "dispatcher", progress));
     const toDriver = async (progress: SendProgress) => {
       if (load.channel === "rcs") return rcsLink(progress);
-      return windowOpen(await lastDriverWhatsAppAt(load.loadId)) ? document(driver, language, "driver", progress) : notSent("driver", language, NOT_SENT.windowClosed);
+      return windowOpen(await lastDriverWhatsAppAt(load.loadId)) ? document(driver, language, "driver", progress) : notSent(progress, "driver", language, NOT_SENT.windowClosed);
     };
     // One person in both roles gets the dispatcher's copy only (this file's header).
     const shared = !testLoad && load.channel !== "rcs" && dispatcherIsDriver(load.address);

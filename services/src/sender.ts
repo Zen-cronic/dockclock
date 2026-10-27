@@ -166,9 +166,12 @@ export async function isDemoEnrolled(driverKey: string): Promise<boolean> {
 // How far a send got: "gates" until the provider call starts, "sending" while it may have gone
 // out, "refused" when the provider answered that it did not take the message (nothing went),
 // "accepted" once the provider returned a message id. A caller that must know which side of the
-// send call an error came from passes one in and reads it after a throw.
+// send call an error came from passes one in and reads it after a throw. `recorded` is set once the
+// load's own row for the message (sent, or not sent with the reason) is written; both writes are
+// best effort, so a caller replacing an earlier row reads it before deleting that row.
 export interface SendProgress {
   stage: "gates" | "sending" | "refused" | "accepted";
+  recorded?: boolean;
 }
 
 // The provider answered on the first attempt with a client error other than a timeout or a throttle
@@ -187,6 +190,10 @@ type SendOptions = { ignoreOptOut?: boolean; audience?: Audience; progress?: Sen
 
 const mark = (options: SendOptions, stage: SendProgress["stage"]) => {
   if (options.progress) options.progress.stage = stage;
+};
+
+const noteRecorded = (options: SendOptions, recorded: boolean) => {
+  if (options.progress && recorded) options.progress.recorded = true;
 };
 
 // The gates every driver message passes, whatever the channel, in order: replies enabled, the
@@ -230,7 +237,8 @@ export async function recordBlocked(loadId: string, purpose: string, channel: Ch
 // partition also gets what the recipient saw (SEND#), without the recipient. That copy is evidence
 // for the timeline, not control state, so a failure to write it is logged and never fails the send:
 // a thrown error here would make the outbox send the message again.
-async function recordSend(messageId: string, loadId: string, purpose: string, channel: Channel, message: SentMessage, audience: Audience): Promise<void> {
+// Returns whether the load's row was written.
+async function recordSend(messageId: string, loadId: string, purpose: string, channel: Channel, message: SentMessage, audience: Audience): Promise<boolean> {
   const acceptedAt = new Date().toISOString();
   await ddb.send(
     new UpdateCommand({
@@ -240,11 +248,13 @@ async function recordSend(messageId: string, loadId: string, purpose: string, ch
       ExpressionAttributeValues: { ":l": loadId, ":p": purpose, ":c": channel, ":a": acceptedAt },
     }),
   );
-  if (loadId === "-") return;
+  if (loadId === "-") return false;
   try {
     await ddb.send(new PutCommand({ TableName: env.table(), Item: sendRecord({ loadId, messageId, channel, purpose, audience, sentAt: acceptedAt, message }) }));
+    return true;
   } catch (error) {
     log("send_record_failed", { purpose, loadId, messageId, error: (error as Error).name });
+    return false;
   }
 }
 
@@ -253,7 +263,7 @@ async function recordSend(messageId: string, loadId: string, purpose: string, ch
 export async function send(target: Target, body: Body, purpose: string, loadId: string, options: SendOptions = {}): Promise<string | null> {
   const gate = await cleared(target, purpose, loadId, options);
   if ("blocked" in gate) {
-    await recordBlocked(loadId, purpose, "whatsapp", renderWhatsApp(body), options.audience ?? "driver", gate.blocked);
+    noteRecorded(options, (await recordBlocked(loadId, purpose, "whatsapp", renderWhatsApp(body), options.audience ?? "driver", gate.blocked)) !== null);
     return null;
   }
   const address = gate.address;
@@ -268,7 +278,7 @@ export async function send(target: Target, body: Body, purpose: string, loadId: 
   const messageId = out.messageId ?? null;
   if (messageId) mark(options, "accepted");
   log("send_accepted", { purpose, loadId, messageId, channel: "whatsapp" });
-  if (messageId) await recordSend(messageId, loadId, purpose, "whatsapp", renderWhatsApp(body), options.audience ?? "driver");
+  if (messageId) noteRecorded(options, await recordSend(messageId, loadId, purpose, "whatsapp", renderWhatsApp(body), options.audience ?? "driver"));
   return messageId;
 }
 
@@ -313,7 +323,7 @@ export async function sendDocument(target: Target, file: DocumentFile, purpose: 
   const shownWith = (sha256: string | undefined) => ({ kind: "document" as const, text: file.caption, document: { filename: file.filename, ...(sha256 ? { sha256 } : {}) } });
   const gate = await cleared(target, purpose, loadId, options);
   if ("blocked" in gate) {
-    await recordBlocked(loadId, purpose, "whatsapp", shownWith(typeof file.sha256 === "string" ? file.sha256 : undefined), audience, gate.blocked);
+    noteRecorded(options, (await recordBlocked(loadId, purpose, "whatsapp", shownWith(typeof file.sha256 === "string" ? file.sha256 : undefined), audience, gate.blocked)) !== null);
     return null;
   }
   const shown = shownWith(typeof file.sha256 === "string" ? file.sha256 : await file.sha256());
@@ -341,7 +351,7 @@ export async function sendDocument(target: Target, file: DocumentFile, purpose: 
   mark(options, "accepted");
   log("send_accepted", { purpose, loadId, messageId, channel: "whatsapp" });
   try {
-    await recordSend(messageId, loadId, purpose, "whatsapp", shown, audience);
+    noteRecorded(options, await recordSend(messageId, loadId, purpose, "whatsapp", shown, audience));
   } catch (error) {
     // The document is out; a lost receipt row must not turn into a second send.
     log("send_record_failed", { purpose, loadId, messageId, error: (error as Error).name });
@@ -356,7 +366,7 @@ export async function sendRcs(target: Target, content: RcsMessageContent, purpos
   if (!rcs) throw new SendNotStarted("RCS is not configured (RCS_AGENT_ID, RCS_TOPIC_ARN)", NOT_SENT.rcsOff, true);
   const gate = await cleared(target, purpose, loadId, options);
   if ("blocked" in gate) {
-    await recordBlocked(loadId, purpose, "rcs", renderRcs(content), options.audience ?? "driver", gate.blocked);
+    noteRecorded(options, (await recordBlocked(loadId, purpose, "rcs", renderRcs(content), options.audience ?? "driver", gate.blocked)) !== null);
     return null;
   }
   const address = gate.address;
@@ -375,7 +385,7 @@ export async function sendRcs(target: Target, content: RcsMessageContent, purpos
   const messageId = out.MessageId ?? null;
   if (messageId) mark(options, "accepted");
   log("send_accepted", { purpose, loadId, messageId, channel: "rcs" });
-  if (messageId) await recordSend(messageId, loadId, purpose, "rcs", renderRcs(content), options.audience ?? "driver");
+  if (messageId) noteRecorded(options, await recordSend(messageId, loadId, purpose, "rcs", renderRcs(content), options.audience ?? "driver"));
   return messageId;
 }
 

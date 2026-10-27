@@ -278,6 +278,47 @@ describe("the PDF claim summary goes back over WhatsApp after filing", () => {
     expect(reserved.has("receiptDispatcherAt")).toBe(true);
   });
 
+  // A not-sent row that fails to write records nothing, so the earlier row stays: for a gate inside
+  // the send (replies off) and for an answer given here (a closed window). A PDF that went replaces
+  // the earlier row even when its own row failed to write: "not sent" would no longer be true.
+  it("keeps an earlier not-sent row when the retry's own row cannot be written", async () => {
+    const rowsOf = (audience: string) => kept().filter((r) => r.audience === audience && !failedPuts.has(String(r.sk))).map((r) => r.notSentReason ?? "sent");
+    const failedPuts = new Set<string>();
+    const failPuts = (on: boolean) =>
+      dynamo.on(PutCommand).callsFake((input: { Item: Record<string, unknown> }) => {
+        if (!on || !String(input.Item.sk).startsWith("SEND#")) return {};
+        failedPuts.add(String(input.Item.sk));
+        throw fail("ProvisionedThroughputExceededException");
+      });
+    // Both uploads fail: each recipient's not-sent row is written and the reservation released.
+    messaging.on(PostWhatsAppMessageMediaCommand).rejects(fail("ThrottlingException"));
+    await sendClaimReceipts(load);
+    expect([rowsOf("dispatcher"), rowsOf("driver")]).toEqual([[NOT_SENT.uploadFailed], [NOT_SENT.uploadFailed]]);
+    expect(reserved.size).toBe(0);
+    // The retry: replies are off for the dispatcher's gate, the driver's window has closed, and
+    // neither not-sent row can be written.
+    failPuts(true);
+    events = [{ type: "flow", channel: "whatsapp", serverAt: longAgo() }];
+    process.env.DRIVER_REPLIES = "off";
+    try {
+      expect((await sendClaimReceipts(load)).map((r) => [r.audience, r.sent, r.skipped])).toEqual([["dispatcher", false, undefined], ["driver", false, NOT_SENT.windowClosed]]);
+    } finally {
+      process.env.DRIVER_REPLIES = "on";
+    }
+    expect(dynamo.commandCalls(DeleteCommand)).toHaveLength(0);
+    expect([rowsOf("dispatcher"), rowsOf("driver")]).toEqual([[NOT_SENT.uploadFailed], [NOT_SENT.uploadFailed]]);
+  });
+
+  it("replaces an earlier not-sent row once the PDF went, even when the sent row cannot be written", async () => {
+    messaging.on(PostWhatsAppMessageMediaCommand).rejectsOnce(fail("ThrottlingException")).resolves({ mediaId: "media-9" });
+    await sendClaimReceipts(load);
+    const earlier = records().find((r) => r.audience === "dispatcher")!;
+    expect(earlier).toMatchObject({ notSentReason: NOT_SENT.uploadFailed });
+    dynamo.on(PutCommand).rejects(fail("ProvisionedThroughputExceededException"));
+    expect((await sendClaimReceipts(load))[0]).toEqual({ audience: "dispatcher", channel: "whatsapp", sent: true });
+    expect(dynamo.commandCalls(DeleteCommand).map((c) => c.args[0].input.Key?.sk)).toEqual([earlier.sk]);
+  });
+
   it("gives the reservation back when the stored PDF cannot be read, and a retry sends it", async () => {
     // Read once up front and again for the dispatcher: both fail. The driver's read succeeds.
     s3.on(GetObjectCommand).rejectsOnce(fail("SlowDown")).rejectsOnce(fail("SlowDown")).resolves({ Body: { transformToByteArray: async () => PDF } } as never);
