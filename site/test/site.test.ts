@@ -532,13 +532,14 @@ describe("a load with a time that does not parse", async () => {
   const { DockClockBand, UNREADABLE_BAND_NOTE } = await import("../src/ui/DockClockBand.js");
   const { SignedFields } = await import("../src/routes/Judges.js");
   const { LoadHeader } = await import("../src/routes/LoadDetail.js");
-  const { clock, clockSeconds, dateLong, dayLabel, UNREADABLE, zoneName } = await import("../src/format.js");
+  const { clock, clockSeconds, dateLong, dayLabel, zoneName } = await import("../src/format.js");
+  const { UNREADABLE_CLOCK } = await import("@dockclock/clause-engine");
   const body = JSON.parse(readFileSync(new URL("SMOKE-DEMO-mvh3xsdv.json", fxDir), "utf8")) as { data: LoadView };
 
   it("formats it as unreadable instead of throwing", () => {
     for (const bad of ["not a time", "garbage", ""]) {
-      expect(clock(bad, "America/New_York")).toBe(UNREADABLE);
-      expect(clockSeconds(bad, "America/New_York")).toBe(UNREADABLE);
+      expect(clock(bad, "America/New_York")).toBe(UNREADABLE_CLOCK);
+      expect(clockSeconds(bad, "America/New_York")).toBe(UNREADABLE_CLOCK);
       expect(zoneName(bad, "America/New_York")).toBe("America/New_York");
       expect(() => dateLong(bad, "America/New_York")).not.toThrow();
       expect(() => dayLabel(bad, "America/New_York")).not.toThrow();

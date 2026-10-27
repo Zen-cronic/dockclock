@@ -42,6 +42,9 @@ export function releasePinGapMinutes(tapAt: string, pinAt: string): number {
   return (Date.parse(pinAt) - Date.parse(tapAt)) / 60_000;
 }
 
+// Shown for a stored time that does not parse, so a page or a message never throws on one record.
+export const UNREADABLE_CLOCK = "--:--";
+
 // Whether a stored time can be used at all: a string Date.parse reads.
 export function timeReadable(at: unknown): at is string {
   return typeof at === "string" && Number.isFinite(Date.parse(at));

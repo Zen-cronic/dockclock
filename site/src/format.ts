@@ -1,24 +1,21 @@
 // Every time on the page is shown in the facility's time zone, with the zone named. A stored time
-// that does not parse is shown as UNREADABLE (the engine sends such a load to a person); formatting
-// it would throw a RangeError and take the whole page down.
-
-export const UNREADABLE = "--:--";
+// that does not parse is shown as UNREADABLE_CLOCK (the engine sends such a load to a person);
+// formatting it would throw a RangeError and take the whole page down.
+import { timeReadable, UNREADABLE_CLOCK } from "@dockclock/clause-engine";
 
 // The instant, or null when the stored time does not parse.
-export function instant(iso: string | null | undefined): Date | null {
-  if (typeof iso !== "string") return null;
-  const ms = Date.parse(iso);
-  return Number.isFinite(ms) ? new Date(ms) : null;
+function instant(iso: string | null | undefined): Date | null {
+  return timeReadable(iso) ? new Date(iso) : null;
 }
 
 export function clock(iso: string, timeZone: string): string {
   const at = instant(iso);
-  return at ? new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }).format(at) : UNREADABLE;
+  return at ? new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }).format(at) : UNREADABLE_CLOCK;
 }
 
 export function clockSeconds(iso: string, timeZone: string): string {
   const at = instant(iso);
-  return at ? new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", second: "2-digit" }).format(at) : UNREADABLE;
+  return at ? new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", second: "2-digit" }).format(at) : UNREADABLE_CLOCK;
 }
 
 export function zoneName(iso: string, timeZone: string): string {
@@ -68,7 +65,7 @@ export function escapeHtml(s: string): string {
 // "Oct 23" in the facility's zone.
 export function dayShort(iso: string, timeZone: string): string {
   const at = instant(iso);
-  return at ? new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" }).format(at) : UNREADABLE;
+  return at ? new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric" }).format(at) : UNREADABLE_CLOCK;
 }
 
 // The time alone when it falls on the same local day as `ref`, else "Oct 23, 3:31 AM".
