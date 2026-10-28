@@ -154,7 +154,34 @@ npm run scorecard   # recomputes the numbers at the top
 
 > On 24 test loads, the contracts owe $1,245.00 in detention. DockClock would claim $1,245.00 of it (100%) in 9 claims, all 9 valid, and nothing a contract denies. The common "bill every stop over 2 hours" rule asks for $2,554.18, and $1,314.18 of that (51%) would not be paid: the contract denies it, pays less than was asked, or the carrier can't prove it.
 
-Deploying to your own AWS account (CDK) needs an existing WhatsApp Business Account linked to AWS End User Messaging Social; see `.env.example`. `npm run deploy` uses your shell's AWS profile and region, not `.env`'s, so export `AWS_PROFILE` and `AWS_REGION` first.
+### Without an AWS account
+Node.js 22 or later.
+```bash
+npm ci
+npm run check                                                   # typecheck, lint and every test
+npm run scorecard                                               # the numbers at the top
+npm run verify:pack -- docs/evidence/SMOKE-mve8yfv3.pack.json   # check a real sealed evidence pack
+npm run dev -w @dockclock/site                                  # the console, at the address Vite prints
+```
+Open the console with `?data=fixtures` (for example `/judges?data=fixtures`) to run it on the recorded API responses in `site/fixtures/`, with no backend.
+
+### Deploy to your own AWS account
+What you need first:
+- An AWS account with the CDK bootstrapped in us-east-1 (`npx cdk bootstrap aws://<account>/us-east-1`).
+- A WhatsApp Business Account linked to AWS End User Messaging Social, its phone number id, and an SNS topic set as its event destination.
+- Amazon SES with a verified sending domain, and Amazon Bedrock access to Claude Sonnet 4.5 in that region (Bedrock AgentCore must be available there too).
+- Optional: an RCS agent in AWS End User Messaging SMS-Voice v2. Leave `DOCKCLOCK_RCS_AGENT_ID` empty to run without RCS.
+
+Then:
+```bash
+cp .env.example .env          # fill in every DOCKCLOCK_ value; each one is explained in the file
+npm run templates:submit      # submits the WhatsApp templates (3 names x 3 languages) to Meta
+export AWS_PROFILE=<your profile> AWS_REGION=us-east-1
+npm run deploy                # builds and deploys all five CDK stacks with CloudFormation
+npm run smoke:lifecycle       # runs one test load through the deployed workflow
+npm run api:check             # checks the console's read API, including the leak scan
+```
+`npm run deploy` uses your shell's AWS profile and region, not `.env`'s. The release Flow (`packages/whatsapp/flows/release-flow.json`) is published once in WhatsApp Manager; put its id in `DOCKCLOCK_RELEASE_FLOW_ID`.
 
 ## License
 [Apache-2.0](LICENSE). See also [NOTICE](NOTICE).
