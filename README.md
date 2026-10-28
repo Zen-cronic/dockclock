@@ -95,6 +95,7 @@ Also used: AWS Secrets Manager (the key that turns a phone number into an opaque
 Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md). Load ids say what kind of run it was:
 - `LIVE-` loads were driven from a real phone.
 - `SMOKE-` loads replay made-up driver messages through the deployed system. Everything after the phone (the workflow, the agent, SES, KMS) is real.
+- `DEMO-` loads were started by texting DEMO on WhatsApp to the live number.
 
 ### Shown working on AWS
 - **The whole loop from a real phone.** Load `LIVE-mvpoqheg` (2026-10-26, on the demo yard, which accepts any location) stayed 14 min 53 s at the dock. The notice email was delivered about 4 minutes before free time ended. The Released tap stopped the clock, and a second pin 14 seconds later confirmed it. The agent read the times off the photo of a fictional bill of lading (out 4:30 PM, 10 minutes after the tap, inside the 15-minute tolerance). The contract owed $9.88. The dispatcher tapped Approve on a real phone, and the agent's claim email went out 11.5 seconds later with the PDF summary, which also came back on WhatsApp. An earlier run on 10-23 (load `LIVE-mvlb0qzq`, $17.28) had a photo that could not be read, and DockClock marked it "not legible" instead of guessing.
