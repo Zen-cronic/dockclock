@@ -1,35 +1,41 @@
 # DockClock
 
-**DockClock gets small trucking fleets paid for the hours their drivers wait at the dock. The driver works in WhatsApp, the contract decides what is owed, and an AI agent files the claim once dispatch approves.**
+A truck driver can sit at a dock for hours past the free time in the load's contract. That wait is owed as detention pay, and much of it never gets paid. I built DockClock so a small fleet can prove the wait from the driver's WhatsApp and claim exactly what the contract owes.
+
+**The model reads the paperwork, plain code decides the amount, and the dispatcher taps Approve before anything is sent.**
 
 > A driver who waits past free time is owed detention, and carriers get paid on only about half (55%) of the detention bills they send. Billing every stop over 2 hours doesn't fix that. On 24 test loads I labelled by hand, that rule asks for $2,554.18, and $1,314.18 of it (51%) wouldn't hold up: the contract denies it, pays less than was asked, or the carrier can't prove it. DockClock files the $1,245.00 those contracts owe, in 9 claims, and nothing they deny.
 >
 > I wrote the 24 loads and their right answers myself, from each contract's text. So this checks DockClock against the contracts, not against real payouts. Recompute it with `npm run scorecard` (fixtures frozen at sha256 `d45ae579…`).
 
+On a real phone (load `LIVE-mvpoqheg`), a test truck sat 14 min 53 s at the dock, the contract owed $9.88, and the claim email went out 11.5 s after the dispatcher's Approve tap. The amount is small because the demo contract gives 5 minutes free at $60 an hour. On another real-phone load (`LIVE-mvlaajde`), both pins were about 4.6 km outside the facility, so DockClock filed nothing and a person took over.
+
+The buyer I'm aiming at is a freight factor, which already buys small carriers' invoices. No factor has been contacted yet, every company here is fictional, and I haven't measured money actually paid. The rest of what I'd want a judge to know is under [What I'll tell you before you find it](#what-ill-tell-you-before-you-find-it).
+
 ## Try it in 3 minutes
 - **In a browser, no login:** open https://d3djuoqhg6b8o2.cloudfront.net/judges and click Start. Seven short steps walk one recorded load. Five of them each take one reason a broker gives for not paying, and show the proof DockClock kept: the arrival and release pins, the notice email, a claim filed on time, a signature you can break yourself, and the contract's rules, where you change one fact and watch it decide again. The screens read the live system; a recorded copy stands in if the API is down.
 - **With the code, no AWS account needed:** `npm ci`, then `npm run scorecard` for the number above, and `npm run verify:pack -- docs/evidence/SMOKE-mve8yfv3.pack.json` to check a real sealed evidence pack.
 
-## The problem
+## Why I built it
 A truck can wait hours at a dock before it is loaded or unloaded. The contract for each load allows some waiting for free. That is the **free time**, usually 2 hours. After it, the shipper or broker owes the carrier **detention** pay by the hour. The rules sit in a detention clause in each load's contract (the rate confirmation), and every broker and shipper writes its own.
 
-Most of this money is never collected:
+Much of this money is never collected:
 - US truckload carriers are paid on only **55% of the detention invoices they send**.
 - ATRI estimates **$5,103.95 of unpaid detention per truckload driver per year**.
 - For a carrier with 40 truckload drivers, that is about **$204,000 a year**.
 
 (ATRI, *Costs and Consequences of Truck Driver Detention*, 2024; survey estimates.)
 
-Claims are usually refused for a reason the contract spells out. The carrier:
+When a claim is refused, it is usually for a reason the contract spells out. The carrier:
 - did not send notice before detention started,
 - filed after the claim window closed,
 - had no signed **bill of lading** (the delivery paper the receiver signs, with the in and out times on it),
 - arrived late for the appointment, or
 - had no shipper confirmation.
 
-Carriers also skip billing. They expect a refusal and don't want to upset the customer. In a 2023 survey by OOIDA, the owner-operators' association, 17% of members said they collect no detention pay at all ([survey](https://www.ooida.com/wp-content/uploads/2024/02/2023-Detention-Time-Survey-FINAL.pdf)).
+Many carriers don't bill at all. They expect a refusal and don't want to upset the customer. In a 2023 survey by OOIDA, the owner-operators' association, 17% of members said they collect no detention pay at all ([survey](https://www.ooida.com/wp-content/uploads/2024/02/2023-Detention-Time-Survey-FINAL.pdf)).
 
-The driver pays for the wait too. The US DOT Inspector General estimated that detention is linked to $1.1 to $1.3 billion a year in lost earnings for truckload drivers, and that 15 more minutes of average time at a facility raises the expected crash rate by 6.2% ([report ST2018019](https://www.oig.dot.gov/library-item/36237), 2018, from 2013 data). DockClock doesn't shorten the wait. It makes sure the wait the contract prices gets claimed, with proof.
+The driver pays for the wait too. The US DOT Inspector General estimated that detention is linked to $1.1 to $1.3 billion a year in lost earnings for truckload drivers, and that 15 more minutes of average time at a facility raises the expected crash rate by 6.2% ([report ST2018019](https://www.oig.dot.gov/library-item/36237), 2018, from 2013 data). DockClock doesn't shorten the wait. It makes sure the wait the contract prices gets claimed, with proof. So I started from the clause: a claim whose evidence matches what the clause asks for is hard to refuse, and one that doesn't match should never be sent.
 
 ## Who is in the story
 | Role | Who | Real or fictional |
@@ -39,6 +45,8 @@ The driver pays for the wait too. The US DOT Inspector General estimated that de
 | **Buys DockClock** | A freight factoring company. Factors already buy carriers' invoices and are paid when the broker pays, so a provable detention claim is money they can advance on | Fictional. This is our target customer, not a signed one |
 
 ## How it works: one load, start to finish
+The driver taps two buttons in WhatsApp and photographs the signed paperwork. Everything else happens around them.
+
 1. **Dispatch.** The carrier sends the load to the driver on WhatsApp with an **Arrived** button, in English, Spanish or Québécois French.
 2. **Arrival.** At the dock the driver taps Arrived and shares a location pin. WhatsApp stamps the pin with its own server time, and DockClock checks it against the facility's geofence (a boundary drawn around the site). The dock clock starts.
 3. **Notice.** Before free time ends, DockClock emails the broker or shipper the detention notice the contract asks for, and tells the driver it went out.
@@ -55,11 +63,11 @@ The driver pays for the wait too. The US DOT Inspector General estimated that de
 Drivers without WhatsApp get the same steps over RCS (rich messaging on Android phones). If a WhatsApp send fails, the load switches to RCS once.
 
 ### What the AI does, and what it can't do
-The model is Claude on Amazon Bedrock. It does two jobs:
+The model is Claude on Amazon Bedrock. It does two jobs, and nothing else:
 - **It reads the bill-of-lading photo.** The reading only raises or lowers our confidence in the evidence. It never sets a time or an amount.
 - **It writes the opening sentence of the claim email.** The subject, the facts, the PDF and the attached pack all come from the sealed pack. The public key is linked, not attached.
 
-The money is set by the clause engine and approved by a person. The agent can reach DockClock's tools only through an AgentCore Gateway. There, Cedar policies allow the claim tool only with an approval and an amount under a cap. The tool then refuses unless the amount and the pack's digest match the sealed values. So no prompt can change the money.
+The clause engine sets the money, and a person approves it. Telling a model to copy a number isn't the same as making it unable to change one, so I built the second. The agent reaches DockClock's tools only through an AgentCore Gateway, where Cedar policies allow the claim tool only with an approval and an amount under a cap. The tool then refuses unless the amount and the pack's digest match the sealed values. No prompt can change the money.
 
 ## What each AWS service does
 | Service | Its job in DockClock |
@@ -81,7 +89,7 @@ Also used: AWS Secrets Manager (the key that turns a phone number into an opaque
 
 ![DockClock architecture](docs/architecture.png)
 
-## What we'll tell you before you find it
+## What I'll tell you before you find it
 Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md). Load ids say what kind of run it was:
 - `LIVE-` loads were driven from a real phone.
 - `SMOKE-` loads replay made-up driver messages through the deployed system. Everything after the phone (the workflow, the agent, SES, KMS) is real.
@@ -108,10 +116,12 @@ Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md).
 - Replies to disputes: reading a broker's answer to a claim.
 
 ### Limits to know
-- **The scorecard is our own labelling.** It measures the clause engine on 24 test loads whose right answers we wrote from each clause's text. It is a consistency check, not field data.
-- **Every company is fictional.** The carrier, factor, brokers and shippers are made up. Claim and notice emails go to our own test mailbox.
+- **I wrote the right answers.** The scorecard measures the clause engine on 24 test loads whose right answers I wrote from each clause's text. It is a consistency check, not field data.
+- **I haven't measured money actually paid.** That needs a factor's real loads, and it's the first thing I'd do next.
+- **Every company is fictional.** The carrier, factor, brokers and shippers are made up. Claim and notice emails go to my own test mailbox.
+- **The phone runs don't test the geofence.** The demo yard accepts any location, and the demo contract (5 minutes free, $60 an hour, a $30 cap) is not in the scored set.
 - **A location pin can be faked.** The KMS signature proves the recorded messages, times and photo hash have not changed since sealing. It cannot prove where a phone really was, or that the paper itself is honest. That is why a load whose pins and paper times disagree goes to a person.
-- **Judges can't try RCS on their own phones.** Our RCS agent is a Google testing agent that reaches only registered testers, so the console shows RCS from recorded runs.
+- **RCS has reached a filed claim only on smoke loads** (`SMOKE-RCS-mvh32fui`). On a real phone it got through dispatch, Arrived, two location pins and a photo. Judges can't try RCS on their own phones: my RCS agent is a Google testing agent that reaches only registered testers, so the console shows RCS from recorded runs.
 
 ## Check the evidence yourself
 `npm run verify:pack -- docs/evidence/SMOKE-mve8yfv3.pack.json` checks a real sealed pack against the published KMS public key, with no AWS account, and shows a tampered copy failing. See [`docs/evidence/`](docs/evidence/README.md).
