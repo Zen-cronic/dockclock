@@ -68,6 +68,10 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, compact }:
       end = Math.max(r, ...times.filter((t) => t <= lateFrom));
     }
   }
+  // The stub is drawn only when something the band draws sits in it (a late release pin, or the
+  // replay cursor on a later record): with no per-record dots, an empty "later" would mean nothing.
+  const pastStay = (iso: string | null | undefined) => Boolean(iso && timeReadable(iso) && Date.parse(iso) > lateFrom);
+  if (!pastStay(c.releasePinAt) && !pastStay(cursor)) lateFrom = Number.POSITIVE_INFINITY;
   const late = Number.isFinite(lateFrom);
   const span = late ? 84 : 100;
   const pct = (iso: string) => {

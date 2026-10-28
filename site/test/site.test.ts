@@ -646,4 +646,18 @@ describe("the dock clock band", async () => {
       expect(html).not.toMatch(/class="pins"|class="pin |bandlegend/);
     }
   });
+
+  // A record days after release would park the replay in a "later" stub. Without the dots, the
+  // stub shows only when the band draws something in it.
+  it("draws the later stub only when the replay cursor or the release pin sits in it", () => {
+    const d = detailFromApi(body.data, "fixture");
+    const released = d.clock.releasedAt!;
+    const lateAt = new Date(Date.parse(released) + 3 * 86_400_000).toISOString();
+    const late = { ...d, timeline: [...d.timeline, { ...d.timeline[d.timeline.length - 1]!, id: "late-record", at: lateAt }] };
+    const stub = /class="brk"|>later</;
+    expect(renderToStaticMarkup(createElement(DockClockBand, { load: late }))).not.toMatch(stub);
+    expect(renderToStaticMarkup(createElement(DockClockBand, { load: late, cursor: d.timeline[3]!.at }))).not.toMatch(stub);
+    expect(renderToStaticMarkup(createElement(DockClockBand, { load: late, cursor: lateAt }))).toMatch(stub);
+    expect(renderToStaticMarkup(createElement(DockClockBand, { load: { ...late, clock: { ...late.clock, releasePinAt: lateAt } } }))).toMatch(stub);
+  });
 });
