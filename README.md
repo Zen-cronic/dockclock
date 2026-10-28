@@ -113,9 +113,6 @@ Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md).
 - The request for a clearer photo when the first one is unreadable.
 - A full DEMO run to a filed claim from a phone that isn't mine.
 
-### Next, not on main
-- Voice notes: a driver's spoken reason for the wait, transcribed by Amazon Transcribe into the load's timeline. Built with tests on a branch; not merged or deployed.
-
 ### Not built
 - Replies to disputes: reading a broker's answer to a claim.
 
