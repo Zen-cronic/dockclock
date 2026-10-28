@@ -106,7 +106,7 @@ Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md).
 - **The agent says no when it should.** It refuses to file without an approval, and refuses a second filing for the same load (the claim is reserved before SES is called).
 - **Reading the bill of lading:** 26 of 26 fields correct on 7 fictional test photos, and an honest "not legible" on a real blurry phone photo. The reading is part of the signed evidence.
 - **RCS on a real phone:** dispatch card, Arrived, two location pins and a bill-of-lading photo, all over RCS (load `LIVE-mve1ve6d`, 2026-10-18 12:52–12:54 EDT). The switch from a failed WhatsApp send to RCS is tested and was run with made-up events.
-- **The details that make it safe to run:** duplicate, out-of-order and stale taps are refused; STOP and START work; "Talk to dispatch" answers the driver and emails dispatch; a tampered pack fails verification. About 390 automated tests, plus about 80 for the console.
+- **The details that make it safe to run:** duplicate, out-of-order and stale taps are refused; STOP and START work; "Talk to dispatch" answers the driver and emails dispatch; a tampered pack fails verification. About 760 automated tests, plus about 140 for the console.
 - **The judges' DEMO path answers.** I texted DEMO to the live number and the intro and the dispatch message came back within seconds (load `DEMO-mvs9olfg`, 2026-10-28 11:26 EDT, sent from my own test phone).
 
 ### Built and tested, not yet run live
@@ -149,7 +149,7 @@ Per load, that is **3 utility templates (driver dispatch, notice sent, dispatche
 ## Run it
 ```bash
 npm ci
-npm test            # about 390 tests (plus the console's own)
+npm test            # about 760 tests (plus the console's own)
 npm run scorecard   # recomputes the numbers at the top
 ```
 `npm run scorecard` prints this summary, and CI checks it against the frozen fixtures:
