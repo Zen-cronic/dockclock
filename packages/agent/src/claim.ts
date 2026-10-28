@@ -50,15 +50,17 @@ export function toCents(amountUsd: number): number {
 //   one. So +1 (416) 555-0143, tel:416-555-0143, 416_555_0143, 416 - 555 - 0143,
 //   4165550143,4165550199 and a list such as 416, 555, 0143 are each one run;
 // - a run of 10 or more digits is refused unless every digit in it belongs to a known-safe token,
-//   and no two of those tokens state the same thing. The tokens: an occurrence of the load id, the
-//   contract amount as the opening must state it ($1234.56), money ($80.00, $1,234.56, $30, $60/h),
-//   a date (2026-10-23, 10/23/2026, October 23, 2026, 23 Oct 2026), a clock time with up to three
-//   fractional digits and a zone offset (13:05, 13:05:00.123-04:00), a time range, which states one
-//   time (14:05–14:40, 2:05–2:40 PM, and after a date, 2026-10-27 14:05–14:40, which states a date
-//   and a time) and a duration (+15, +15 min, +2 hours). So 2026-10-23 13:05 (a date and a time),
+//   and no two of those tokens state the same thing, but for the load id or the amount said twice.
+//   The tokens: an occurrence of the load id, the contract amount as the opening must state it
+//   ($1234.56), money ($80.00, $1,234.56, $30, $60/h), a date (2026-10-23, 10/23/2026,
+//   October 23, 2026, 23 Oct 2026), a clock time with up to three fractional digits and a zone
+//   offset (13:05, 13:05:00.123-04:00), a time range, which states one time (14:05–14:40,
+//   2:05–2:40 PM, and after a date, 2026-10-27 14:05–14:40, which states a date and a time) and a
+//   duration (+15, +15 min, +2 hours). So 2026-10-23 13:05 (a date and a time),
 //   $30.00 (14:05–14:40) (the amount and a range), load PO-4471982: $80.00 (the load and the
-//   amount) and PO-123456789012 (the load alone) file, while 416-555-01:43 (a time beside a bare
-//   group), 4:16 5:55 01:43 (three times), 4:16–5:55 01:43 (a range and a time) and
+//   amount), load 4471982 (4471982) (the load twice) and PO-123456789012 (the load alone) file,
+//   while 416-555-01:43 (a time beside a bare group), 4:16 5:55 01:43 (three times),
+//   4:16–5:55 01:43 (a range and a time), 0143 0143 0143 (the load three times) and
 //   $416 $555 $0143 (three sums) are refused.
 // A freight reference gets no exemption, labelled or not: PRO 1234567890, PO 4165550143 and order
 // 111122223333 are refused, since a number that long can be a phone number or an account id
@@ -84,6 +86,10 @@ const STATES: Record<TokenKind, readonly string[]> = {
   duration: ["duration"],
   money: ["money"],
 };
+// The load id and the contract amount are exact values from the sealed pack, so saying one again
+// adds no digit of the opening's own: load 4471982 (4471982) and $30.00 ($30.00) are each one
+// statement. A third time is not a restatement.
+const SAID_AGAIN = new Set(["load", "amount"]);
 const ISO_DATE = String.raw`(?:19|20)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])`;
 const US_DATE = String.raw`(?:0?[1-9]|1[0-2])\/(?:0?[1-9]|[12]\d|3[01])\/(?:\d{4}|\d{2})`;
 // A month by name, whole or cut short (October, Oct, Oct., Sept), and a day of the month.
@@ -166,8 +172,9 @@ function leaks(opening: string, id: string, amount: string): boolean {
     if (run.length < 10) return false;
     const owners = new Set(run.map((at) => owner[at]!));
     if (owners.has(-1)) return true;
-    const stated = [...owners].flatMap((t) => STATES[tokens[t]!]);
-    return new Set(stated).size !== stated.length;
+    const times = new Map<string, number>();
+    for (const t of owners) for (const what of STATES[tokens[t]!]) times.set(what, (times.get(what) ?? 0) + 1);
+    return [...times].some(([what, n]) => n > (SAID_AGAIN.has(what) ? 2 : 1));
   };
   let run: number[] = [];
   for (let i = 0; i < kept.length; i++) {

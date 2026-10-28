@@ -294,6 +294,20 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", `${yard} under the rate confirmation, Oct 41, 2026: $30.00.`],
   ])("%s a named-month date: %s", (outcome, opening) => judged(outcome, opening));
 
+  // The load id and the amount may be said twice in a run, since both come from the sealed pack;
+  // nothing else may, and neither may be said three times.
+  it.each([
+    ["files", "Detention is claimed for load 4471982 (4471982) at Lakeshore DC, Columbus OH under the rate confirmation in the amount of $30.00.", "4471982"],
+    ["files", "Detention is claimed for load 4471982 (4471982): $30.00 ($30.00), at Lakeshore DC, Columbus OH under the rate confirmation.", "4471982"],
+    ["files", "Detention is claimed for load 2026, 2026-10-27, at Lakeshore DC, Columbus OH under the rate confirmation in the amount of $30.00.", "2026"],
+    ["files", `${pre} in the amount of $30.00 ($30.00), 2026-10-27.`],
+    ["files", `${pre} in the amount of $30.00 (2026-10-27 14:05–2026-10-27 14:40).`],
+    ["refuses", "Detention is claimed for load 4471982 (4471982) 555 at Lakeshore DC, Columbus OH under the rate confirmation in the amount of $30.00.", "4471982"],
+    ["refuses", "Detention is claimed for load 4471982 4471982 4471982 at Lakeshore DC, Columbus OH under the rate confirmation in the amount of $30.00.", "4471982"],
+    ["refuses", `${pre} in the amount of $30.00 $30.00 $30.00.`],
+    ["refuses", `${pre} in the amount of $30.00 (2026-10-27, 2026-10-27).`],
+  ])("%s a value said again: %s", (outcome, opening, loadId?: string) => judged(outcome, opening, 3000, loadId));
+
   it("files the opening the live agent wrote for LIVE-mvpoqheg", () => {
     const opening = "We are claiming detention for load LIVE-mvpoqheg at Judge demo yard (any location counts) under the rate confirmation in the amount of $9.88.";
     const live = { ...basis, loadId: "LIVE-mvpoqheg", amountCents: 988 };
