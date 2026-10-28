@@ -36,8 +36,6 @@ export function NavRail() {
       </NavLink>
       <div className="foot">
         <b>Demo workspace</b>
-        <br />
-        Fictional companies only
       </div>
     </nav>
   );
