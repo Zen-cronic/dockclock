@@ -46,8 +46,10 @@ export function toCents(amountUsd: number): number {
 //   (arn∶aws, arn :aws), unless an ASCII letter comes right before it (warn, barn);
 // - the digits are read in runs. Only an ASCII word ends a run. Punctuation, spaces, symbols,
 //   letters of other scripts (ǀ, ㅡ, 一) and a single ASCII letter set tight between two digits
-//   (416x555x0143) all join it, and such a letter that looks like a digit (416-555-O143) counts as
-//   one. So +1 (416) 555-0143, tel:416-555-0143, 416_555_0143, 416 - 555 - 0143,
+//   (416x555x0143) all join it. Such an ASCII letter that looks like a digit (416-555-O143) counts
+//   as one, and so does any letter of another script set tight between two digits, since many look
+//   like a digit (416-555-О143 with a Cyrillic О, 416-555-Ο143 with a Greek Ο, 4І6 with a
+//   Cyrillic І). So +1 (416) 555-0143, tel:416-555-0143, 416_555_0143, 416 - 555 - 0143,
 //   4165550143,4165550199 and a list such as 416, 555, 0143 are each one run;
 // - a run of 10 or more digits is refused unless every digit in it belongs to a known-safe token,
 //   and no two of those tokens state the same thing, but for the load id or the amount said twice.
@@ -168,12 +170,15 @@ function leaks(opening: string, id: string, amount: string): boolean {
   for (const [kind, re] of SAFE) for (const m of body.matchAll(re)) mark(kind, m.index, m.index + m[0].length);
   for (const [from, to] of occurrences(body, readable(amount))) mark("amount", from, to);
   for (const [from, to] of named) mark("load", from, to);
-  // The digits and the ASCII letters, in order; everything else joins the digits around it.
-  const kept: Array<{ at: number; digit: boolean }> = [];
-  for (let at = 0; at < body.length; at++) {
-    if (/\d/.test(body[at]!)) kept.push({ at, digit: true });
-    else if (/[A-Za-z]/.test(body[at]!)) kept.push({ at, digit: false });
-  }
+  // The digits and the letters, in order; everything else joins the digits around it. A letter of
+  // another script (other) never ends a run, and the ASCII letters and digits around it are read as
+  // if it were not there.
+  const kept: Array<{ at: number; digit: boolean; other: boolean }> = [];
+  for (const m of body.matchAll(/(\d)|([A-Za-z])|\p{L}/gu)) kept.push({ at: m.index, digit: m[1] !== undefined, other: !m[1] && !m[2] });
+  const near = (i: number, step: 1 | -1) => {
+    for (let j = i + step; j >= 0 && j < kept.length; j += step) if (!kept[j]!.other) return kept[j];
+    return undefined;
+  };
   const refused = (run: number[]) => {
     if (run.length < 10) return false;
     const owners = new Set(run.map((at) => owner[at]!));
@@ -188,17 +193,24 @@ function leaks(opening: string, id: string, amount: string): boolean {
   };
   let run: number[] = [];
   for (let i = 0; i < kept.length; i++) {
-    const { at, digit } = kept[i]!;
+    const { at, digit, other } = kept[i]!;
     if (digit) {
       run.push(at);
       continue;
     }
     // A single letter set tight between two digits, with no space on either side (416x555x0143,
     // 416-555-O143, the T of 2026-10-23T13:05), joins them, and one that looks like a digit (O, o,
-    // I, l) counts as one. A word, or a letter set off by a space (2 h 13 m), ends the run.
-    const before = kept[i - 1];
-    const after = kept[i + 1];
-    if (before?.digit && after?.digit && !/\s/.test(body.slice(before.at + 1, after.at))) {
+    // I, l) counts as one. A word, or a letter set off by a space (2 h 13 m), ends the run. A
+    // letter of another script set tight between two digits counts as a digit whatever it looks
+    // like (416-555-О143 with a Cyrillic О, 4І6 with a Cyrillic І); set anywhere else it joins.
+    const before = near(i, -1);
+    const after = near(i, 1);
+    const tight = before?.digit && after?.digit && !/\s/.test(body.slice(before.at + 1, after.at));
+    if (other) {
+      if (tight) run.push(at);
+      continue;
+    }
+    if (tight) {
       if (/[OoIl]/.test(body[at]!)) run.push(at);
       continue;
     }

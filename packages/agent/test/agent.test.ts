@@ -330,6 +330,19 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["files", `${pre} in the amount of $30.00 (+35 min, 14:05).`],
   ])("%s a run of safe tokens: %s", (outcome, opening) => judged(outcome, opening));
 
+  // A letter of another script set tight between two digits counts as a digit, as O, o, I and l
+  // do: Cyrillic О (U+041E), Greek Ο (U+039F), Cyrillic І (U+0406) and Cyrillic ӏ (U+04CF).
+  it.each([
+    ["refuses", `${pre} in the amount of $30.00. Call 416-555-О143.`],
+    ["refuses", `${pre} in the amount of $30.00. Call 416-555-Ο143.`],
+    ["refuses", `${pre} in the amount of $30.00. Call 4І6-555-0143.`],
+    ["refuses", `${pre} in the amount of $30.00. Call 416-555-0ӏ43.`],
+    ["refuses", `${pre} in the amount of $30.00. Call 416-555-ОО143.`],
+    ["files", `${pre} in the amount of $30.00. Gate 4О2.`],
+    ["files", "Detention is claimed for load LIVE-mvpoqheg at Québec DC, Dock 12, under the rate confirmation in the amount of $30.00."],
+    ["files", `${pre} in the amount of $30.00, 2026-10-27 14:05 ЕDT.`],
+  ])("%s a letter of another script between digits: %s", (outcome, opening) => judged(outcome, opening));
+
   it("files the opening the live agent wrote for LIVE-mvpoqheg", () => {
     const opening = "We are claiming detention for load LIVE-mvpoqheg at Judge demo yard (any location counts) under the rate confirmation in the amount of $9.88.";
     const live = { ...basis, loadId: "LIVE-mvpoqheg", amountCents: 988 };
