@@ -181,7 +181,7 @@ npm run deploy                # builds and deploys all five CDK stacks with Clou
 npm run smoke:lifecycle       # runs one test load through the deployed workflow
 npm run api:check             # checks the console's read API, including the leak scan
 ```
-`npm run deploy` uses your shell's AWS profile and region, not `.env`'s. The release Flow (`packages/whatsapp/flows/release-flow.json`) is published once in WhatsApp Manager; put its id in `DOCKCLOCK_RELEASE_FLOW_ID`.
+`npm run deploy` uses your shell's AWS profile and region, not `.env`'s, so export `AWS_PROFILE` and `AWS_REGION` first. The release Flow (`packages/whatsapp/flows/release-flow.json`) is published once in WhatsApp Manager; put its id in `DOCKCLOCK_RELEASE_FLOW_ID`.
 
 ## License
 [Apache-2.0](LICENSE). See also [NOTICE](NOTICE).
