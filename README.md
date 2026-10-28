@@ -1,6 +1,6 @@
 # DockClock
 
-A truck driver can sit at a dock for hours past the free time in the load's contract. That wait is owed as detention pay, and much of it never gets paid. I built DockClock so a small fleet can prove the wait from the driver's WhatsApp and claim exactly what the contract owes.
+A truck driver can sit at a dock for hours past the free time in the load's contract. That wait is owed as detention pay, and much of it never gets paid. I built DockClock so a small fleet can prove the wait from the driver's WhatsApp and claim exactly what the contract owes. Its WhatsApp messages are approved in English, Spanish and Québécois French.
 
 **The model reads the paperwork, plain code decides the amount, and the dispatcher taps Approve before anything is sent.**
 
