@@ -394,6 +394,9 @@ describe("tool contracts and policy", () => {
     expect(SYSTEM_PROMPT).toContain("Quote times exactly as get_load_evidence gives them: the facility's local date, time and zone.");
     // The layout is the tool's template; the agent writes only the opening.
     expect(SYSTEM_PROMPT).toContain("You write only body, the opening: one or two formal, plain sentences (80 to 600 characters)");
+    // The leak check reads every number in the opening, so the agent writes only the two it needs.
+    expect(SYSTEM_PROMPT).toContain("Write no dates, times or other numbers in it: the load id, the facility's name and the amount are the only ones.");
+    expect(TOOLS.find((t) => t.name === "send_detention_claim")!.inputSchema.properties!.body!.description).toContain("with no dates, times or other numbers");
     expect(TOOLS.find((t) => t.name === "send_detention_claim")!.inputSchema.required).toEqual(["loadId", "body", "amountCents", "packDigest", "approvalId"]);
   });
 });

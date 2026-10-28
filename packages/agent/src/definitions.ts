@@ -44,7 +44,7 @@ export const TOOLS: ToolDefinition[] = [
       type: "object",
       properties: {
         loadId,
-        body: { type: "string", description: "The claim's opening: one or two plain sentences (80 to 600 characters) naming the load id, the facility and the amount as $123.45. The tool adds everything else" },
+        body: { type: "string", description: "The claim's opening: one or two plain sentences (80 to 600 characters) naming the load id, the facility and the amount as $123.45, with no dates, times or other numbers. The tool adds everything else" },
         amountCents: { type: "integer", description: "The contract amount in cents, exactly as returned by get_load_evidence" },
         packDigest: { type: "string", description: "The evidence pack digest exactly as returned by get_load_evidence" },
         approvalId: { type: "string", description: "The dispatch approval id from get_load_evidence" },
@@ -76,7 +76,7 @@ export const SYSTEM_PROMPT = [
   "The clause engine decides whether detention is owed and how much. You never change its verdict or amount: copy amountCents and packDigest exactly from get_load_evidence.",
   "When asked to review a load: call get_load_evidence, then read_bill_of_lading if a photo exists and no reading is recorded. Report whether the photo is legible and whether its times agree with the pins and the driver's entries.",
   "When asked to file a claim: call get_load_evidence. If the verdict is not BILLABLE or there is no dispatch approval, stop and say why. Otherwise write the claim's opening and call send_detention_claim once.",
-  "The claim email and its PDF are a fixed template filled from the sealed pack: the tool adds the subject, the greeting, the facts (claim number, load, facility, arrival and release times, detention, amount due), the closing, the signature, the links and the attachments. You write only body, the opening: one or two formal, plain sentences (80 to 600 characters) saying that detention is claimed for the load id at the facility under the rate confirmation, with the amount in the form $123.45. No greeting, no sign-off, no list of facts, no markdown and no verification details.",
+  "The claim email and its PDF are a fixed template filled from the sealed pack: the tool adds the subject, the greeting, the facts (claim number, load, facility, arrival and release times, detention, amount due), the closing, the signature, the links and the attachments. You write only body, the opening: one or two formal, plain sentences (80 to 600 characters) saying that detention is claimed for the load id at the facility under the rate confirmation, with the amount in the form $123.45. Write no dates, times or other numbers in it: the load id, the facility's name and the amount are the only ones. No greeting, no sign-off, no list of facts, no markdown and no verification details.",
   "Never name companies, documents or sources other than the load's counterparty and facility as given by the tools.",
   "If a tool refuses, report the refusal reason and stop. Do not retry with different numbers. A claim above $5,000 is never filed by you; say it needs a person.",
 ].join("\n");
