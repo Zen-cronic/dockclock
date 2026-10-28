@@ -28,6 +28,10 @@ export interface DockClockConfig {
   counterpartyEmailShipper: string;
   // The console's public address, linked from emails, PDFs and RCS texts (Lambda env CONSOLE_URL).
   consoleUrl: string;
+  // Optional custom domain for the desk distribution (it also answers on www.<domain>), with its ACM
+  // certificate in us-east-1. Both or neither; empty: only the default CloudFront hostname.
+  deskDomain: string;
+  deskCertArn: string;
 }
 
 function required(name: string): string {
@@ -59,5 +63,7 @@ export function configFromEnv(): DockClockConfig {
     counterpartyEmailShipper: required("DOCKCLOCK_COUNTERPARTY_EMAIL_SHIPPER"),
     rcsAgentId: process.env.DOCKCLOCK_RCS_AGENT_ID ?? "",
     consoleUrl: process.env.DOCKCLOCK_CONSOLE_URL || DEFAULT_CONSOLE_URL,
+    deskDomain: process.env.DOCKCLOCK_DESK_DOMAIN ?? "",
+    deskCertArn: process.env.DOCKCLOCK_DESK_CERT_ARN ?? "",
   };
 }

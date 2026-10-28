@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildApp } from "../lib/app.js";
 import { CoreStack } from "../lib/core-stack.js";
-import { DESK_PLACEHOLDER_CONTEXT, DeskStack, deskSource } from "../lib/desk-stack.js";
+import { DESK_PLACEHOLDER_CONTEXT, DeskStack, deskDomain, deskSource } from "../lib/desk-stack.js";
 import { DESK_STACK, STACKS, cliOptions, deployCommand, deployPlan, mergeOutputs, optionKind, readArgs } from "../lib/deploy-stacks.js";
 
 const config = {
@@ -31,6 +31,8 @@ const config = {
   counterpartyEmailShipper: "shipper@example.com",
   rcsAgentId: "rcs-0123456789abcdef",
   consoleUrl: "https://console.example.com",
+  deskDomain: "",
+  deskCertArn: "",
 };
 
 describe("stacks", () => {
@@ -256,6 +258,52 @@ describe("desk source", () => {
     const core2 = new CoreStack(asked, "Core", { env: { account: config.account, region: config.region } });
     const placeholder = new DeskStack(asked, "Desk", { env: { account: config.account, region: config.region }, core: core2, config, root: root() });
     expect(Annotations.fromStack(placeholder).findError("*", Match.anyValue())).toHaveLength(0);
+  });
+});
+
+describe("desk custom domain", () => {
+  // A made-up certificate ARN: tests never carry a real one.
+  const certArn = "arn:aws:acm:us-east-1:example:certificate/test-desk-cert";
+  const synthDesk = (desk: { deskDomain: string; deskCertArn: string }) => {
+    const app = new App({ context: { "aws:cdk:bundling-stacks": [], [DESK_PLACEHOLDER_CONTEXT]: "1" } });
+    const env = { account: config.account, region: config.region };
+    const core = new CoreStack(app, "Core", { env });
+    return Template.fromStack(new DeskStack(app, "Desk", { env, core, config: { ...config, ...desk } }));
+  };
+  const distribution = (t: Template) => Object.values(t.findResources("AWS::CloudFront::Distribution"))[0] as { Properties: { DistributionConfig: Record<string, unknown> } };
+
+  it("answers on the domain and www. with the given certificate when both are set", () => {
+    const t = synthDesk({ deskDomain: "dockclock.live", deskCertArn: certArn });
+    t.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({
+        Aliases: ["dockclock.live", "www.dockclock.live"],
+        ViewerCertificate: Match.objectLike({ AcmCertificateArn: certArn, SslSupportMethod: "sni-only" }),
+      }),
+    });
+    t.hasOutput("DeskUrl", {});
+    t.hasOutput("DeskDomainNames", { Value: "dockclock.live,www.dockclock.live" });
+    t.hasOutput("DeskCustomUrl", { Value: "https://dockclock.live" });
+  });
+
+  it("keeps only the default CloudFront hostname when neither is set", () => {
+    const t = synthDesk({ deskDomain: "", deskCertArn: "" });
+    const dist = distribution(t).Properties.DistributionConfig;
+    expect(dist).not.toHaveProperty("Aliases");
+    expect(dist).not.toHaveProperty("ViewerCertificate");
+    t.hasOutput("DeskUrl", {});
+    expect(Object.keys(t.findOutputs("*"))).not.toContain("DeskDomainNames");
+  });
+
+  it("fails the synth when only one is set", () => {
+    expect(() => synthDesk({ deskDomain: "dockclock.live", deskCertArn: "" })).toThrow(/DOCKCLOCK_DESK_DOMAIN is set but DOCKCLOCK_DESK_CERT_ARN is not/);
+    expect(() => synthDesk({ deskDomain: "", deskCertArn: certArn })).toThrow(/DOCKCLOCK_DESK_CERT_ARN is set but DOCKCLOCK_DESK_DOMAIN is not/);
+  });
+
+  it("rejects a certificate outside us-east-1 and a domain that is not bare", () => {
+    expect(() => deskDomain({ deskDomain: "dockclock.live", deskCertArn: "arn:aws:acm:eu-west-1:example:certificate/x" })).toThrow(/us-east-1/);
+    expect(() => deskDomain({ deskDomain: "https://dockclock.live", deskCertArn: certArn })).toThrow(/bare domain/);
+    expect(() => deskDomain({ deskDomain: "www.dockclock.live", deskCertArn: certArn })).toThrow(/bare domain/);
+    expect(deskDomain({ deskDomain: " DockClock.live ", deskCertArn: certArn })).toEqual({ domainNames: ["dockclock.live", "www.dockclock.live"], certificateArn: certArn });
   });
 });
 

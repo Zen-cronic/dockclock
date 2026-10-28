@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Annotations, CfnOutput, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import { S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import * as s3 from "aws-cdk-lib/aws-s3";
@@ -39,6 +40,35 @@ export function deskSource(root = repoRoot, placeholder = process.env[DESK_PLACE
     path: page,
     error: `site/dist/index.html is missing: run npm run build -w @dockclock/site before deploying the desk, or set ${DESK_PLACEHOLDER_ENV}=1 to deploy the placeholder page (it replaces the live console).`,
   };
+}
+
+export const DESK_DOMAIN_ENV = "DOCKCLOCK_DESK_DOMAIN";
+export const DESK_CERT_ARN_ENV = "DOCKCLOCK_DESK_CERT_ARN";
+
+export interface DeskDomain {
+  domainNames: string[];
+  certificateArn: string;
+}
+
+// The desk's optional custom domain: the apex and www, on an ACM certificate that CloudFront can use
+// (us-east-1 only). Neither value set: null, and the distribution keeps only its default hostname.
+// One without the other, or a value CloudFront would reject, throws so the synth fails here instead
+// of half-way through a deploy.
+export function deskDomain(config: Pick<DockClockConfig, "deskDomain" | "deskCertArn">): DeskDomain | null {
+  const domain = config.deskDomain.trim().toLowerCase();
+  const certificateArn = config.deskCertArn.trim();
+  if (!domain && !certificateArn) return null;
+  if (!domain || !certificateArn) {
+    const [set, missing] = domain ? [DESK_DOMAIN_ENV, DESK_CERT_ARN_ENV] : [DESK_CERT_ARN_ENV, DESK_DOMAIN_ENV];
+    throw new Error(`${set} is set but ${missing} is not: set both for a custom desk domain, or neither (see .env.example).`);
+  }
+  if (!/^(?!www\.)[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) {
+    throw new Error(`${DESK_DOMAIN_ENV} must be a bare domain such as example.com (no scheme, path or www.; www. is added): got "${domain}".`);
+  }
+  if (!/^arn:aws:acm:us-east-1:[^:]+:certificate\/.+$/.test(certificateArn)) {
+    throw new Error(`${DESK_CERT_ARN_ENV} must be an ACM certificate ARN in us-east-1 (CloudFront uses certificates from there only).`);
+  }
+  return { domainNames: [domain, `www.${domain}`], certificateArn };
 }
 
 export interface DeskStackProps extends StackProps {
@@ -85,8 +115,16 @@ export class DeskStack extends Stack {
       // account limit is 1000 (quota L-B99A9384, granted 2026-10-20).
       reservedConcurrency: 50,
     });
+    const domain = deskDomain(props.config);
     this.distribution = new cloudfront.Distribution(this, "Desk", {
       comment: "DockClock judge desk",
+      // The default *.cloudfront.net hostname keeps working alongside the custom names.
+      ...(domain
+        ? {
+            domainNames: domain.domainNames,
+            certificate: acm.Certificate.fromCertificateArn(this, "DeskCertificate", domain.certificateArn),
+          }
+        : {}),
       defaultRootObject: "index.html",
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
@@ -112,5 +150,10 @@ export class DeskStack extends Stack {
       memoryLimit: 512,
     });
     new CfnOutput(this, "DeskUrl", { value: `https://${this.distribution.distributionDomainName}` });
+    if (domain) {
+      // Point these names at the DeskUrl hostname at the DNS host (CNAME, or ALIAS for the apex).
+      new CfnOutput(this, "DeskDomainNames", { value: domain.domainNames.join(",") });
+      new CfnOutput(this, "DeskCustomUrl", { value: `https://${domain.domainNames[0]}` });
+    }
   }
 }
