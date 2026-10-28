@@ -10,7 +10,7 @@ const NAV = [
 
 function Brand() {
   return (
-    <Link className="brand" to="/overview" aria-label="DockClock Console home">
+    <Link className="brand" to="/" aria-label="DockClock home">
       <img src={`${import.meta.env.BASE_URL}brand-mark.svg`} alt="" />
       <b>DockClock</b>
     </Link>
