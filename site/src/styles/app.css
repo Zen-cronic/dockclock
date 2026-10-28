@@ -112,12 +112,6 @@ a { color: inherit; }
 .dockband .mark.start::after { left: 0; }
 .dockband .mark.end::after { left: auto; right: 0; }
 .dockband .mark span { color: var(--nav-dim); font-family: var(--text); font-weight: 600; margin-left: 6px; }
-.dockband .pins .pin { position: absolute; top: 52px; width: 8px; height: 8px; border-radius: 50%; transform: translateX(-50%); background: var(--nav-text); }
-.dockband .pins .pin.money { background: var(--safety); }
-.dockband .pins .pin.ok { background: #3fbf7a; }
-.dockband .pins .pin.agent { background: #8aa4ff; }
-.dockband .pins .pin.refused { background: transparent; box-shadow: inset 0 0 0 2px #ff6a5c; }
-.dockband .pins .pin.future { opacity: 0.25; }
 .dockband .playbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border-radius: 999px; background: var(--side-2); color: #fff; border: 1px solid var(--side-3); font-weight: 700; cursor: pointer; }
 .dockband .playbtn:hover { border-color: var(--nav-dim); }
 
@@ -429,15 +423,9 @@ a { color: inherit; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* Overrides: timeline reasons, dock band legend, judges stage */
+/* Overrides: timeline reasons, dock band note, judges stage */
 .tl .why { font-size: var(--t-13); color: var(--stop); text-align: right; white-space: nowrap; }
-.dockband .bandlegend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; font-size: 11.5px; color: var(--nav-dim); }
-.dockband .bandnote { margin-top: 6px; font-size: 11.5px; color: var(--nav-dim); }
-.dockband .bandlegend i { position: static; display: inline-block; transform: none; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; background: var(--nav-text); }
-.dockband .bandlegend i.money { background: var(--safety); }
-.dockband .bandlegend i.agent { background: #8aa4ff; }
-.dockband .bandlegend i.ok { background: #3fbf7a; }
-.dockband .bandlegend i.refused { background: transparent; box-shadow: inset 0 0 0 2px #ff6a5c; }
+.dockband .bandnote { margin-top: 8px; font-size: 11.5px; color: var(--nav-dim); }
 .grid-2 { align-items: start; }
 .judge .stage { align-content: start; align-items: start; padding-bottom: 0; grid-template-columns: 460px minmax(0, 1fr); gap: var(--s6); }
 .judge { min-height: 0; }
@@ -513,8 +501,8 @@ main.page:focus { outline: none; }
 .dockband .row1 { align-items: flex-end; }
 .dockband .row1 > div:first-child { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
 .dockband.compact .led { font-size: 64px; }
-.dockband.compact .track { height: 64px; margin-top: 12px; }
-.dockband .track { height: 84px; }
+.dockband.compact .track { margin-top: 12px; }
+.dockband .track { height: 52px; }
 .tl .src-tag { font: 500 11px var(--mono); color: var(--ink-3); white-space: nowrap; text-align: right; }
 .pinproof { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
 .pinproof > div { display: grid; grid-template-columns: 22px 1fr; gap: 2px 10px; align-items: center; padding: 14px; background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); }
@@ -532,7 +520,6 @@ main.page:focus { outline: none; }
 .judge .facts { grid-template-columns: 1fr; }
 .judge .facts div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 12px 16px; }
 .judge .facts dd { margin-top: 0; text-align: right; }
-.dockband.compact .track { height: 84px; } .dockband .bandlegend { margin-top: 10px; }
 
 /* Stopped steps: a skipped step never ran (dashed, quiet); a failed one is red */
 .flow li.skipped .node { background: transparent; box-shadow: none; border: 1.5px dashed var(--ink-3); color: var(--ink-3); }
@@ -775,10 +762,8 @@ a:hover .go { transform: translateX(2px); }
 .empty .ledots i:nth-child(3) { animation-delay: 0.4s; }
 @keyframes ledot { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
 
-/* The dock-clock panel: a lighter yellow frame, and record pins large enough to read against the legend */
+/* The dock-clock panel: a lighter yellow frame */
 .dockband { box-shadow: inset 0 0 0 1px var(--side), inset 0 0 0 2px rgba(255, 196, 0, 0.7); }
-.dockband .pins .pin { width: 10px; height: 10px; box-shadow: 0 0 0 2px var(--side); }
-.dockband .pins .pin.refused { box-shadow: inset 0 0 0 2px #ff6a5c, 0 0 0 2px var(--side); }
 .tl .dot { width: 9px; height: 9px; }
 .tl .dot:not(.money):not(.agent):not(.ok):not(.refused) { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rule-2); }
 .tl .dot.agent { background: #6d86ee; box-shadow: 0 0 0 1px var(--carbon); }

@@ -236,7 +236,7 @@ export function Judges() {
         kicker = "ATRI 2024 ∙ 40 drivers × $5,103.95";
         title = "$204,000 a year, unpaid";
         say = "Detention is the pay a shipper owes when it keeps a truck waiting past the free time in the contract. A 40-driver carrier never collects about this much a year. Follow one claim through the five reasons brokers give for not paying.";
-        visual = <DockClockBand load={load} legend={false} />;
+        visual = <DockClockBand load={load} />;
         extra = <Facts load={load} />;
         break;
       case "proved": {

@@ -5,7 +5,9 @@ import type { LoadDetail } from "../model/model.js";
 import { IconPause, IconPlay } from "./icons.js";
 
 // DockClockBand: the signature visual. A dock-door sign at night: a dot-matrix clock, free time as
-// a dashed floor marking, billable time as a hazard stripe, every record pinned at its true time.
+// a dashed floor marking, billable time as a hazard stripe, and the in, out and pin times marked on
+// the track. The load's records are listed under the band on the Timeline tab, so the band draws
+// no per-record dots of its own.
 // Said under the band when a recorded time does not parse and the release line does not say so.
 export const UNREADABLE_BAND_NOTE = "A recorded time could not be read, so it is left off the clock and a person reviews the load";
 
@@ -15,7 +17,7 @@ const CLOCK_TIMES = ["arrivedAt", "releasedAt", "releasePinAt", "endedAt", "cloc
 // The phases in which a truck can still be at the dock, so the clock may run to "as of".
 const AT_DOCK_PHASES = new Set(["waiting_for_arrival", "at_dock"]);
 
-export function DockClockBand({ load, cursor, playing, onPlay, title, legend, compact }: { load: LoadDetail; cursor?: string | null; playing?: boolean; onPlay?: () => void; title?: string; legend?: boolean; compact?: boolean }) {
+export function DockClockBand({ load, cursor, playing, onPlay, title, compact }: { load: LoadDetail; cursor?: string | null; playing?: boolean; onPlay?: () => void; title?: string; compact?: boolean }) {
   // A stored time that does not parse is left off the track (as if not recorded) and said in the
   // note, never drawn at NaN% or formatted (a RangeError would replace the whole console).
   const recorded = load.clock;
@@ -164,32 +166,8 @@ export function DockClockBand({ load, cursor, playing, onPlay, title, legend, co
           {late && <div className="brk" style={{ left: "88%" }} />}
           {cursor && Number.isFinite(limit) && <div className="seg cursor" style={{ left: `${pct(cursor)}%` }} />}
         </div>
-        <div className="pins">
-          {(() => {
-            // Pins closer than about 1% of the track stack into rows instead of overlapping.
-            const lastInRow: number[] = [];
-            return timeline
-              .filter((e) => e.tone !== "neutral")
-              .map((e) => {
-                const x = pct(e.at);
-                let row = lastInRow.findIndex((r) => x - r >= 1.2);
-                if (row < 0) row = lastInRow.length;
-                lastInRow[row] = x;
-                return <span key={e.id} className={`pin ${e.tone} ${Date.parse(e.at) > limit ? "future" : ""}`} style={{ left: `${x}%`, top: 52 + row * 11 }} title={`${clock(e.at, tz)} ${e.title}`} />;
-              });
-          })()}
-        </div>
       </div>
       {release && !compact && <p className="small bandnote">{release}</p>}
-      {(legend ?? true) && (
-        <div className="bandlegend" aria-hidden="true">
-          {(["refused", "money", "agent", "ok"] as const)
-            .filter((t) => load.timeline.some((e) => e.tone === t))
-            .map((t) => (
-              <span key={t}><i className={`pin ${t}`} />{{ refused: "refused", money: "money", agent: "agent", ok: "done" }[t]}</span>
-            ))}
-        </div>
-      )}
     </section>
   );
 }

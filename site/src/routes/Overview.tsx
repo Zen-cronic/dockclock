@@ -36,7 +36,7 @@ export function Overview() {
           {load && (
             <div style={{ marginTop: 16 }}>
               <Link to={`/loads/${load.summary.id}`} style={{ textDecoration: "none", display: "block" }} aria-label={`Open load ${load.summary.id}`}>
-                <DockClockBand load={load} title={placeName(load.summary.facility)} legend compact />
+                <DockClockBand load={load} title={placeName(load.summary.facility)} compact />
               </Link>
             </div>
           )}

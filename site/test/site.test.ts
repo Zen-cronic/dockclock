@@ -626,3 +626,24 @@ describe("a load with a time that does not parse", async () => {
     expect(html).toContain('aria-label="0:00 hours and minutes at the dock"');
   });
 });
+
+// The band marks only the clock's own times (in, out, the release pin). The load's records are
+// listed, labelled, under the band on the Timeline tab; unlabelled coloured dots under the track
+// repeated that list and stacked into a jumble near the ends.
+describe("the dock clock band", async () => {
+  const { createElement } = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { DockClockBand } = await import("../src/ui/DockClockBand.js");
+  const body = JSON.parse(readFileSync(new URL("LIVE-mvpoqheg.json", fxDir), "utf8")) as { data: LoadView };
+
+  it("draws the in and out times and no per-record dots or dot legend", () => {
+    const d = detailFromApi(body.data, "fixture");
+    expect(d.timeline.some((e) => e.tone !== "neutral")).toBe(true);
+    for (const props of [{ load: d }, { load: d, compact: true }, { load: d, cursor: d.timeline[3]!.at }]) {
+      const html = renderToStaticMarkup(createElement(DockClockBand, props));
+      expect(html).toMatch(/<span>in<\/span>/);
+      expect(html).toMatch(/<span>out<\/span>/);
+      expect(html).not.toMatch(/class="pins"|class="pin |bandlegend/);
+    }
+  });
+});
