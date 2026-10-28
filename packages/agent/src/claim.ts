@@ -50,13 +50,16 @@ export function toCents(amountUsd: number): number {
 //   one. So +1 (416) 555-0143, tel:416-555-0143, 416_555_0143, 416 - 555 - 0143,
 //   4165550143,4165550199 and a list such as 416, 555, 0143 are each one run;
 // - a run of 10 or more digits is refused unless every digit in it belongs to a known-safe token,
-//   and no two of those tokens are of the same kind. The tokens: an occurrence of the load id, the
+//   and no two of those tokens state the same thing. The tokens: an occurrence of the load id, the
 //   contract amount as the opening must state it ($1234.56), money ($80.00, $1,234.56, $30, $60/h),
 //   a date (2026-10-23, 10/23/2026), a clock time with up to three fractional digits and a zone
-//   offset (13:05, 13:05:00.123-04:00) and a duration (+15, +15 min, +2 hours). So
-//   2026-10-23 13:05 (a date and a time), load PO-4471982: $80.00 (the load and the amount) and
-//   PO-123456789012 (the load alone) file, while 416-555-01:43 (a time beside a bare group),
-//   4:16 5:55 01:43 (three times) and $416 $555 $0143 (three sums) are refused.
+//   offset (13:05, 13:05:00.123-04:00), a time range, which states one time (14:05–14:40,
+//   2:05–2:40 PM, and after a date, 2026-10-27 14:05–14:40, which states a date and a time) and a
+//   duration (+15, +15 min, +2 hours). So 2026-10-23 13:05 (a date and a time),
+//   $30.00 (14:05–14:40) (the amount and a range), load PO-4471982: $80.00 (the load and the
+//   amount) and PO-123456789012 (the load alone) file, while 416-555-01:43 (a time beside a bare
+//   group), 4:16 5:55 01:43 (three times), 4:16–5:55 01:43 (a range and a time) and
+//   $416 $555 $0143 (three sums) are refused.
 // A freight reference gets no exemption, labelled or not: PRO 1234567890, PO 4165550143 and order
 // 111122223333 are refused, since a number that long can be a phone number or an account id
 // whatever word comes before it. A reference of up to 9 digits passes like any short number. The
@@ -68,18 +71,42 @@ const DIGIT = /^\p{Nd}$/u;
 // invisible operators), combining marks and the other default-ignorable characters (variation
 // selectors, Hangul fillers), none of which a reader sees between two digits.
 const INVISIBLE = /[\p{Cf}\p{Mn}\p{Me}\p{Default_Ignorable_Code_Point}]/gu;
-type TokenKind = "load" | "amount" | "date" | "time" | "duration" | "money";
+type TokenKind = "load" | "amount" | "date" | "time" | "range" | "dated range" | "duration" | "money";
+// What each kind of token states. A run may state each of these once, so a time range, which is one
+// statement of when, cannot sit beside another time.
+const STATES: Record<TokenKind, readonly string[]> = {
+  load: ["load"],
+  amount: ["amount"],
+  date: ["date"],
+  time: ["time"],
+  range: ["time"],
+  "dated range": ["date", "time"],
+  duration: ["duration"],
+  money: ["money"],
+};
+const ISO_DATE = String.raw`(?:19|20)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])`;
+const US_DATE = String.raw`(?:0?[1-9]|1[0-2])\/(?:0?[1-9]|[12]\d|3[01])\/(?:\d{4}|\d{2})`;
+// One end of a time range: hours and minutes, and AM or PM. Seconds make it two times.
+const RANGE_END = String.raw`(?:[01]?\d|2[0-3]):[0-5]\d(?![:.]?\d)(?:\s?[AP]\.?M\.?)?`;
+// A hyphen, an en or em dash, or a minus sign, with up to two spaces on each side.
+const RANGE_DASH = String.raw`\s{0,2}[-\u2013\u2014\u2212]\s{0,2}`;
 const SAFE: Array<[TokenKind, RegExp]> = (
   [
-    ["date", String.raw`(?<!\d)(?:19|20)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d)`],
-    ["date", String.raw`(?<!\d)(?:0?[1-9]|1[0-2])\/(?:0?[1-9]|[12]\d|3[01])\/(?:\d{4}|\d{2})(?!\d)`],
+    ["date", String.raw`(?<!\d)${ISO_DATE}(?!\d)`],
+    ["date", String.raw`(?<!\d)${US_DATE}(?!\d)`],
     // A clock time, with seconds, up to three fractional digits and a zone offset: more digits are
-    // not a time. 14:30-14:35 reads as one time with an offset, which is one token either way.
+    // not a time.
     ["time", String.raw`(?<!\d)(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:[+-](?:0\d|1[0-4]):?[0-5]\d)?(?!\d)`],
     ["duration", String.raw`\+\d{1,3} ?(?:minutes?|mins?|hours?|hrs?|h|m)(?![A-Za-z])`],
     ["duration", String.raw`\+\d{1,3}(?!\d)`],
     // Up to seven digits, or comma groups, and cents; a run that goes on past them is not money.
     ["money", String.raw`\$ ?(?:\d{1,3}(?:,\d{3}){1,2}|\d{1,7})(?:\.\d{2})?(?![\d,.]\d)`],
+    // A time range is one token, marked over the two times in it: 14:05-15:40, 14:05 - 14:40,
+    // 14:05–14:40, 14:05−14:40 and 2:05–2:40 PM. So is a range after a date, with the date said
+    // again or not (2026-10-27 14:05–14:40, 2026-10-27 14:05–2026-10-27 14:40); a second date that
+    // differs is a second date.
+    ["range", String.raw`(?<!\d[:.]?)${RANGE_END}${RANGE_DASH}${RANGE_END}`],
+    ["dated range", String.raw`(?<!\d)(?<day>${ISO_DATE}|${US_DATE})[T ]${RANGE_END}${RANGE_DASH}(?:\k<day>[T ])?${RANGE_END}`],
   ] as const
 ).map(([kind, source]) => [kind, new RegExp(source, "giu")]);
 const ARN = /(?<![A-Za-z])arn(?::|[^A-Za-z\d]{1,3}aws(?![A-Za-z]))/giu;
@@ -133,8 +160,8 @@ function leaks(opening: string, id: string, amount: string): boolean {
     if (run.length < 10) return false;
     const owners = new Set(run.map((at) => owner[at]!));
     if (owners.has(-1)) return true;
-    const kinds = [...owners].map((t) => tokens[t]!);
-    return new Set(kinds).size !== kinds.length;
+    const stated = [...owners].flatMap((t) => STATES[tokens[t]!]);
+    return new Set(stated).size !== stated.length;
   };
   let run: number[] = [];
   for (let i = 0; i < kept.length; i++) {

@@ -1,7 +1,7 @@
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { mockClient } from "aws-sdk-client-mock";
 import { describe, expect, it } from "vitest";
-import { CEDAR_POLICIES, checkClaim, readBol, SYSTEM_PROMPT, TOOLS, type ClaimRequest, type SealedClaimBasis } from "../src/index.js";
+import { CEDAR_POLICIES, checkClaim, formatUsd, readBol, SYSTEM_PROMPT, TOOLS, type ClaimRequest, type SealedClaimBasis } from "../src/index.js";
 
 const basis: SealedClaimBasis = {
   loadId: "LIVE-abc",
@@ -226,6 +226,58 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     if (outcome === "files") expect(result).toEqual({ ok: true });
     else expect(result.ok === false && result.reason).toMatch(/AWS resource name, account id or phone number/);
   });
+
+  // The opening the agent writes, from SYSTEM_PROMPT and the real LIVE-mvpoqheg claim, across load
+  // ids, facilities and every amount shape formatUsd writes: all 2002 must file.
+  it("files the agent's template for every load id, facility and amount", () => {
+    const ids = ["LIVE-mvpoqheg", "LIVE-mvlb0qzq", "LIVE-mve1ve6d", "LIVE-mvq1o2l3", "LIVE-mvq12345", "LIVE-1o1l1o1l", "SMOKE-RCS-mvh32fui", "4471", "4471982", "PO-4471982", "PO-123456789012", "1234567890", "0143"];
+    const facilities = [
+      "Judge demo yard (any location counts)", "Lakeshore DC, Columbus OH", "Prairie Distribution, Joliet IL", "Dock 12", "Gate 4B", "Building 1001", "DC 1O1",
+      "Building 1001, Dock 12", "Ontario DC, Route 401", "Illinois DC off I-95", "Door 12 (Building 1001)",
+    ];
+    const amounts = [1, 9, 10, 99, 100, 988, 1000, 3000, 8000, 99999, 123456, 500000, 999999, 9999999];
+    const refused: string[] = [];
+    for (const id of ids) {
+      for (const facility of facilities) {
+        for (const cents of amounts) {
+          const opening = `We are claiming detention for load ${id} at ${facility} under the rate confirmation in the amount of ${formatUsd(cents / 100)}.`;
+          const sealed = { ...basis, loadId: id, amountCents: cents };
+          if (!checkClaim({ ...request, loadId: id, amountCents: cents, body: opening }, sealed).ok) refused.push(opening);
+        }
+      }
+    }
+    expect(ids.length * facilities.length * amounts.length).toBe(2002);
+    expect(refused).toEqual([]);
+  });
+
+  // Openings found by review: the agent's sentence with one fact added, each way it may be written.
+  // Fictional numbers only: 555-01xx phone numbers and made-up account ids.
+  const pre = "Detention is claimed for load LIVE-mvpoqheg at Judge demo yard (any location counts) under the rate confirmation";
+  const demoClaim = (opening: string, cents = 3000, loadId = "LIVE-mvpoqheg") =>
+    checkClaim({ ...request, loadId, amountCents: cents, body: opening }, { ...basis, loadId, amountCents: cents });
+  const judged = (outcome: string, opening: string, cents?: number, loadId?: string) => {
+    const result = demoClaim(opening, cents, loadId);
+    if (outcome === "files") expect(result, shown(opening)).toEqual({ ok: true });
+    else expect(result.ok === false && result.reason, shown(opening)).toMatch(/AWS resource name, account id or phone number/);
+  };
+
+  // A time range is one token, however its ends are joined; it states a time, so it cannot sit
+  // beside another time, and its ends hold hours and minutes only.
+  it.each([
+    ["files", `${pre} in the amount of $30.00 (2:05–2:40 PM).`],
+    ["files", `${pre} in the amount of $30.00 (14:05–14:40).`],
+    ["files", `${pre} for 2026-10-27 14:05-15:40, in the amount of $30.00.`],
+    ["files", `${pre} for 14:05-15:40: $9.88.`, 988],
+    ["files", `${pre} for 2026-10-27 14:05 - 14:40, in the amount of $30.00.`],
+    ["files", `${pre} for 2026-10-27 14:05−14:40, in the amount of $30.00.`],
+    ["files", `${pre} in the amount of $30.00 (14:05−14:40).`],
+    ["files", `${pre} for 10/27/2026 2:05 PM–2:40 PM, in the amount of $30.00.`],
+    ["files", `${pre} in the amount of $30.00 (2026-10-27 14:05–2026-10-27 14:40).`],
+    ["refuses", `${pre} in the amount of $30.00. Call 4:16–5:55 01:43.`],
+    ["refuses", `${pre} in the amount of $30.00. Call 4:16 - 5:55 - 01:43.`],
+    ["refuses", `${pre} in the amount of $30.00. Call 4:16-5:55-01:43.`],
+    ["refuses", `${pre} in the amount of $30.00 (2026-10-27 14:05–2026-10-28 14:40).`],
+  ])("%s a time range: %s", (outcome, opening, cents?: number) => judged(outcome, opening, cents));
 
   it("files the opening the live agent wrote for LIVE-mvpoqheg", () => {
     const opening = "We are claiming detention for load LIVE-mvpoqheg at Judge demo yard (any location counts) under the rate confirmation in the amount of $9.88.";
