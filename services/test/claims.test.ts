@@ -1,5 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { JUDGE_DEMO_CLAUSE } from "@dockclock/clause-engine";
+import { PER_SENDER_PER_DAY } from "../src/demo.js";
 import { RETAKE_WAIT_SECONDS } from "../src/retake.js";
 
 // The README and FACTS are claims about this code. These checks fail the build when the words and
@@ -20,6 +22,14 @@ function factRows(): Array<{ claim: string; evidence: string; status: string }> 
 }
 
 describe("README and FACTS match the code", () => {
+  it("states the judge demo's numbers as the code has them", () => {
+    const { freeTimeMinutes, ratePerHourUsd, capUsdPerOccurrence } = JUDGE_DEMO_CLAUSE;
+    expect(readme).toContain(`the demo contract (${freeTimeMinutes} minutes free, $${ratePerHourUsd} an hour, a $${capUsdPerOccurrence} cap)`);
+    expect(readme).toContain(`the demo contract gives ${freeTimeMinutes} minutes free at $${ratePerHourUsd} an hour`);
+    expect(readme).toContain(`a demo contract with ${freeTimeMinutes} minutes free`);
+    expect(readme).toContain(`each number gets ${PER_SENDER_PER_DAY} demos a day`);
+  });
+
   it("states the photo retake wait as the code has it", () => {
     expect(facts).toContain(`within ${RETAKE_WAIT_SECONDS.demo / 60} minutes on a demo load (an hour otherwise)`);
     expect(RETAKE_WAIT_SECONDS.standard).toBe(3600);
