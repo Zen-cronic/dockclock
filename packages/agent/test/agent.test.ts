@@ -197,6 +197,12 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", "Key arnː aws:s3:::evidence-bucket."],
     ["refuses", "Key arn :aws:s3:::evidence-bucket."],
     ["refuses", "Key 1arn:aws:s3:::evidence-bucket."],
+    // An ARN spelled with Cyrillic or Greek letters that look Latin.
+    ["refuses", "Key аrn:aws:s3:::evidence-bucket."],
+    ["refuses", "Key arn:аԝѕ:s3:::evidence-bucket."],
+    ["refuses", "Key ΑRΝ:AWS:S3:::EVIDENCE-BUCKET."],
+    ["refuses", "Key агп aws s3 evidence-bucket."],
+    ["refuses", "Key аrn∶aws∶s3∶∶∶evidence-bucket."],
     // What the agent and the clause engine write, which must still file.
     ["files", "Billed $9.88 ($80.00 cap)."],
     ["files", "From $80.00-$120.00."],
@@ -209,6 +215,8 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["files", "Wait 2 h 13 m (13:05–15:18)."],
     ["files", "Loaded 5 x 12 pallets."],
     ["files", "The driver will warn dispatch."],
+    ["files", "The driver will wаrn dispatch."],
+    ["files", "The yard at Βarn Οaks is open."],
   ])("%s an opening with: %s", (outcome, text) => {
     const result = checkClaim({ ...request, body: `${body} ${text}` }, basis);
     if (outcome === "files") expect(result, shown(text)).toEqual({ ok: true });

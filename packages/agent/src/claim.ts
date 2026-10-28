@@ -131,6 +131,18 @@ const SAFE: Array<[TokenKind, RegExp]> = (
   ] as const
 ).map(([kind, source]) => [kind, new RegExp(source, "giu")]);
 const ARN = /(?<![A-Za-z])arn(?::|[^A-Za-z\d]{1,3}aws(?![A-Za-z]))/giu;
+// Cyrillic and Greek letters a reader takes for a Latin one (аrn with a Cyrillic а, ΑRΝ with Greek
+// capitals, агп with a Cyrillic г and п), folded to it before the ARN test. One code unit each, so
+// every position in the folded copy is the same as in the opening.
+const LOOKS_LATIN: Record<string, string> = Object.fromEntries(
+  [
+    ["аАαΑɑ", "a"], ["вВβΒ", "b"], ["сСϲϹ", "c"], ["ԁ", "d"], ["еЕεΕ", "e"], ["нНηΗ", "h"], ["іІιΙӏӀ", "i"],
+    ["јЈ", "j"], ["кКκΚ", "k"], ["мМμΜ", "m"], ["пΝ", "n"], ["оОοΟσ", "o"], ["рРρΡ", "p"], ["ԛ", "q"],
+    ["гʀ", "r"], ["ѕЅ", "s"], ["тТτΤ", "t"], ["υ", "u"], ["νѵ", "v"], ["ԝԜωѡ", "w"], ["хХχΧ", "x"],
+    ["уУγΥ", "y"], ["Ζ", "z"],
+  ].flatMap(([from, to]) => [...from!].map((char) => [char, to!])),
+);
+const latinLooking = (text: string) => text.replace(/[^\x00-\x7F]/g, (char) => LOOKS_LATIN[char] ?? char);
 
 // The ASCII digit for a decimal digit of any script. Unicode encodes each script's digits as one
 // run of 0 to 9 (some runs hold several sets of ten), so the digit is its distance from the run's
@@ -162,7 +174,7 @@ function leaks(opening: string, id: string, amount: string): boolean {
   const body = readable(opening);
   const named = occurrences(body, readable(id));
   const inName = (start: number, end: number) => named.some(([from, to]) => from <= start && end <= to);
-  for (const match of body.matchAll(ARN)) if (!inName(match.index, match.index + match[0].length)) return true;
+  for (const match of latinLooking(body).matchAll(ARN)) if (!inName(match.index, match.index + match[0].length)) return true;
   // The safe token each character belongs to, if any. The load id and the amount are marked last,
   // so money or a date inside them counts as part of them.
   const tokens: TokenKind[] = [];
