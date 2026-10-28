@@ -294,6 +294,19 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", `${yard} under the rate confirmation, Oct 41, 2026: $30.00.`],
   ])("%s a named-month date: %s", (outcome, opening) => judged(outcome, opening));
 
+  // Only the real month names, whole or cut short, are months: a word that starts like one is a word.
+  it.each([
+    ["files", `${yard} under the rate confirmation, December 1, 2026, 14:05–14:40: $30.00.`],
+    ["files", `${yard} under the rate confirmation, Dec. 1, 2026, 14:05–14:40: $30.00.`],
+    ["files", `${yard} under the rate confirmation, Sept 1, 2026, 14:05–14:40: $30.00.`],
+    ["files", `${yard} under the rate confirmation, June 3, 2026, 14:05–14:40: $30.00.`],
+    ["files", `${yard} under the rate confirmation, 3 May 2026, 14:05–14:40: $30.00.`],
+    ["refuses", `${yard} under the rate confirmation, Marketing 4, 2016 5:55-0143: $30.00.`],
+    ["refuses", `${yard} under the rate confirmation, Decimal 1, 2026, 14:05–14:40: $30.00.`],
+    ["refuses", `${yard} under the rate confirmation, Octane 1, 2026, 14:05–14:40: $30.00.`],
+    ["refuses", `${yard} under the rate confirmation, Mayor 1, 2026, 14:05–14:40: $30.00.`],
+  ])("%s a month name or a word like one: %s", (outcome, opening) => judged(outcome, opening));
+
   // The load id and the amount may be said twice in a run, since both come from the sealed pack;
   // nothing else may, and neither may be said three times.
   it.each([

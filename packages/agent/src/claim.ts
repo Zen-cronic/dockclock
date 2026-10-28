@@ -98,8 +98,9 @@ const STATES: Record<TokenKind, readonly string[]> = {
 const SAID_AGAIN = new Set(["load", "amount"]);
 const ISO_DATE = String.raw`(?:19|20)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])`;
 const US_DATE = String.raw`(?:0?[1-9]|1[0-2])\/(?:0?[1-9]|[12]\d|3[01])\/(?:\d{4}|\d{2})`;
-// A month by name, whole or cut short (October, Oct, Oct., Sept), and a day of the month.
-const MONTH = String.raw`(?<![A-Za-z])(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]{0,6}\.?`;
+// A month by name, whole or cut short (October, Oct, Oct., Sept), and a day of the month. Only the
+// real names, as whole words: Marketing, Decimal, Octane and Mayor are not months.
+const MONTH = String.raw`(?<![A-Za-z])(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?![A-Za-z])\.?`;
 const DAY = String.raw`(?:0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?`;
 // One end of a time range: hours and minutes, and AM or PM. Seconds make it two times.
 const RANGE_END = String.raw`(?:[01]?\d|2[0-3]):[0-5]\d(?![:.]?\d)(?:\s?[AP]\.?M\.?)?`;
