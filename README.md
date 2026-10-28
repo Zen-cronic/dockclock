@@ -14,6 +14,7 @@ The buyer I'm aiming at is a freight factor, which already buys small carriers' 
 
 ## Try it in 3 minutes
 - **In a browser, no login:** open https://d3djuoqhg6b8o2.cloudfront.net/judges and click Start. Seven short steps walk one recorded load. Five of them each take one reason a broker gives for not paying, and show the proof DockClock kept: the arrival and release pins, the notice email, a claim filed on time, a signature you can break yourself, and the contract's rules, where you change one fact and watch it decide again. The screens read the live system; a recorded copy stands in if the API is down.
+- **On your phone, about 10 minutes:** text DEMO on WhatsApp to the number in the Devpost testing instructions (DEMO ES for Spanish, DEMO FR for French). You play the driver and the dispatcher on a demo contract with 5 minutes free: tap Arrived and share a pin, wait past free time, tap Released, share a second pin and photograph any paper with the times on it, then approve the claim. Emails go to my test mailbox, never to you, and each number gets 5 demos a day.
 - **With the code, no AWS account needed:** `npm ci`, then `npm run scorecard` for the number above, and `npm run verify:pack -- docs/evidence/SMOKE-mve8yfv3.pack.json` to check a real sealed evidence pack.
 
 ## Why I built it
