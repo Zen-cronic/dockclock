@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { buildApp } from "../lib/app.js";
 import { CoreStack } from "../lib/core-stack.js";
 import { DESK_PLACEHOLDER_CONTEXT, DeskStack, deskDomain, deskSource } from "../lib/desk-stack.js";
-import { DESK_STACK, STACKS, cliOptions, deployCommand, deployPlan, mergeOutputs, optionKind, readArgs } from "../lib/deploy-stacks.js";
+import { DESK_STACK, STACKS, cliOptions, customUrlFromCli, deployCommand, deployPlan, deploysDesk, domainGuard, mergeOutputs, optionKind, readArgs } from "../lib/deploy-stacks.js";
 
 const config = {
   account: "111122223333",
@@ -304,6 +304,66 @@ describe("desk custom domain", () => {
     expect(() => deskDomain({ deskDomain: "https://dockclock.live", deskCertArn: certArn })).toThrow(/bare domain/);
     expect(() => deskDomain({ deskDomain: "www.dockclock.live", deskCertArn: certArn })).toThrow(/bare domain/);
     expect(deskDomain({ deskDomain: " DockClock.live ", deskCertArn: certArn })).toEqual({ domainNames: ["dockclock.live", "www.dockclock.live"], certificateArn: certArn });
+  });
+
+  it("rejects a label that starts or ends with a hyphen", () => {
+    for (const bad of ["-dockclock.live", "dockclock-.live", "dockclock.-live", "dockclock.live-", "dockclock..live"]) {
+      expect(() => deskDomain({ deskDomain: bad, deskCertArn: certArn }), bad).toThrow(/bare domain/);
+    }
+    expect(deskDomain({ deskDomain: "dock-clock.example.com", deskCertArn: certArn })?.domainNames[0]).toBe("dock-clock.example.com");
+  });
+});
+
+describe("a deploy never drops the desk's custom domain by accident", () => {
+  const live = "https://desk.example.com";
+  const guard = (over: Partial<Parameters<typeof domainGuard>[0]> = {}) => {
+    let reads = 0;
+    const result = domainGuard({ args: ["--all"], configured: "", emptyShellOverridesFile: false, allowDrop: false, describe: () => (reads++, live), ...over });
+    return { ...result, reads: () => reads };
+  };
+
+  it("refuses a desk deploy with no domain while the deployed desk answers on one", () => {
+    const g = guard();
+    expect(g.refused).toContain(`${DESK_STACK} answers on ${live}`);
+    expect(g.refused).toContain("DOCKCLOCK_DESK_DROP_DOMAIN=1");
+    expect(guard({ configured: "   " }).refused).not.toBeNull();
+    expect(guard({ args: ["DockClock*"] }).refused).not.toBeNull();
+    expect(guard({ args: [DESK_STACK, "--require-approval", "never"] }).refused).not.toBeNull();
+  });
+
+  it("deploys when the domain is set, the drop is asked for, the desk has no domain or is not deployed", () => {
+    const set = guard({ configured: "desk.example.com" });
+    expect(set).toMatchObject({ refused: null, note: null });
+    expect(set.reads()).toBe(0);
+    const dropped = guard({ allowDrop: true });
+    expect(dropped.refused).toBeNull();
+    expect(dropped.note).toContain(`dropping the desk's custom domain ${live}`);
+    expect(guard({ describe: () => null })).toMatchObject({ refused: null, note: null });
+    const other = guard({ args: ["DockClockAgent"] });
+    expect(other).toMatchObject({ refused: null, note: null });
+    expect(other.reads()).toBe(0);
+  });
+
+  it("warns, and does not block, when the deployed outputs cannot be read", () => {
+    const g = guard({ describe: () => undefined });
+    expect(g.refused).toBeNull();
+    expect(g.note).toContain("could not read DockClockDesk's outputs");
+  });
+
+  it("warns when an empty shell value hides the domain in .env", () => {
+    expect(guard({ emptyShellOverridesFile: true, configured: "desk.example.com" }).note).toContain("exported empty in this shell");
+    expect(guard({ emptyShellOverridesFile: true }).refused).not.toBeNull();
+  });
+
+  it("knows which arguments deploy the desk, and reads the CLI's answer", () => {
+    expect(deploysDesk(["--all"])).toBe(true);
+    expect(deploysDesk(["DockClock*"])).toBe(true);
+    expect(deploysDesk(["DockClockDes?"])).toBe(true);
+    expect(deploysDesk(["DockClockAgent", "DockClockMessaging"])).toBe(false);
+    expect(deploysDesk(["DockClockAgent", "--", "DockClockDesk"])).toBe(false);
+    expect(customUrlFromCli(`${live}\n`)).toBe(live);
+    expect(customUrlFromCli("None\n")).toBeNull();
+    expect(customUrlFromCli("")).toBeNull();
   });
 });
 

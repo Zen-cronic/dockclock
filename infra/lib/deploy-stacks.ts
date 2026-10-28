@@ -213,3 +213,53 @@ const record = (v: unknown): Record<string, unknown> => (v && typeof v === "obje
 export function mergeOutputs(previous: unknown, fresh: unknown): Record<string, unknown> {
   return { ...record(previous), ...record(fresh) };
 }
+
+// Drop the desk's custom domain on purpose: set to 1 to deploy the desk with no domain configured
+// while the deployed desk still answers on one.
+export const DESK_DROP_DOMAIN_ENV = "DOCKCLOCK_DESK_DROP_DOMAIN";
+
+// Whether `cdk deploy` with these arguments deploys the desk: --all, or a stack name or wildcard
+// pattern (* and ?) that matches it, before any --.
+export function deploysDesk(args: string[]): boolean {
+  const end = args.indexOf("--");
+  const own = end === -1 ? args : args.slice(0, end);
+  const matches = (pattern: string) => new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`).test(DESK_STACK);
+  return own.some((arg) => arg === "--all" || (!arg.startsWith("-") && matches(arg)));
+}
+
+export interface DomainGuardInput {
+  // What `cdk deploy` gets (DeployPlan.args).
+  args: string[];
+  // DOCKCLOCK_DESK_DOMAIN as the app reads it (the shell, else ../.env). Empty or blank is no
+  // domain, as config.ts reads it.
+  configured: string | undefined;
+  // The shell exports it empty while ../.env sets it: the empty shell value wins.
+  emptyShellOverridesFile: boolean;
+  allowDrop: boolean;
+  // The deployed desk's DeskCustomUrl output: null when it has none, undefined when it could not be read.
+  describe: () => string | null | undefined;
+}
+
+// A desk deploy with no custom domain configured would remove the domain from the distribution, and
+// the site would stop answering on it. Refuse that unless the drop is asked for.
+export function domainGuard(input: DomainGuardInput): { refused: string | null; note: string | null } {
+  const notes: string[] = [];
+  if (input.emptyShellOverridesFile) notes.push("Warning: DOCKCLOCK_DESK_DOMAIN is exported empty in this shell, which overrides ../.env, so the app sees no custom desk domain.");
+  if (!deploysDesk(input.args) || (input.configured ?? "").trim()) return { refused: null, note: notes.join(" ") || null };
+  const deployed = input.describe();
+  if (deployed === undefined) notes.push(`Warning: could not read ${DESK_STACK}'s outputs, so this run cannot check that it keeps the desk's custom domain.`);
+  else if (deployed && !input.allowDrop) {
+    return {
+      refused: `Not deploying anything: ${DESK_STACK} answers on ${deployed}, but DOCKCLOCK_DESK_DOMAIN and DOCKCLOCK_DESK_CERT_ARN are not set, so this deploy would remove that domain. Set both (see .env.example), or set ${DESK_DROP_DOMAIN_ENV}=1 to drop it.`,
+      note: notes.join(" ") || null,
+    };
+  } else if (deployed) notes.push(`Warning: dropping the desk's custom domain ${deployed} (${DESK_DROP_DOMAIN_ENV}=1).`);
+  return { refused: null, note: notes.join(" ") || null };
+}
+
+// The AWS CLI's text output for the DeskCustomUrl output: the URL, or None or nothing when the
+// stack has no such output.
+export function customUrlFromCli(stdout: string): string | null {
+  const value = stdout.trim();
+  return value && value !== "None" ? value : null;
+}

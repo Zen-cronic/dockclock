@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
-import { DESK_PLACEHOLDER_ENV, deskSource } from "../lib/desk-stack.js";
-import { deployCommand, deployPlan, mergeOutputs } from "../lib/deploy-stacks.js";
+import { DESK_DOMAIN_ENV, DESK_PLACEHOLDER_ENV, deskSource } from "../lib/desk-stack.js";
+import { customUrlFromCli, DESK_DROP_DOMAIN_ENV, DESK_STACK, deployCommand, deployPlan, domainGuard, mergeOutputs } from "../lib/deploy-stacks.js";
 
 // npm run deploy: every stack, or the stacks named after npm's own `--`, as in
 // `npm run deploy -- DockClockAgent` (see deploy-stacks.ts for when the desk is left out, and
@@ -50,6 +50,29 @@ if (plan.refused) {
   process.exit(1);
 }
 if (plan.note) console.warn(plan.note);
+
+// Never drop the desk's custom domain by accident: read the deployed desk's DeskCustomUrl with the
+// AWS CLI, as this shell's profile and the app's region see it.
+const fileEnv = existsSync(join(root, ".env")) ? parseEnv(readFileSync(join(root, ".env"), "utf8")) : {};
+const guard = domainGuard({
+  args: plan.args,
+  configured: appEnv(DESK_DOMAIN_ENV),
+  emptyShellOverridesFile: process.env[DESK_DOMAIN_ENV] !== undefined && !process.env[DESK_DOMAIN_ENV]!.trim() && Boolean(fileEnv[DESK_DOMAIN_ENV]?.trim()),
+  allowDrop: appEnv(DESK_DROP_DOMAIN_ENV) === "1",
+  describe: () => {
+    const region = appEnv("DOCKCLOCK_REGION") || "us-east-1";
+    const query = "Stacks[0].Outputs[?OutputKey=='DeskCustomUrl'].OutputValue";
+    const read = spawnSync("aws", ["cloudformation", "describe-stacks", "--stack-name", DESK_STACK, "--region", region, "--query", query, "--output", "text"], { encoding: "utf8" });
+    if (read.status === 0) return customUrlFromCli(read.stdout);
+    // A desk that was never deployed has no domain to keep.
+    return /does not exist/.test(read.stderr ?? "") ? null : undefined;
+  },
+});
+if (guard.note) console.warn(guard.note);
+if (guard.refused) {
+  console.error(guard.refused);
+  process.exit(1);
+}
 
 // The repo's own CDK CLI; DOCKCLOCK_CDK names another binary (a dry run with a stand-in).
 const local = join(root, "node_modules", ".bin", "cdk");

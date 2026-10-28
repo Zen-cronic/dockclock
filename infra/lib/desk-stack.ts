@@ -62,7 +62,8 @@ export function deskDomain(config: Pick<DockClockConfig, "deskDomain" | "deskCer
     const [set, missing] = domain ? [DESK_DOMAIN_ENV, DESK_CERT_ARN_ENV] : [DESK_CERT_ARN_ENV, DESK_DOMAIN_ENV];
     throw new Error(`${set} is set but ${missing} is not: set both for a custom desk domain, or neither (see .env.example).`);
   }
-  if (!/^(?!www\.)[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) {
+  // Each label is letters, digits and hyphens, and starts and ends with a letter or digit.
+  if (!/^(?!www\.)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(domain)) {
     throw new Error(`${DESK_DOMAIN_ENV} must be a bare domain such as example.com (no scheme, path or www.; www. is added): got "${domain}".`);
   }
   if (!/^arn:aws:acm:us-east-1:[^:]+:certificate\/.+$/.test(certificateArn)) {
