@@ -279,6 +279,21 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", `${pre} in the amount of $30.00 (2026-10-27 14:05–2026-10-28 14:40).`],
   ])("%s a time range: %s", (outcome, opening, cents?: number) => judged(outcome, opening, cents));
 
+  // A date with the month named is a date, as 2026-10-27 is; a day past 31 is not a day.
+  const yard = "Detention is claimed for load LIVE-mvpoqheg at Judge demo yard (any location counts)";
+  it.each([
+    ["files", `${yard} on October 27, 2026, 14:05 EDT, under the rate confirmation for $30.00.`],
+    ["files", `${yard} under the rate confirmation, October 27, 2026: $30.00.`],
+    ["files", `${yard} under the rate confirmation, Oct 27, 2026: $30.00.`],
+    ["files", `${yard} under the rate confirmation, Oct. 27 2026: $30.00.`],
+    ["files", `${yard} under the rate confirmation, Sept 27, 2026: $30.00.`],
+    ["files", `${yard} under the rate confirmation, 27 October 2026: $30.00.`],
+    ["files", `${yard} under the rate confirmation, Oct 27, 2026, 14:05–14:40: $30.00.`],
+    ["refuses", `${yard} under the rate confirmation, October 27, 2026, 555-0143: $30.00.`],
+    ["refuses", `${yard} under the rate confirmation, Oct 27, 2026, 2026-10-28: $30.00.`],
+    ["refuses", `${yard} under the rate confirmation, Oct 41, 2026: $30.00.`],
+  ])("%s a named-month date: %s", (outcome, opening) => judged(outcome, opening));
+
   it("files the opening the live agent wrote for LIVE-mvpoqheg", () => {
     const opening = "We are claiming detention for load LIVE-mvpoqheg at Judge demo yard (any location counts) under the rate confirmation in the amount of $9.88.";
     const live = { ...basis, loadId: "LIVE-mvpoqheg", amountCents: 988 };

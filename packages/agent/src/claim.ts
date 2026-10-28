@@ -52,10 +52,10 @@ export function toCents(amountUsd: number): number {
 // - a run of 10 or more digits is refused unless every digit in it belongs to a known-safe token,
 //   and no two of those tokens state the same thing. The tokens: an occurrence of the load id, the
 //   contract amount as the opening must state it ($1234.56), money ($80.00, $1,234.56, $30, $60/h),
-//   a date (2026-10-23, 10/23/2026), a clock time with up to three fractional digits and a zone
-//   offset (13:05, 13:05:00.123-04:00), a time range, which states one time (14:05–14:40,
-//   2:05–2:40 PM, and after a date, 2026-10-27 14:05–14:40, which states a date and a time) and a
-//   duration (+15, +15 min, +2 hours). So 2026-10-23 13:05 (a date and a time),
+//   a date (2026-10-23, 10/23/2026, October 23, 2026, 23 Oct 2026), a clock time with up to three
+//   fractional digits and a zone offset (13:05, 13:05:00.123-04:00), a time range, which states one
+//   time (14:05–14:40, 2:05–2:40 PM, and after a date, 2026-10-27 14:05–14:40, which states a date
+//   and a time) and a duration (+15, +15 min, +2 hours). So 2026-10-23 13:05 (a date and a time),
 //   $30.00 (14:05–14:40) (the amount and a range), load PO-4471982: $80.00 (the load and the
 //   amount) and PO-123456789012 (the load alone) file, while 416-555-01:43 (a time beside a bare
 //   group), 4:16 5:55 01:43 (three times), 4:16–5:55 01:43 (a range and a time) and
@@ -86,6 +86,9 @@ const STATES: Record<TokenKind, readonly string[]> = {
 };
 const ISO_DATE = String.raw`(?:19|20)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])`;
 const US_DATE = String.raw`(?:0?[1-9]|1[0-2])\/(?:0?[1-9]|[12]\d|3[01])\/(?:\d{4}|\d{2})`;
+// A month by name, whole or cut short (October, Oct, Oct., Sept), and a day of the month.
+const MONTH = String.raw`(?<![A-Za-z])(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]{0,6}\.?`;
+const DAY = String.raw`(?:0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?`;
 // One end of a time range: hours and minutes, and AM or PM. Seconds make it two times.
 const RANGE_END = String.raw`(?:[01]?\d|2[0-3]):[0-5]\d(?![:.]?\d)(?:\s?[AP]\.?M\.?)?`;
 // A hyphen, an en or em dash, or a minus sign, with up to two spaces on each side.
@@ -94,6 +97,9 @@ const SAFE: Array<[TokenKind, RegExp]> = (
   [
     ["date", String.raw`(?<!\d)${ISO_DATE}(?!\d)`],
     ["date", String.raw`(?<!\d)${US_DATE}(?!\d)`],
+    // October 27, 2026, Oct 27 2026, Oct. 27, 2026 and 27 October 2026.
+    ["date", String.raw`${MONTH}\s${DAY},?\s(?:19|20)\d\d(?!\d)`],
+    ["date", String.raw`(?<!\d)${DAY}\s${MONTH},?\s(?:19|20)\d\d(?!\d)`],
     // A clock time, with seconds, up to three fractional digits and a zone offset: more digits are
     // not a time.
     ["time", String.raw`(?<!\d)(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:[+-](?:0\d|1[0-4]):?[0-5]\d)?(?!\d)`],
