@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "WhatsApp-first detention evidence and clause-gated claims for small trucking fleets, on AWS Communication Developer Services.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "engines": {
     "node": ">=22"
