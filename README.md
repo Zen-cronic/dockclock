@@ -1,6 +1,6 @@
 # DockClock
 
-A truck driver can sit at a dock for hours past the free time in the load's contract. That wait is owed as detention pay, and much of it never gets paid. I built DockClock so a small fleet can prove the wait from the driver's WhatsApp and claim exactly what the contract owes. Its WhatsApp messages are approved in English, Spanish and Québécois French.
+A truck driver can sit at a dock for hours past the free time in the load's contract. That wait is owed as detention pay, and much of it never gets paid. I built DockClock so a small fleet can prove the wait from the driver's WhatsApp and claim exactly what the contract owes. Its WhatsApp messages are approved in English, Spanish and French.
 
 **The model reads the paperwork, plain code decides the amount, and the dispatcher taps Approve before anything is sent.**
 
@@ -49,7 +49,7 @@ The driver pays for the wait too. The US DOT Inspector General estimated that de
 ## How it works: one load, start to finish
 The driver taps two buttons in WhatsApp and photographs the signed paperwork. Everything else happens around them.
 
-1. **Dispatch.** The carrier sends the load to the driver on WhatsApp with an **Arrived** button, in English, Spanish or Québécois French.
+1. **Dispatch.** The carrier sends the load to the driver on WhatsApp with an **Arrived** button, in English, Spanish or French.
 2. **Arrival.** At the dock the driver taps Arrived and shares a location pin. WhatsApp stamps the pin with its own server time, and DockClock checks it against the facility's geofence (a boundary drawn around the site). The dock clock starts.
 3. **Notice.** Before free time ends, DockClock emails the broker or shipper the detention notice the contract asks for, and tells the driver it went out.
 4. **Release.** The driver taps **Released**, and the clock stops at that tap. A second pin, shared within 10 minutes, confirms it; a later pin sends the load to a person. A short WhatsApp form (a Flow) then asks for:

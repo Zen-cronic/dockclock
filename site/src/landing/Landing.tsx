@@ -186,7 +186,7 @@ function Try() {
         <div>
           <h2 id="try-h" className="lp-h2">Try it on your phone.</h2>
           <p className="lp-lead">Send <b className="kbd">DEMO</b> on WhatsApp to the number on our Devpost page. You play the driver and the dispatcher. Most of the ten minutes is the real wait.</p>
-          <p className="lp-small">DEMO ES for Spanish, DEMO FR for Québécois French. The notice and claim emails go to our test mailbox, not to you.</p>
+          <p className="lp-small">DEMO ES for Spanish, DEMO FR for French. The notice and claim emails go to our test mailbox, not to you.</p>
         </div>
         <ol className="lp-steps">
           <li><b>Tap Arrived</b> and share your location. In the demo any location counts.</li>
