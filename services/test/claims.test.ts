@@ -1,8 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { JUDGE_DEMO_CLAUSE, RELEASE_PIN_WINDOW_MINUTES } from "@dockclock/clause-engine";
-import { JUDGE_DEMO_FACILITY } from "@dockclock/evidence";
-import { DEMO_MINUTES, PER_SENDER_PER_DAY } from "../src/demo.js";
 import { RETAKE_WAIT_SECONDS } from "../src/retake.js";
 
 // The README and FACTS are claims about this code. These checks fail the build when the words and
@@ -23,22 +20,9 @@ function factRows(): Array<{ claim: string; evidence: string; status: string }> 
 }
 
 describe("README and FACTS match the code", () => {
-  it("states the judge demo's numbers as the code has them", () => {
-    const { freeTimeMinutes, ratePerHourUsd, capUsdPerOccurrence } = JUDGE_DEMO_CLAUSE;
-    expect(readme).toContain(`Free time is ${freeTimeMinutes} minutes`);
-    expect(readme).toContain(`(${freeTimeMinutes} minutes free, $${ratePerHourUsd} an hour, $${capUsdPerOccurrence} cap`);
-    expect(readme).toContain(`Each number gets ${PER_SENDER_PER_DAY} demos a day`);
-    expect(JUDGE_DEMO_CLAUSE.noticeLeadMinutes).not.toBeNull();
-    expect(readme).toContain("notice required before free time ends");
-    expect(readme).toContain(`if none comes within ${RETAKE_WAIT_SECONDS.demo / 60} minutes`);
-    expect(readme).toContain(`Share your location again within ${RELEASE_PIN_WINDOW_MINUTES} minutes`);
-    expect(readme).toContain(`Wait more than ${RELEASE_PIN_WINDOW_MINUTES} minutes after Released`);
+  it("states the photo retake wait as the code has it", () => {
     expect(facts).toContain(`within ${RETAKE_WAIT_SECONDS.demo / 60} minutes on a demo load (an hour otherwise)`);
     expect(RETAKE_WAIT_SECONDS.standard).toBe(3600);
-    expect(readme).toContain(`It takes about ${DEMO_MINUTES} minutes, most of it the real wait (${RETAKE_WAIT_SECONDS.demo / 60} more if a photo has to be retaken)`);
-    // The README and the intro name the demo yard's zone in words.
-    expect(JUDGE_DEMO_FACILITY.timeZone).toBe("America/New_York");
-    expect(readme).toContain("US Eastern time in the demo");
   });
 
   it("labels every FACTS row with a known status, live rows by kind", () => {

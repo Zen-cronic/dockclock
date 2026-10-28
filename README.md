@@ -8,7 +8,6 @@
 
 ## Try it in 3 minutes
 - **In a browser, no login:** open https://d3djuoqhg6b8o2.cloudfront.net/judges and click Start. Seven short steps walk one recorded load. Five of them each take one reason a broker gives for not paying, and show the proof DockClock kept: the arrival and release pins, the notice email, a claim filed on time, a signature you can break yourself, and the contract's rules, where you change one fact and watch it decide again. The screens read the live system; a recorded copy stands in if the API is down.
-- **On your phone, about 10 minutes:** send **DEMO** on WhatsApp to the number on our Devpost page. You play the driver and the dispatcher. The steps are under [Try it on WhatsApp](#try-it-on-whatsapp).
 - **With the code, no AWS account needed:** `npm ci`, then `npm run scorecard` for the number above, and `npm run verify:pack -- docs/evidence/SMOKE-mve8yfv3.pack.json` to check a real sealed evidence pack.
 
 ## The problem
@@ -113,26 +112,6 @@ Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md).
 - **Every company is fictional.** The carrier, factor, brokers and shippers are made up. Claim and notice emails go to our own test mailbox.
 - **A location pin can be faked.** The KMS signature proves the recorded messages, times and photo hash have not changed since sealing. It cannot prove where a phone really was, or that the paper itself is honest. That is why a load whose pins and paper times disagree goes to a person.
 - **Judges can't try RCS on their own phones.** Our RCS agent is a Google testing agent that reaches only registered testers, so the console shows RCS from recorded runs.
-
-## Try it on WhatsApp
-Send **DEMO** on WhatsApp to the DockClock number given on the Devpost submission page (**DEMO ES** for Spanish, **DEMO FR** for Québécois French). It takes about 10 minutes, most of it the real wait (10 more if a photo has to be retaken). You are both the driver and the dispatcher:
-1. Tap **Arrived** and share your location. In the demo any location counts; the pin is still recorded with WhatsApp's server timestamp.
-2. Free time is 5 minutes. Wait longer than that. Shortly after you arrive, a detention notice is emailed, and the chat tells you.
-3. Tap **Released**: the dock clock stops there. Share your location again within 10 minutes. On a piece of paper, write the arrival and release times the chat and the form show (US Eastern time in the demo), and photograph it in the form. Keep the times the form suggests.
-4. The contract's verdict arrives in the chat. If it is billable, tap **Approve claim**. The agent files the claim, and the chat tells you the amount and the evidence pack's fingerprint.
-
-**Change one thing** (send DEMO again to start over):
-- **Leave early.** Tap Released before 5 minutes. The chat says "the wait stayed within free time". Nothing is claimed.
-- **Change a time.** In the form, move the out time by more than 15 minutes. It no longer matches your Released tap, so the load is held for a person instead of claimed.
-- **Share the pin late.** Wait more than 10 minutes after Released before sharing your location. The clock still stops at the tap, but the late pin can't confirm it, so the load is held for a person.
-- **Send a blurry photo.** You are asked once for a clearer one; if none comes within 10 minutes, the first photo is used.
-
-**What is real in the demo, and what isn't:**
-- The contract is a demo contract (5 minutes free, $60 an hour, $30 cap, notice required before free time ends). It is fictional and not part of the scored set.
-- The demo yard accepts any location, so the demo doesn't test the geofence.
-- Claim and notice emails go to our own test mailbox, never to you.
-- Each number gets 5 demos a day, reset at 00:00 UTC.
-- We store your pins and photo with the demo load, as we would for a carrier. The signed pack records the times and the photo's hash, not your location. The public console shows your demo without your number, location or typed text.
 
 ## Check the evidence yourself
 `npm run verify:pack -- docs/evidence/SMOKE-mve8yfv3.pack.json` checks a real sealed pack against the published KMS public key, with no AWS account, and shows a tampered copy failing. See [`docs/evidence/`](docs/evidence/README.md).

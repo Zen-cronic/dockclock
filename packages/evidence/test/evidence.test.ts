@@ -188,8 +188,8 @@ describe("local date and time", () => {
 });
 
 describe("what a pack holds", () => {
-  // The README and the demo intro promise the signed pack records times and photo hashes, not where
-  // the driver was. This checks the pack the code builds, not a frozen file.
+  // The signed pack records times and photo hashes, not where the driver was. This checks the pack
+  // the code builds, not a frozen file.
   it("carries no coordinates, even though the pins it is built from have them", () => {
     const load = record();
     expect(load.arrived?.location).toBeDefined();
