@@ -85,8 +85,9 @@ The clause engine sets the money, and a person approves it. Telling a model to c
 | Amazon Bedrock | Runs Claude Sonnet 4.5, which reads the photo and drafts the claim email's opening line |
 | Amazon Bedrock AgentCore | Runs the claims agent (Harness) and serves it DockClock's tools (Gateway), with Cedar policies deciding every tool call |
 | Amazon CloudFront | Serves the judge console with no login, and a read-only API that shows only the demo workspace's loads |
+| AWS CDK and AWS CloudFormation | Define every resource above in TypeScript as five CloudFormation stacks, so the whole system deploys from this repo |
 
-Also used: AWS Secrets Manager (the key that turns a phone number into an opaque driver id), Amazon CloudWatch and AWS X-Ray (logs, alarms and traces), and AWS CDK (deploys it all as five stacks). Diagram and details: [`docs/architecture.md`](docs/architecture.md).
+Also used: AWS Secrets Manager (the key that turns a phone number into an opaque driver id), and Amazon CloudWatch and AWS X-Ray (logs, alarms and traces). Diagram and details: [`docs/architecture.md`](docs/architecture.md).
 
 ![DockClock architecture](docs/architecture.png)
 
