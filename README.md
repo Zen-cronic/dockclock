@@ -105,10 +105,11 @@ Every line below is traced to a test, a file or a run in [`FACTS.md`](FACTS.md).
 - **Reading the bill of lading:** 26 of 26 fields correct on 7 fictional test photos, and an honest "not legible" on a real blurry phone photo. The reading is part of the signed evidence.
 - **RCS on a real phone:** dispatch card, Arrived, two location pins and a bill-of-lading photo, all over RCS (load `LIVE-mve1ve6d`, 2026-10-18 12:52–12:54 EDT). The switch from a failed WhatsApp send to RCS is tested and was run with made-up events.
 - **The details that make it safe to run:** duplicate, out-of-order and stale taps are refused; STOP and START work; "Talk to dispatch" answers the driver and emails dispatch; a tampered pack fails verification. About 390 automated tests, plus about 80 for the console.
+- **The judges' DEMO path answers.** I texted DEMO to the live number and the intro and the dispatch message came back within seconds (load `DEMO-mvs9olfg`, 2026-10-28 11:26 EDT, sent from my own test phone).
 
 ### Built and tested, not yet run live
 - The request for a clearer photo when the first one is unreadable.
-- The judges' DEMO path on WhatsApp, run from a judge's phone.
+- A full DEMO run to a filed claim from a phone that isn't mine.
 
 ### Next, not on main
 - Voice notes: a driver's spoken reason for the wait, transcribed by Amazon Transcribe into the load's timeline. Built with tests on a branch; not merged or deployed.
