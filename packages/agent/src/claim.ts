@@ -52,16 +52,19 @@ export function toCents(amountUsd: number): number {
 // - a run of 10 or more digits is refused unless every digit in it belongs to a known-safe token,
 //   and no two of those tokens state the same thing, but for the load id or the amount said twice.
 //   The tokens: an occurrence of the load id, the contract amount as the opening must state it
-//   ($1234.56), money ($80.00, $1,234.56, $30, $60/h), a date (2026-10-23, 10/23/2026,
-//   October 23, 2026, 23 Oct 2026), a clock time with up to three fractional digits and a zone
-//   offset (13:05, 13:05:00.123-04:00), a time range, which states one time (14:05–14:40,
-//   2:05–2:40 PM, and after a date, 2026-10-27 14:05–14:40, which states a date and a time) and a
-//   duration (+15, +15 min, +2 hours). So 2026-10-23 13:05 (a date and a time),
-//   $30.00 (14:05–14:40) (the amount and a range), load PO-4471982: $80.00 (the load and the
-//   amount), load 4471982 (4471982) (the load twice) and PO-123456789012 (the load alone) file,
-//   while 416-555-01:43 (a time beside a bare group), 4:16 5:55 01:43 (three times),
-//   4:16–5:55 01:43 (a range and a time), 0143 0143 0143 (the load three times) and
-//   $416 $555 $0143 (three sums) are refused.
+//   ($1234.56), money up to $99999.99 ($80.00, $1,234.56, $30, $60/h), a date (2026-10-23,
+//   10/23/2026, October 23, 2026, 23 Oct 2026), a clock time with up to three fractional digits
+//   (13:05, 13:05:00.123), a zone offset after a time (the -04:00 of 13:05:00-04:00), a time
+//   range, which states one time (14:05–14:40, 2:05–2:40 PM, and after a date,
+//   2026-10-27 14:05–14:40, which states a date and a time) and a duration (+15, +15 min,
+//   +2 hours). So 2026-10-23 13:05 (a date and a time), $30.00 (14:05–14:40) (the amount and a
+//   range), load PO-4471982: $80.00 (the load and the amount), load 4471982 (4471982) (the load
+//   twice) and PO-123456789012 (the load alone) file, while 416-555-01:43 (a time beside a bare
+//   group), 4:16 5:55 01:43 (three times), 4:16–5:55 01:43 (a range and a time),
+//   0143 0143 0143 (the load three times) and $416 $555 $0143 (three sums) are refused;
+// - no token holds 10 digits unless it holds a date, and a run with no date in it must hold fewer
+//   than 10 digits besides the load id and the amount, so $41,655,501.43, 4:16:55.5-01:43 (a time
+//   and a zone) and 12:34:56.789 +012 (a time and a duration) are refused too.
 // A freight reference gets no exemption, labelled or not: PRO 1234567890, PO 4165550143 and order
 // 111122223333 are refused, since a number that long can be a phone number or an account id
 // whatever word comes before it. A reference of up to 9 digits passes like any short number. The
@@ -73,7 +76,7 @@ const DIGIT = /^\p{Nd}$/u;
 // invisible operators), combining marks and the other default-ignorable characters (variation
 // selectors, Hangul fillers), none of which a reader sees between two digits.
 const INVISIBLE = /[\p{Cf}\p{Mn}\p{Me}\p{Default_Ignorable_Code_Point}]/gu;
-type TokenKind = "load" | "amount" | "date" | "time" | "range" | "dated range" | "duration" | "money";
+type TokenKind = "load" | "amount" | "date" | "time" | "zone" | "range" | "dated range" | "duration" | "money";
 // What each kind of token states. A run may state each of these once, so a time range, which is one
 // statement of when, cannot sit beside another time.
 const STATES: Record<TokenKind, readonly string[]> = {
@@ -81,6 +84,7 @@ const STATES: Record<TokenKind, readonly string[]> = {
   amount: ["amount"],
   date: ["date"],
   time: ["time"],
+  zone: ["zone"],
   range: ["time"],
   "dated range": ["date", "time"],
   duration: ["duration"],
@@ -106,13 +110,15 @@ const SAFE: Array<[TokenKind, RegExp]> = (
     // October 27, 2026, Oct 27 2026, Oct. 27, 2026 and 27 October 2026.
     ["date", String.raw`${MONTH}\s${DAY},?\s(?:19|20)\d\d(?!\d)`],
     ["date", String.raw`(?<!\d)${DAY}\s${MONTH},?\s(?:19|20)\d\d(?!\d)`],
-    // A clock time, with seconds, up to three fractional digits and a zone offset: more digits are
-    // not a time.
-    ["time", String.raw`(?<!\d)(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:[+-](?:0\d|1[0-4]):?[0-5]\d)?(?!\d)`],
+    // A clock time, with seconds and up to three fractional digits, so at most 9 digits: more
+    // digits are not a time. A zone offset right after one is a token of its own.
+    ["time", String.raw`(?<!\d)(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?!\d)`],
     ["duration", String.raw`\+\d{1,3} ?(?:minutes?|mins?|hours?|hrs?|h|m)(?![A-Za-z])`],
     ["duration", String.raw`\+\d{1,3}(?!\d)`],
-    // Up to seven digits, or comma groups, and cents; a run that goes on past them is not money.
-    ["money", String.raw`\$ ?(?:\d{1,3}(?:,\d{3}){1,2}|\d{1,7})(?:\.\d{2})?(?![\d,.]\d)`],
+    // No more than formatUsd writes ($99999.99) or one comma group ($99,999.99), so at most 8
+    // digits; a run that goes on past them is not money.
+    ["money", String.raw`\$ ?(?:\d{1,3}(?:,\d{3})?|\d{1,5})(?:\.\d{2})?(?![\d,.]\d)`],
+    ["zone", String.raw`(?<=\d:[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?)[+-](?:0\d|1[0-4]):?[0-5]\d(?!\d)`],
     // A time range is one token, marked over the two times in it: 14:05-15:40, 14:05 - 14:40,
     // 14:05–14:40, 14:05−14:40 and 2:05–2:40 PM. So is a range after a date, with the date said
     // again or not (2026-10-27 14:05–14:40, 2026-10-27 14:05–2026-10-27 14:40); a second date that
@@ -174,7 +180,11 @@ function leaks(opening: string, id: string, amount: string): boolean {
     if (owners.has(-1)) return true;
     const times = new Map<string, number>();
     for (const t of owners) for (const what of STATES[tokens[t]!]) times.set(what, (times.get(what) ?? 0) + 1);
-    return [...times].some(([what, n]) => n > (SAID_AGAIN.has(what) ? 2 : 1));
+    if ([...times].some(([what, n]) => n > (SAID_AGAIN.has(what) ? 2 : 1))) return true;
+    // Without a date, the tokens of different kinds beside each other still hold no 10 digits of
+    // the opening's own: 12:34:56.789 +012 is a time and a duration, and reads as an account id.
+    if (times.has("date")) return false;
+    return run.filter((at) => !SAID_AGAIN.has(tokens[owner[at]!]!)).length >= 10;
   };
   let run: number[] = [];
   for (let i = 0; i < kept.length; i++) {

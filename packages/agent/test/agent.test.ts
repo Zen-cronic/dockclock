@@ -308,6 +308,28 @@ describe("checkClaim: the agent words the claim, the sealed pack decides it", ()
     ["refuses", `${pre} in the amount of $30.00 (2026-10-27, 2026-10-27).`],
   ])("%s a value said again: %s", (outcome, opening, loadId?: string) => judged(outcome, opening, 3000, loadId));
 
+  // No safe token can carry a phone number or an account id: money stops at what formatUsd writes,
+  // a time at 9 digits, and a run with no date holds fewer than 10 digits besides the load id and
+  // the amount, whatever tokens of different kinds it is made of.
+  it.each([
+    ["refuses", `${pre} in the amount of $30.00. Ref $41,655,501.43.`],
+    ["refuses", `${pre} in the amount of $30.00. Ref $141,655,501.43.`],
+    ["refuses", `${pre} in the amount of $30.00. Ref +416 $5550143.`],
+    ["refuses", `${pre} in the amount of $30.00. Ref $4165550+143.`],
+    ["refuses", `${pre} in the amount of $30.00. Ref 4:16 $5550143.`],
+    ["refuses", `${pre} in the amount of $30.00. Ref 4:16:55.5-01:43.`],
+    ["refuses", `${pre} in the amount of $30.00. Ref 12:34:56.789 +012.`],
+    ["refuses", `${pre} in the amount of $30.00. Ref $1234567 +89 0:12.`],
+    ["refuses", `${pre} in the amount of $30.00. Ref $41.65 5:55:01.43.`],
+    ["refuses", `${pre} in the amount of $30.00 (2026-10-27, $1,234,567.89).`],
+    ["files", `${pre} in the amount of $30.00 (2026-10-27, $99,999.99).`],
+    ["files", `${pre} in the amount of $30.00 (2026-10-27, $5,000.00).`],
+    ["files", `${pre} in the amount of $30.00 (2026-10-27, $99999.99).`],
+    ["files", `${pre} in the amount of $30.00 (2026-10-27 14:35:00.123).`],
+    ["files", `${pre} in the amount of $30.00 (2026-10-27T14:05:00.000-04:00).`],
+    ["files", `${pre} in the amount of $30.00 (+35 min, 14:05).`],
+  ])("%s a run of safe tokens: %s", (outcome, opening) => judged(outcome, opening));
+
   it("files the opening the live agent wrote for LIVE-mvpoqheg", () => {
     const opening = "We are claiming detention for load LIVE-mvpoqheg at Judge demo yard (any location counts) under the rate confirmation in the amount of $9.88.";
     const live = { ...basis, loadId: "LIVE-mvpoqheg", amountCents: 988 };
